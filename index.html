@@ -55,121 +55,130 @@ color:rgba(255,255,255,.9);font-size:10px;font-weight:700;letter-spacing:.08em;
 
 /* ── TILE GRID ─────────────────────────────────────── */
 /*
-Always 2 columns × 3 rows.
-The grid itself fills ALL remaining space between status bar and ctrl bar.
-min-height:0 is critical — without it flex children won’t shrink below content size.
-*/
-.tile-grid{
-flex:1;
-min-height:0;
-display:grid;
-grid-template-columns:1fr 1fr;
-grid-template-rows:1fr 1fr 1fr;
-gap:2px;
-background:#b0b0b0;
-padding:2px;
-}
+Critical rules:
+
+1. The grid must fill exactly the flex space between status bar + controls + tabs.
+1. Each row must be exactly 1/3 of that space — NO exceptions.
+1. Tile content must NEVER push the row taller. overflow:hidden on everything.
+   */
+   .tile-grid{
+   flex:1;
+   min-height:0;        /* MUST have this — flex child won’t shrink without it */
+   display:grid;
+   grid-template-columns:1fr 1fr;
+   grid-template-rows:repeat(3, minmax(0,1fr));   /* minmax(0,1fr) not just 1fr */
+   gap:2px;
+   background:#b0b0b0;
+   padding:2px;
+   }
 
 /* ── SINGLE TILE ───────────────────────────────────── */
 .tile{
 background:#fff;
 display:flex;flex-direction:column;
-overflow:hidden;
-min-height:0;   /* allow shrinking */
+overflow:hidden;     /* content CANNOT expand the cell */
+min-height:0;
+min-width:0;
 }
 .tile-value-area{
 flex:1;
 min-height:0;
+min-width:0;
+overflow:hidden;
 display:flex;align-items:center;justify-content:center;
-padding:4px 8px 2px;
+flex-direction:column;
+gap:0;
+padding:3px 6px 2px;
 }
 /*
-Font sizes: use vh-based units so values scale with tile height.
-In landscape tiles are ~(viewport_height - chrome) / 3 tall.
-clamp(min, preferred, max) — preferred uses vh so it scales.
+Use container-relative units (cqh) where supported, fall back to vh.
+Each tile is 1/3 of the grid height. Grid height ≈ 75% of dvh in landscape.
+So tile height ≈ 25dvh. We target ~55% of that for the main number.
 */
 .tile-value{
-font-size:clamp(28px, 5.5vh, 72px);
+font-size:clamp(22px, 5vh, 68px);
 font-weight:300;
 color:#111;
 line-height:1;
 text-align:center;
 letter-spacing:-.02em;
 white-space:nowrap;
+overflow:hidden;
+max-width:100%;
 }
-.tile-value.no-data{
-color:#bbb;
-}
-.tile-value.large{font-size:clamp(32px, 7vh, 88px)}
+.tile-value.no-data{ color:#bbb; }
+.tile-value.large{ font-size:clamp(24px, 6.5vh, 80px); }
 .tile-label{
 background:#1a5276;
 color:#fff;
-/* Label height is fixed-small — label text scales with viewport width */
-font-size:clamp(9px, 1.8vw, 13px);
+font-size:clamp(8px, 1.6vw, 13px);
 font-weight:400;
 letter-spacing:.02em;
 text-align:center;
-padding:3px 6px;
+padding:3px 5px;
 flex-shrink:0;
-line-height:1.3;
+line-height:1.25;
+white-space:nowrap;
+overflow:hidden;
+text-overflow:ellipsis;
 }
 
-/* ── CATCH SLOPE TILE (has bar) ────────────────────── */
+/* ── CATCH SLOPE TILE inner content ─────────────────── */
 .catch-bar-area{
-width:88%;margin:0 auto 2px;
-position:relative;
+width:90%;flex-shrink:0;
 }
 .catch-bar-bg{
-height:7px;background:#e8e8e8;border-radius:4px;
+height:6px;background:#e8e8e8;border-radius:3px;
 position:relative;overflow:hidden;
 }
 .catch-bar-fill{
-position:absolute;top:0;height:100%;border-radius:4px;
+position:absolute;top:0;height:100%;border-radius:3px;
 transition:left .15s,width .15s,background .15s;
 }
 .catch-bar-needle{
-position:absolute;top:-3px;width:3px;height:13px;
+position:absolute;top:-3px;width:3px;height:12px;
 border-radius:2px;transform:translateX(-50%);
 transition:left .15s,background .15s;
-box-shadow:0 1px 4px rgba(0,0,0,.3);
+box-shadow:0 1px 3px rgba(0,0,0,.3);
 }
 .catch-sub{
 display:flex;justify-content:space-between;
-font-size:8px;color:#aaa;margin-top:1px;padding:0 2px;
+font-size:7px;color:#bbb;margin-top:1px;padding:0 1px;
 }
 .catch-stats-row{
-display:flex;justify-content:center;gap:12px;
-padding:0 6px 1px;
+display:flex;justify-content:center;gap:16px;
+flex-shrink:0;
 }
 .cst{text-align:center}
-.cst-v{font-size:clamp(11px,2.5vh,18px);font-weight:700;color:#111;display:block}
+.cst-v{font-size:clamp(10px,2vh,16px);font-weight:700;color:#111;display:block;line-height:1.1}
 .cst-l{font-size:7px;color:#aaa;letter-spacing:.08em;display:block}
 
-/* ── STROKE CHAR TILE ──────────────────────────────── */
-.char-bar-area{width:88%;margin:0 auto 2px}
+/* ── STROKE CHAR TILE inner content ─────────────────── */
+.char-bar-area{width:90%;flex-shrink:0}
 .char-track{
-height:7px;background:#e8e8e8;border-radius:4px;
+height:6px;background:#e8e8e8;border-radius:3px;
 position:relative;overflow:hidden;
 }
-.char-zones{position:absolute;inset:0;display:flex;border-radius:4px;overflow:hidden}
+.char-zones{position:absolute;inset:0;display:flex;overflow:hidden}
 .cz{height:100%}
-.cz1{background:#e74c3c;flex:1;opacity:.35}
-.cz2{background:#27ae60;flex:2;opacity:.35}
-.cz3{background:#f39c12;flex:1;opacity:.35}
+.cz1{background:#e74c3c;flex:1;opacity:.4}
+.cz2{background:#27ae60;flex:2;opacity:.4}
+.cz3{background:#f39c12;flex:1;opacity:.4}
 .char-needle{
-position:absolute;top:-3px;width:3px;height:13px;
+position:absolute;top:-3px;width:3px;height:12px;
 background:#1a5276;border-radius:2px;transform:translateX(-50%);
 transition:left .4s cubic-bezier(.34,1.56,.64,1);
-box-shadow:0 1px 4px rgba(0,0,0,.3);
+box-shadow:0 1px 3px rgba(0,0,0,.3);
 }
 .char-sub{
 display:flex;justify-content:space-between;
-font-size:7px;color:#aaa;margin-top:1px;padding:0 2px;
+font-size:7px;color:#bbb;margin-top:1px;padding:0 1px;
 }
 .char-name-badge{
-font-size:clamp(8px,1.8vh,12px);font-weight:700;
+font-size:clamp(8px,1.6vh,11px);font-weight:700;
 color:#fff;padding:1px 7px;border-radius:10px;
-margin-bottom:2px;display:inline-block;
+flex-shrink:0;display:inline-block;
+white-space:nowrap;
 }
 
 /* ── CONTROLS BAR ──────────────────────────────────── */
@@ -217,18 +226,26 @@ letter-spacing:.2em;text-transform:uppercase;cursor:pointer;
 /* ── PERMISSION SCREEN ─────────────────────────────── */
 #screen-perm{
 background:#1a5276;
-justify-content:center;align-items:center;gap:20px;padding:36px 28px;text-align:center;
+overflow-y:auto;
+-webkit-overflow-scrolling:touch;
 }
-.perm-icon{font-size:52px}
-.perm-title{font-size:28px;font-weight:700;color:#fff;letter-spacing:.05em}
-.perm-body{font-size:14px;color:rgba(255,255,255,.7);line-height:1.75}
+.perm-inner{
+min-height:100%;
+display:flex;flex-direction:column;
+justify-content:center;align-items:center;
+gap:14px;padding:24px 28px;text-align:center;
+}
+.perm-icon{font-size:40px;line-height:1}
+.perm-title{font-size:24px;font-weight:700;color:#fff;letter-spacing:.05em}
+.perm-body{font-size:13px;color:rgba(255,255,255,.7);line-height:1.7;max-width:320px}
 .perm-btn{
 background:#fff;color:#1a5276;border:none;
 font-family:‘Roboto’,sans-serif;font-size:15px;font-weight:700;
-letter-spacing:.1em;padding:16px 0;border-radius:4px;cursor:pointer;
+letter-spacing:.1em;padding:14px 0;border-radius:4px;cursor:pointer;
 text-transform:uppercase;width:100%;max-width:300px;
+flex-shrink:0;
 }
-.perm-note{font-size:10px;color:rgba(255,255,255,.3);line-height:1.7;letter-spacing:.05em}
+.perm-note{font-size:10px;color:rgba(255,255,255,.3);line-height:1.7;letter-spacing:.04em;max-width:300px}
 
 /* ── ANALYSIS SCREEN ───────────────────────────────── */
 .analysis-hdr{
@@ -343,19 +360,21 @@ white-space:nowrap;
 ══════════════════════ -->
 
 <div id="screen-perm" class="screen active">
-  <div class="perm-icon">🚣</div>
-  <div class="perm-title">SCULL METRICS</div>
-  <div class="perm-body">
-    GPS pace &amp; distance<br/>
-    Accelerometer catch slope (m/s³)<br/>
-    Session recording &amp; Garmin HR import<br/><br/>
-    Mount phone <strong>athwartships</strong>, screen up.<br/>
-    X-axis = bow-stern direction.
-  </div>
-  <button class="perm-btn" id="perm-btn">ENABLE SENSORS</button>
-  <div class="perm-note">
-    iOS: Settings → Safari → Motion &amp; Orientation Access<br/>
-    Works offline once loaded · Add to Home Screen for best experience
+  <div class="perm-inner">
+    <div class="perm-icon">🚣</div>
+    <div class="perm-title">SCULL METRICS</div>
+    <div class="perm-body">
+      GPS pace &amp; distance<br/>
+      Accelerometer catch slope (m/s³)<br/>
+      Session recording &amp; Garmin HR import<br/><br/>
+      Mount phone <strong style="color:#fff">athwartships</strong>, screen up.<br/>
+      X-axis = bow-stern direction.
+    </div>
+    <button class="perm-btn" id="perm-btn">ENABLE SENSORS</button>
+    <div class="perm-note">
+      iOS: Settings → Safari → Motion &amp; Orientation Access<br/>
+      Works offline · Add to Home Screen for full screen
+    </div>
   </div>
 </div>
 
@@ -410,8 +429,8 @@ white-space:nowrap;
 </div>
 
 <!-- Tile 4: Stroke characteristic -->
-<div class="tile" style="justify-content:flex-end">
-  <div class="tile-value-area" style="flex-direction:column;gap:4px">
+<div class="tile">
+  <div class="tile-value-area">
     <span class="char-name-badge" id="char-badge" style="background:#ccc">—</span>
     <div class="char-bar-area">
       <div class="char-track">
@@ -421,27 +440,27 @@ white-space:nowrap;
       <div class="char-sub"><span>early</span><span>front</span><span>balanced</span><span>late</span><span>back</span></div>
     </div>
   </div>
-  <div class="tile-label">Stroke characteristic [m]</div>
+  <div class="tile-label">Stroke characteristic</div>
 </div>
 
-<!-- Tile 5: Elapsed time (large, full width on left — timer takes left, catch takes right) -->
+<!-- Tile 5: Elapsed time -->
 <div class="tile">
   <div class="tile-value-area">
-    <div class="tile-value large" id="tile-timer" style="color:#111;font-weight:300">0:00:00</div>
+    <div class="tile-value large" id="tile-timer">0:00:00</div>
   </div>
   <div class="tile-label">Elapsed time [h:m:s]</div>
 </div>
 
 <!-- Tile 6: Catch slope -->
-<div class="tile" style="justify-content:flex-end">
-  <div class="tile-value-area" style="flex-direction:column;gap:2px">
-    <div class="tile-value no-data" id="tile-catch" style="font-size:clamp(32px,9vw,64px)">--</div>
-    <div class="catch-bar-area" style="width:88%">
+<div class="tile">
+  <div class="tile-value-area">
+    <div class="tile-value no-data" id="tile-catch">--</div>
+    <div class="catch-bar-area">
       <div class="catch-bar-bg">
-        <div class="catch-bar-fill" id="catch-fill" style="left:50%;width:0;background:#aaa"></div>
-        <div class="catch-bar-needle" id="catch-needle" style="left:50%;background:#666"></div>
+        <div class="catch-bar-fill" id="catch-fill" style="left:50%;width:0"></div>
+        <div class="catch-bar-needle" id="catch-needle" style="left:50%;background:#ccc"></div>
       </div>
-      <div class="catch-sub"><span>−8</span><span>0</span><span>+8</span></div>
+      <div class="catch-sub"><span>−30</span><span>0</span><span>+30</span></div>
     </div>
     <div class="catch-stats-row">
       <div class="cst"><span class="cst-v" id="cst-peak">—</span><span class="cst-l">PEAK</span></div>
@@ -508,7 +527,7 @@ const fmtDate=ts=>{const d=new Date(ts);return d.toLocaleDateString('en-AU',{day
 const haversine=(a,b)=>{const R=6371000,dLat=(b.lat-a.lat)*Math.PI/180,dLon=(b.lon-a.lon)*Math.PI/180,x=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))};
 const charLabel=v=>v<25?'EARLY DRIVE':v<40?'FRONT LOADED':v<60?'BALANCED':v<75?'LATE DRIVE':'BACK LOADED';
 const charBg=v=>(v<25||v>75)?'#c0392b':(v<35||v>65)?'#f39c12':'#27ae60';
-const catchCol=v=>v>2?'#27ae60':v>0.5?'#f39c12':'#c0392b';
+const catchCol=v=>v>8?'#27ae60':v>3?'#f39c12':'#c0392b';
 function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
 
 /* ══════════════════════════════════════════════════
@@ -545,28 +564,42 @@ let lastPos=null;
 
 /* ══════════════════════════════════════════════════
    ACCELEROMETER — JERK (m/s³)
+   Phone athwartships → X axis = bow-stern
+   We smooth acc with a small IIR filter before
+   differentiating to suppress sensor noise.
 ══════════════════════════════════════════════════ */
+const ALPHA=0.25; // IIR smoothing factor (lower = smoother but more lag)
+let smoothAcc=0;
 function handleMotion(e){
   const acc=e.acceleration||e.accelerationIncludingGravity;
   if(!acc)return;
   const x=acc.x||0;
   const now=performance.now();
 
-  // Differentiate to get jerk (m/s³)
-  let jerk=0;
-  if(prevAccT>0&&(now-prevAccT)<200){
-    jerk=(x-prevAcc)/((now-prevAccT)/1000);
-  }
-  prevAcc=x; prevAccT=now;
+  // IIR low-pass smooth the raw acceleration
+  smoothAcc = ALPHA*x + (1-ALPHA)*smoothAcc;
 
-  ACC_HIST.push(x);
+  // Differentiate smoothed signal to get jerk (m/s³)
+  let jerk=0;
+  if(prevAccT>0){
+    const dt=(now-prevAccT)/1000;
+    if(dt>0&&dt<0.2){ // only differentiate at reasonable sample rates
+      jerk=(smoothAcc-prevAcc)/dt;
+      // Clamp to sane rowing range — ignore noise spikes
+      jerk=Math.max(-60,Math.min(60,jerk));
+    }
+  }
+  prevAcc=smoothAcc; prevAccT=now;
+
+  ACC_HIST.push(smoothAcc);
   if(ACC_HIST.length>180)ACC_HIST.shift();
   jerkHist.push(jerk);
   if(jerkHist.length>180)jerkHist.shift();
 
   if(!running||paused)return;
 
-  const JERK_THRESH=8; // m/s³ threshold for catch detection
+  // Threshold: expect catch jerk ~5–25 m/s³ in a sculling boat
+  const JERK_THRESH=5;
 
   if(!inStroke&&jerk>JERK_THRESH){
     inStroke=true;peakJerk=jerk;peakJerkT=now;driveStartT=now;
@@ -586,7 +619,6 @@ function handleMotion(e){
       catchLast=peak;catchAvg8=avg;catchJerk=peak;
       strokeChar=Math.round(charPct);
 
-      // dist/stroke
       distPerStroke=+(distance-lastStrokeDist).toFixed(1);
       lastStrokeDist=distance;
 
@@ -594,8 +626,8 @@ function handleMotion(e){
       if(strokeTs.length>6)strokeTs.shift();
       if(strokeTs.length>=2){
         const ints=[];for(let i=1;i<strokeTs.length;i++)ints.push(strokeTs[i]-strokeTs[i-1]);
-        const avg2=ints.reduce((a,b)=>a+b,0)/ints.length;
-        const rate=Math.round(60000/avg2);
+        const avgInt=ints.reduce((a,b)=>a+b,0)/ints.length;
+        const rate=Math.round(60000/avgInt);
         if(rate>=14&&rate<=50)strokeRate=rate;
       }
       strokeCount++;
@@ -650,7 +682,8 @@ function updateLiveUI(){
   if(running&&distPerStroke>0){dsEl.textContent=distPerStroke.toFixed(1);dsEl.className='tile-value';}
   else{dsEl.textContent='--';dsEl.className='tile-value no-data';}
 
-  // Catch slope (jerk m/s³)
+  // Catch slope (jerk m/s³) — bar scale ±30
+  const CATCH_SCALE=30;
   const cEl=document.getElementById('tile-catch');
   if(catchLast!=null){
     cEl.textContent=(catchLast>=0?'+':'')+catchLast.toFixed(1);
@@ -658,8 +691,7 @@ function updateLiveUI(){
     cEl.style.color=catchCol(catchLast);
   } else {cEl.textContent='--';cEl.className='tile-value no-data';cEl.style.color='';}
 
-  // Catch bar
-  const pct=catchLast!=null?Math.max(0,Math.min(100,((catchLast+8)/16)*100)):50;
+  const pct=catchLast!=null?Math.max(0,Math.min(100,((catchLast+CATCH_SCALE)/(CATCH_SCALE*2))*100)):50;
   const col=catchLast!=null?catchCol(catchLast):'#ccc';
   const fill=document.getElementById('catch-fill');
   const needle=document.getElementById('catch-needle');
