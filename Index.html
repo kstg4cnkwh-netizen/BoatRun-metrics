@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
+
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black"/>
+<meta name="apple-mobile-web-app-title" content="Scull"/>
+<meta name="theme-color" content="#000000"/>
+
+<title>Scull · Metrics</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{height:100%;font-size:16px;-webkit-text-size-adjust:none}
+body{
+  height:100%;background:#000;color:#fff;overflow:hidden;
+  font-family:'Oswald',sans-serif;
+  padding-top:env(safe-area-inset-top);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+
+:root{
+  --amber:#ffaa00;
+  --green:#00ff88;
+  --blue:#00aaff;
+  --red:#ff2244;
+  --dim:#333;
+  --subdim:#1a1a1a;
+  --muted:#555;
+}
+
+.screen{display:none;flex-direction:column;height:100vh;overflow:hidden}
+.screen.active{display:flex}
+
+.tab-bar{
+display:flex;border-top:1px solid #111;
+background:#000;flex-shrink:0;
+padding-bottom:env(safe-area-inset-bottom);
+}
+
+.tab{
+flex:1;padding:10px 0 8px;text-align:center;
+font-size:9px;letter-spacing:.2em;color:#444;
+font-weight:600;cursor:pointer;border:none;background:none;
+text-transform:uppercase;
+}
+
+.tab.active{color:var(--blue)}
+
+.hdr{
+display:flex;align-items:center;justify-content:space-between;
+padding:10px 14px 8px;border-bottom:1px solid #111;flex-shrink:0;
+}
+
+.hdr-timer{
+font-family:'Share Tech Mono',monospace;
+font-size:30px;
+}
+
+.pill-on{background:var(--green);color:#000}
+.pill-off{background:#111;color:#333}
+
+.scroll-area{flex:1;overflow-y:auto}
+
+.cell{background:#000;padding:11px 12px;border-top:3px solid transparent}
+
+.c-amber{border-color:var(--amber)}
+.c-green{border-color:var(--green)}
+.c-blue{border-color:var(--blue)}
+.c-red{border-color:var(--red)}
+
+.lbl{font-size:9px;color:#444}
+.val{
+font-family:'Share Tech Mono',monospace;
+font-size:50px;
+}
+
+.unit{font-size:9px;color:var(--blue)}
+
+.btn-start{background:var(--green);color:#000}
+.btn-stop{background:var(--red);color:#fff}
+.btn{flex:1;height:54px;border:none;font-weight:700}
+
+.trace-canvas{width:100%;height:48px;display:block;background:#050505}
+</style>
+</head>
+
+<body>
+
+<div id="screen-live" class="screen active">
+
+  <div class="hdr">
+    <span>SCULL</span>
+    <span class="hdr-timer" id="timer">00:00</span>
+    <span id="acc-pill" class="pill-off">ACC</span>
+  </div>
+
+  <div class="scroll-area">
+
+    <div class="cell c-amber">
+      <div class="lbl">Stroke Rate</div>
+      <div class="val" id="rate">--</div>
+    </div>
+
+    <div class="cell c-green">
+      <div class="lbl">Pace / 500m</div>
+      <div class="val" id="pace">--:--</div>
+    </div>
+
+    <canvas id="trace" class="trace-canvas"></canvas>
+
+  </div>
+
+  <div style="display:flex">
+    <button class="btn btn-start" id="start">START</button>
+  </div>
+
+</div>
+
+<script>
+let running=false;
+let accX=0;
+let history=[];
+let canvas=document.getElementById('trace');
+let ctx=null;
+
+requestAnimationFrame(()=>{
+  ctx=canvas.getContext('2d');
+});
+
+function draw(){
+  if(!ctx) return;
+  let w=canvas.width=canvas.offsetWidth;
+  let h=canvas.height=canvas.offsetHeight;
+
+  ctx.clearRect(0,0,w,h);
+
+  ctx.beginPath();
+  ctx.moveTo(0,h/2);
+
+  history.slice(-80).forEach((v,i)=>{
+    let x=i/80*w;
+    let y=h/2 - v*10;
+    ctx.lineTo(x,y);
+  });
+
+  ctx.strokeStyle="#ffaa00";
+  ctx.stroke();
+}
+
+function motion(e){
+  let a=e.accelerationIncludingGravity;
+  if(!a) return;
+
+  accX=a.x||0;
+  history.push(accX);
+  if(history.length>200) history.shift();
+
+  draw();
+}
+
+document.getElementById('start').onclick=async()=>{
+  if(typeof DeviceMotionEvent.requestPermission==='function'){
+    let res=await DeviceMotionEvent.requestPermission();
+    if(res!=='granted') return;
+  }
+
+  window.addEventListener('devicemotion',motion);
+
+  document.getElementById('acc-pill').className='pill-on';
+  running=true;
+};
+</script>
+
+</body>
+</html>
