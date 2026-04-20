@@ -3,16 +3,16 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
-<title>Scull Metrics V3</title>
+<title>Scull Metrics V4</title>
 
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;600&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
 
 <style>
 :root{
   --green:#00ff88;
-  --blue:#00aaff;
   --amber:#ffaa00;
   --red:#ff2244;
+  --blue:#00aaff;
   --bg:#000;
 }
 
@@ -21,8 +21,7 @@ body{
   font-family:Oswald,sans-serif;
 }
 
-.screen{display:none;height:100vh;flex-direction:column}
-.active{display:flex}
+.screen{display:flex;flex-direction:column;height:100vh}
 
 .hdr{
   display:flex;justify-content:space-between;
@@ -40,108 +39,138 @@ body{
   background:#000;padding:10px;
 }
 
-.label{font-size:9px;color:#555;letter-spacing:.2em}
+.label{font-size:9px;color:#666;letter-spacing:.2em}
 .value{font-family:"Share Tech Mono";font-size:42px}
 .unit{font-size:9px;color:var(--blue)}
 
-button{
-  flex:1;padding:14px;font-weight:700;
-  border:none;
+.ctrl{
+  display:flex;gap:8px;padding:10px;
 }
 
+button{
+  flex:1;padding:14px;
+  border:none;font-weight:700;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+}
+
+/* state styles */
 .start{background:var(--green)}
-.stop{background:var(--red)}
 .pause{background:var(--amber)}
-.ctrl{display:flex;gap:8px;padding:10px}
+.stop{background:var(--red)}
+.resume{background:var(--blue)}
+
 canvas{width:100%;height:70px;background:#050505}
 </style>
 </head>
 
 <body>
 
-<div id="live" class="screen active">
+<div class="screen">
 
-<div class="hdr">
-  <div>SCULL V3</div>
-  <div class="timer" id="timer">00:00</div>
-</div>
-
-<div class="grid">
-  <div class="cell">
-    <div class="label">PACE /500</div>
-    <div class="value" id="pace">--:--</div>
-    <div class="unit">min/500</div>
+  <div class="hdr">
+    <div>SCULL V4</div>
+    <div class="timer" id="timer">00:00</div>
   </div>
 
-  <div class="cell">
-    <div class="label">RATE</div>
-    <div class="value" id="rate">--</div>
-    <div class="unit">spm</div>
+  <div class="grid">
+    <div class="cell">
+      <div class="label">PACE /500</div>
+      <div class="value" id="pace">--:--</div>
+      <div class="unit">min/500</div>
+    </div>
+
+    <div class="cell">
+      <div class="label">RATE</div>
+      <div class="value" id="rate">--</div>
+      <div class="unit">spm</div>
+    </div>
+
+    <div class="cell">
+      <div class="label">DIST</div>
+      <div class="value" id="dist">0.00</div>
+      <div class="unit">km</div>
+    </div>
+
+    <div class="cell">
+      <div class="label">STROKE LEN</div>
+      <div class="value" id="slen">--</div>
+      <div class="unit">m/stroke</div>
+    </div>
   </div>
 
-  <div class="cell">
-    <div class="label">DIST</div>
-    <div class="value" id="dist">0.00</div>
-    <div class="unit">km</div>
+  <canvas id="acc"></canvas>
+
+  <div class="ctrl">
+    <button id="mainBtn" class="start" onclick="mainAction()">START</button>
   </div>
-
-  <div class="cell">
-    <div class="label">STR LEN</div>
-    <div class="value" id="slen">--</div>
-    <div class="unit">m/stroke</div>
-  </div>
-</div>
-
-<canvas id="acc"></canvas>
-
-<div class="ctrl" id="ctrl">
-  <button class="start" onclick="start()">START</button>
-</div>
 
 </div>
 
 <script>
 
 /* =========================
-STATE (V3 MODEL)
+STATE MACHINE (CORE V4)
 ========================= */
-let running=false;
-let t=0;
-let dist=0;
+const STATE = {
+  IDLE: "idle",
+  ROWING: "rowing",
+  PAUSED: "paused",
+  STOPPED: "stopped"
+};
 
-let lastPos=null;
+let state = STATE.IDLE;
 
-let strokes=[];
-let strokeState=false;
-let strokeStart=null;
+/* =========================
+DATA
+========================= */
+let t = 0;
+let dist = 0;
+let lastPos = null;
 
-let accBuf=[];
+let strokes = [];
+let strokeState = false;
+let strokeStart = null;
 
-/* biomech model */
-let session={
-  strokes:[],
-  rawAcc:[],
-  gps:[],
-  start:0
+let accBuf = [];
+
+let session = {
+  start: 0,
+  strokes: [],
+  rawAcc: []
 };
 
 /* =========================
-TIMER
+STATE ACTIONS
 ========================= */
-setInterval(()=>{
-  if(!running) return;
-  t++;
-  document.getElementById("timer").innerText=
-    String(Math.floor(t/60)).padStart(2,'0')+":"+
-    String(t%60).padStart(2,'0');
-},1000);
+function mainAction(){
+  switch(state){
 
-/* =========================
-START
-========================= */
+    case STATE.IDLE:
+    case STATE.STOPPED:
+      start();
+      break;
+
+    case STATE.ROWING:
+      pause();
+      break;
+
+    case STATE.PAUSED:
+      resume();
+      break;
+  }
+}
+
 function start(){
-  running=true;
-  session.start=Date.now();
+  state = STATE.ROWING;
+
+  session = {
+    start: Date.now(),
+    strokes: [],
+    rawAcc: []
+  };
+
+  setButton("pause", "PAUSE");
 
   navigator.geolocation.watchPosition(pos=>{
     const c=pos.coords;
@@ -157,13 +186,63 @@ function start(){
   },()=>{}, {enableHighAccuracy:true});
 }
 
+function pause(){
+  state = STATE.PAUSED;
+  setButton("resume","RESUME");
+}
+
+function resume(){
+  state = STATE.ROWING;
+  setButton("pause","PAUSE");
+}
+
+function stop(){
+  state = STATE.STOPPED;
+  setButton("start","RESTART");
+
+  const blob = new Blob([JSON.stringify(session,null,2)],{
+    type:"application/json"
+  });
+
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="scull_v4.json";
+  a.click();
+}
+
 /* =========================
-STROKE MODEL V3
+BUTTON STATE BINDING
+========================= */
+function setButton(type,text){
+  const b=document.getElementById("mainBtn");
+
+  b.className=type;
+
+  if(type==="start") b.onclick=start;
+  if(type==="pause") b.onclick=mainAction;
+  if(type==="resume") b.onclick=mainAction;
+}
+
+/* =========================
+TIMER
+========================= */
+setInterval(()=>{
+  if(state!==STATE.ROWING) return;
+
+  t++;
+  document.getElementById("timer").innerText=
+    String(Math.floor(t/60)).padStart(2,'0')+":"+
+    String(t%60).padStart(2,'0');
+},1000);
+
+/* =========================
+ACCEL / STROKES
 ========================= */
 window.addEventListener("devicemotion",e=>{
-  if(!running) return;
+  if(state!==STATE.ROWING) return;
 
-  const x=e.acceleration?.x||0;
+  const x = e.acceleration?.x || 0;
+
   accBuf.push(x);
   if(accBuf.length>200) accBuf.shift();
 
@@ -175,41 +254,25 @@ window.addEventListener("devicemotion",e=>{
     strokeState=true;
     strokeStart={
       t:Date.now(),
-      accSamples:[],
-      startDist:dist
+      acc:[]
     };
   }
 
   if(strokeState){
-    strokeStart.accSamples.push(x);
+    strokeStart.acc.push(x);
 
-    if(x<0.5){
+    if(x<0.4){
       strokeState=false;
 
-      const end=Date.now();
-
-      const driveTime=end-strokeStart.t;
-
-      const peak=Math.max(...strokeStart.accSamples);
-
-      const impulse=strokeStart.accSamples.reduce((a,b)=>a+Math.max(0,b),0);
-
-      const strokeDist=dist-strokeStart.startDist;
+      const peak=Math.max(...strokeStart.acc);
 
       const stroke={
-        time:strokeStart.t,
-        driveTime,
-        peakAcc:peak,
-        impulse,
-        strokeLength:strokeDist,
-        rate:calcRate(),
-        dist:strokeDist
+        t:strokeStart.t,
+        peak
       };
 
       strokes.push(stroke);
       session.strokes.push(stroke);
-
-      updateStrokeLength();
     }
   }
 
@@ -217,55 +280,8 @@ window.addEventListener("devicemotion",e=>{
 });
 
 /* =========================
-RATE
-========================= */
-function calcRate(){
-  if(strokes.length<2) return 0;
-  const last=strokes.slice(-6).map(s=>s.time);
-  const intervals=[];
-  for(let i=1;i<last.length;i++) intervals.push(last[i]-last[i-1]);
-  const avg=intervals.reduce((a,b)=>a+b,0)/intervals.length;
-  return Math.round(60000/avg);
-}
-
-/* =========================
-STROKE LENGTH
-========================= */
-function updateStrokeLength(){
-  if(strokes.length<3) return;
-
-  const avg=strokes
-    .slice(-10)
-    .map(s=>s.strokeLength)
-    .reduce((a,b)=>a+b,0)/Math.min(10,strokes.length);
-
-  document.getElementById("slen").innerText=avg.toFixed(2);
-}
-
-/* =========================
-UI UPDATE
-========================= */
-setInterval(()=>{
-  if(!running) return;
-
-  document.getElementById("rate").innerText=
-    strokes.length?strokes.at(-1).rate:"--";
-
-  const pace=t>0 && dist>0 ? t/(dist/500) : 0;
-  document.getElementById("pace").innerText=
-    pace?fmt(pace):"--:--";
-
-},1000);
-
-/* =========================
 HELPERS
 ========================= */
-function fmt(s){
-  s=Math.round(s);
-  return String(Math.floor(s/60)).padStart(2,'0')+":"+
-         String(s%60).padStart(2,'0');
-}
-
 function haversine(a,b){
   const R=6371000;
   const dLat=(b.lat-a.lat)*Math.PI/180;
@@ -279,20 +295,6 @@ function haversine(a,b){
 
   return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
 }
-
-/* =========================
-EXPORT (V3 JSON)
-========================= */
-window.onbeforeunload=()=>{
-  const blob=new Blob([JSON.stringify(session,null,2)],{
-    type:"application/json"
-  });
-
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download="scull_v3_session.json";
-  a.click();
-};
 
 /* =========================
 GRAPH
