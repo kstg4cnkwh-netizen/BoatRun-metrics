@@ -1,324 +1,1418 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
-<title>Scull Metrics V4</title>
-
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;600&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
-
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black"/>
+<meta name="apple-mobile-web-app-title" content="Scull"/>
+<meta name="theme-color" content="#000000"/>
+<title>Scull · Metrics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
 <style>
-:root{
-  --green:#00ff88;
-  --amber:#ffaa00;
-  --red:#ff2244;
-  --blue:#00aaff;
-  --bg:#000;
-}
-
+/* ═══════════════════════════════════════════════════════
+   RESET & BASE
+═══════════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{height:100%;font-size:16px;-webkit-text-size-adjust:none}
 body{
-  margin:0;background:#000;color:#fff;
-  font-family:Oswald,sans-serif;
+  height:100%;background:#000;color:#fff;overflow:hidden;
+  font-family:'Oswald',sans-serif;
+  padding-top:env(safe-area-inset-top);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+:root{
+  --amber:#ffaa00;--green:#00ff88;--blue:#00aaff;
+  --red:#ff2244;--dim:#333;--subdim:#1a1a1a;--muted:#555;
 }
 
-.screen{display:flex;flex-direction:column;height:100vh}
+/* ═══════════════════════════════════════════════════════
+SCREENS
+═══════════════════════════════════════════════════════ */
+.screen{display:none;flex-direction:column;height:100vh;overflow:hidden}
+.screen.active{display:flex}
 
+/* ═══════════════════════════════════════════════════════
+NAV TABS
+═══════════════════════════════════════════════════════ */
+.tab-bar{
+display:flex;border-top:1px solid #111;
+background:#000;flex-shrink:0;
+padding-bottom:env(safe-area-inset-bottom);
+}
+.tab{
+flex:1;padding:10px 0 8px;text-align:center;
+font-size:9px;letter-spacing:.2em;color:#444;
+font-weight:600;cursor:pointer;border:none;background:none;
+text-transform:uppercase;
+transition:color .15s;
+}
+.tab.active{color:var(–blue)}
+.tab-icon{font-size:18px;display:block;margin-bottom:2px}
+
+/* ═══════════════════════════════════════════════════════
+HEADER
+═══════════════════════════════════════════════════════ */
 .hdr{
-  display:flex;justify-content:space-between;
-  padding:10px;border-bottom:1px solid #111;
+display:flex;align-items:center;justify-content:space-between;
+padding:10px 14px 8px;border-bottom:1px solid #111;flex-shrink:0;
 }
-
-.timer{font-family:"Share Tech Mono";font-size:26px}
-
-.grid{
-  display:grid;grid-template-columns:1fr 1fr;
-  gap:1px;background:#111;
+.hdr-logo{font-size:10px;letter-spacing:.3em;color:#444;font-weight:500}
+.hdr-timer{font-family:‘Share Tech Mono’,monospace;font-size:30px;letter-spacing:.04em}
+.pills{display:flex;gap:4px;align-items:center}
+.pill{
+font-size:8px;letter-spacing:.12em;padding:2px 6px;
+border-radius:2px;font-weight:700;
 }
+.pill-on {background:var(–green);color:#000}
+.pill-off{background:#111;color:#333;border:1px solid #1a1a1a}
+.pill-err{background:var(–red);color:#fff}
+.pill-warn{background:var(–amber);color:#000}
+.rec-dot{
+width:7px;height:7px;border-radius:50%;
+background:var(–red);
+animation:blink 1s infinite;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
 
+/* ═══════════════════════════════════════════════════════
+METRIC CELLS
+═══════════════════════════════════════════════════════ */
+.scroll-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#0d0d0d;margin:1px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:#0d0d0d;margin:1px}
 .cell{
-  background:#000;padding:10px;
+background:#000;padding:11px 12px 8px;
+display:flex;flex-direction:column;gap:1px;
+border-top:3px solid transparent;
+}
+.c-amber{border-color:var(–amber)}
+.c-green{border-color:var(–green)}
+.c-blue {border-color:var(–blue)}
+.c-red  {border-color:var(–red)}
+.c-white{border-color:#fff}
+.lbl{font-size:9px;letter-spacing:.2em;color:#444;font-weight:500;text-transform:uppercase}
+.val{
+font-family:‘Share Tech Mono’,monospace;
+font-size:50px;line-height:1;
+}
+.val.med{font-size:34px}
+.val.sm {font-size:26px}
+.val.dim{color:#2a2a2a}
+.unit{font-size:9px;color:var(–blue);letter-spacing:.15em;font-weight:600;margin-top:1px}
+.sub{font-size:9px;color:#2a2a2a;font-family:‘Share Tech Mono’,monospace;margin-top:2px}
+
+/* ═══════════════════════════════════════════════════════
+CATCH SLOPE
+═══════════════════════════════════════════════════════ */
+.panel{
+background:#000;margin:1px;
+border-top:3px solid transparent;
+padding:10px 13px 9px;
+}
+.panel.c-blue{border-color:var(–blue)}
+.panel.c-amber{border-color:var(–amber)}
+.panel.c-red{border-color:var(–red)}
+.panel.c-green{border-color:var(–green)}
+.panel-hdr{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.panel-title{font-size:9px;letter-spacing:.2em;color:#444;font-weight:500;text-transform:uppercase}
+.panel-meta{font-family:‘Share Tech Mono’,monospace;font-size:11px;color:#333}
+
+.bar-bg{
+height:22px;background:#080808;border-radius:3px;
+position:relative;overflow:hidden;border:1px solid #111;
+}
+.bar-zero{position:absolute;left:50%;top:0;width:1px;height:100%;background:#222}
+.bar-fill{
+position:absolute;top:0;height:100%;border-radius:2px;opacity:.3;
+transition:left .12s,width .12s,background .12s;
+}
+.bar-needle{
+position:absolute;top:-3px;width:2px;height:calc(100% + 6px);
+border-radius:1px;box-shadow:0 0 8px rgba(255,255,255,.4);
+transform:translateX(-50%);transition:left .12s,background .12s;
+}
+.bar-labels{
+display:flex;justify-content:space-between;
+font-size:8px;color:#2a2a2a;letter-spacing:.08em;margin-top:3px;
+}
+.catch-stats{display:flex;gap:0;margin-top:6px}
+.cs{flex:1;text-align:center}
+.cs-lbl{font-size:8px;color:#333;letter-spacing:.12em;display:block}
+.cs-val{font-family:‘Share Tech Mono’,monospace;font-size:17px;color:#fff;display:block}
+
+/* ═══════════════════════════════════════════════════════
+ACCEL TRACE CANVAS
+═══════════════════════════════════════════════════════ */
+.trace-canvas{
+width:100%;height:48px;display:block;
+background:#050505;border-radius:2px;
 }
 
-.label{font-size:9px;color:#666;letter-spacing:.2em}
-.value{font-family:"Share Tech Mono";font-size:42px}
-.unit{font-size:9px;color:var(--blue)}
+/* ═══════════════════════════════════════════════════════
+STROKE CHARACTERISTIC
+═══════════════════════════════════════════════════════ */
+.char-track{
+position:relative;height:20px;background:#080808;
+border-radius:3px;overflow:hidden;border:1px solid #111;
+margin:6px 0 3px;
+}
+.char-zones{position:absolute;inset:0;display:flex}
+.cz{height:100%;opacity:.15}
+.cz1{background:var(–red);flex:1}
+.cz2{background:var(–green);flex:2}
+.cz3{background:var(–amber);flex:1}
+.char-needle{
+position:absolute;top:-2px;width:3px;height:calc(100%+4px);
+background:#fff;border-radius:1px;
+box-shadow:0 0 6px rgba(255,255,255,.35);
+transform:translateX(-50%);
+transition:left .4s cubic-bezier(.34,1.56,.64,1),background .3s;
+}
+.char-meta{display:flex;justify-content:space-between;align-items:center}
+.char-name{font-size:12px;letter-spacing:.08em;font-weight:600}
+.char-labels{display:flex;justify-content:space-between;font-size:8px;color:#2a2a2a}
 
+/* ═══════════════════════════════════════════════════════
+CONTROLS
+═══════════════════════════════════════════════════════ */
 .ctrl{
-  display:flex;gap:8px;padding:10px;
+padding:10px 13px 8px;display:flex;gap:8px;flex-shrink:0;
+background:#000;border-top:1px solid #0d0d0d;
+}
+.btn{
+flex:1;height:54px;border:none;border-radius:4px;
+font-family:‘Oswald’,sans-serif;font-size:15px;font-weight:700;
+letter-spacing:.15em;text-transform:uppercase;cursor:pointer;
+transition:transform .1s,filter .1s;
+}
+.btn:active{transform:scale(.95);filter:brightness(.8)}
+.btn-start{background:var(–green);color:#000}
+.btn-stop {background:var(–red);color:#fff}
+.btn-pause{background:var(–amber);color:#000}
+.btn-lap  {background:#111;color:var(–blue);border:1px solid #1a1a1a}
+.btn-reset{background:#0a0a0a;color:#444;border:1px solid #111}
+
+/* ═══════════════════════════════════════════════════════
+LAPS
+═══════════════════════════════════════════════════════ */
+.laps-wrap{padding:0 13px 8px}
+.lap-hdr,.lap-row{
+display:grid;
+grid-template-columns:22px 1fr 1fr 1fr 1fr;
+gap:4px;padding:4px 0;
+font-family:‘Share Tech Mono’,monospace;font-size:11px;
+border-bottom:1px solid #080808;
+}
+.lap-hdr{color:#2a2a2a;font-size:8px;letter-spacing:.15em}
+.lap-row{color:#555;animation:fi .2s ease}
+.lap-row.best{color:var(–green)}
+@keyframes fi{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+
+/* ═══════════════════════════════════════════════════════
+PERMISSION SCREEN
+═══════════════════════════════════════════════════════ */
+#screen-perm{
+justify-content:center;align-items:center;
+gap:18px;padding:32px 24px;text-align:center;
+}
+.perm-icon{font-size:48px;line-height:1}
+.perm-title{font-size:26px;font-weight:700;letter-spacing:.08em}
+.perm-body{font-size:13px;color:#555;line-height:1.7;letter-spacing:.04em}
+.perm-btn{
+background:var(–blue);color:#000;border:none;
+font-family:‘Oswald’,sans-serif;font-size:16px;font-weight:700;
+letter-spacing:.15em;padding:16px 36px;border-radius:4px;cursor:pointer;
+text-transform:uppercase;width:100%;max-width:280px;
+}
+.perm-note{font-size:10px;color:#2a2a2a;letter-spacing:.08em;line-height:1.6}
+
+/* ═══════════════════════════════════════════════════════
+ANALYSIS SCREEN
+═══════════════════════════════════════════════════════ */
+.analysis-hdr{
+padding:12px 14px 10px;border-bottom:1px solid #111;flex-shrink:0;
+display:flex;align-items:center;justify-content:space-between;
+}
+.analysis-title{font-size:12px;letter-spacing:.25em;color:#444;font-weight:500}
+
+.session-list{padding:8px 13px}
+.session-item{
+padding:12px;background:#080808;border-radius:4px;
+margin-bottom:6px;cursor:pointer;border:1px solid #111;
+transition:border-color .15s;
+}
+.session-item:active{border-color:var(–blue)}
+.session-item-date{font-size:11px;color:#555;letter-spacing:.1em;margin-bottom:4px}
+.session-item-stats{
+display:flex;gap:16px;
+font-family:‘Share Tech Mono’,monospace;font-size:13px;color:#fff;
+}
+.session-item-stat{display:flex;flex-direction:column;gap:1px}
+.session-item-stat span:last-child{font-size:9px;color:#333;letter-spacing:.1em}
+
+.no-sessions{
+text-align:center;padding:48px 24px;
+font-size:13px;color:#2a2a2a;letter-spacing:.1em;line-height:2;
 }
 
-button{
-  flex:1;padding:14px;
-  border:none;font-weight:700;
-  letter-spacing:.1em;
-  text-transform:uppercase;
+/* analysis detail */
+.analysis-detail{padding:12px 13px}
+.analysis-back{
+background:none;border:none;color:var(–blue);
+font-family:‘Oswald’,sans-serif;font-size:13px;
+letter-spacing:.15em;cursor:pointer;padding:0 0 10px;
+text-transform:uppercase;display:flex;align-items:center;gap:6px;
+}
+.stat-row{
+display:grid;grid-template-columns:1fr 1fr 1fr;
+gap:6px;margin-bottom:8px;
+}
+.stat-box{
+background:#080808;border-radius:3px;padding:10px 10px 8px;
+border-top:2px solid #111;
+}
+.stat-box.c-amber{border-color:var(–amber)}
+.stat-box.c-green{border-color:var(–green)}
+.stat-box.c-blue {border-color:var(–blue)}
+.stat-box.c-red  {border-color:var(–red)}
+.stat-box-lbl{font-size:8px;color:#333;letter-spacing:.15em;display:block;margin-bottom:3px}
+.stat-box-val{font-family:‘Share Tech Mono’,monospace;font-size:20px;color:#fff;display:block}
+.stat-box-unit{font-size:8px;color:#444;letter-spacing:.1em;display:block;margin-top:1px}
+
+/* analysis charts */
+.chart-panel{
+background:#080808;border-radius:4px;margin-bottom:6px;
+padding:10px 12px 8px;border-top:2px solid #111;
+}
+.chart-panel.c-green{border-color:var(–green)}
+.chart-panel.c-amber{border-color:var(–amber)}
+.chart-panel.c-blue{border-color:var(–blue)}
+.chart-panel.c-red{border-color:var(–red)}
+.chart-lbl{font-size:9px;letter-spacing:.2em;color:#444;margin-bottom:6px;display:flex;justify-content:space-between}
+.analysis-canvas{width:100%;height:80px;display:block;border-radius:2px}
+
+/* FIT import */
+.fit-zone{
+border:1px dashed #222;border-radius:4px;
+padding:20px;text-align:center;margin:8px 0;
+cursor:pointer;transition:border-color .2s;
+}
+.fit-zone:active{border-color:var(–blue)}
+.fit-zone-text{font-size:12px;color:#333;letter-spacing:.1em;line-height:1.8}
+.fit-status{
+font-size:11px;letter-spacing:.1em;padding:6px 0;
+font-family:‘Share Tech Mono’,monospace;
 }
 
-/* state styles */
-.start{background:var(--green)}
-.pause{background:var(--amber)}
-.stop{background:var(--red)}
-.resume{background:var(--blue)}
+.export-btn{
+width:100%;padding:14px;background:#0a0a0a;
+border:1px solid #1a1a1a;border-radius:4px;
+font-family:‘Oswald’,sans-serif;font-size:13px;font-weight:600;
+letter-spacing:.15em;color:#444;cursor:pointer;
+text-transform:uppercase;margin-top:6px;
+}
+.export-btn:active{border-color:var(–blue);color:var(–blue)}
 
-canvas{width:100%;height:70px;background:#050505}
+.delete-btn{
+width:100%;padding:14px;background:#0a0a0a;
+border:1px solid #1a1a1a;border-radius:4px;
+font-family:‘Oswald’,sans-serif;font-size:13px;font-weight:600;
+letter-spacing:.15em;color:#2a2a2a;cursor:pointer;
+text-transform:uppercase;margin-top:4px;
+}
+.delete-btn:active{border-color:var(–red);color:var(–red)}
+
+/* HR zones for analysis */
+.hr-zones{display:flex;gap:4px;margin-top:6px}
+.hr-zone-bar{flex:1;border-radius:2px;padding:4px 2px;text-align:center}
+.hr-zone-lbl{font-size:7px;letter-spacing:.06em;display:block}
+.hr-zone-pct{font-family:‘Share Tech Mono’,monospace;font-size:11px;display:block}
+
+/* Toast */
+.toast{
+position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+background:#fff;color:#000;padding:8px 20px;border-radius:20px;
+font-size:12px;letter-spacing:.1em;font-weight:600;
+opacity:0;transition:opacity .3s;pointer-events:none;z-index:100;
+white-space:nowrap;
+}
+.toast.show{opacity:1}
 </style>
-</head>
 
+</head>
 <body>
 
-<div class="screen">
+<!-- ══════════════════════════════════════════════════
+     PERMISSION SCREEN
+══════════════════════════════════════════════════ -->
 
-  <div class="hdr">
-    <div>SCULL V4</div>
-    <div class="timer" id="timer">00:00</div>
+<div id="screen-perm" class="screen active">
+  <div class="perm-icon">🚣</div>
+  <div class="perm-title">SCULL · METRICS</div>
+  <div class="perm-body">
+    Real-time GPS pace &amp; distance<br/>
+    Accelerometer catch slope detection<br/>
+    Session recording &amp; HR import<br/><br/>
+    Mount phone <strong style="color:#fff">athwartships</strong>,<br/>screen facing up.
   </div>
-
-  <div class="grid">
-    <div class="cell">
-      <div class="label">PACE /500</div>
-      <div class="value" id="pace">--:--</div>
-      <div class="unit">min/500</div>
-    </div>
-
-    <div class="cell">
-      <div class="label">RATE</div>
-      <div class="value" id="rate">--</div>
-      <div class="unit">spm</div>
-    </div>
-
-    <div class="cell">
-      <div class="label">DIST</div>
-      <div class="value" id="dist">0.00</div>
-      <div class="unit">km</div>
-    </div>
-
-    <div class="cell">
-      <div class="label">STROKE LEN</div>
-      <div class="value" id="slen">--</div>
-      <div class="unit">m/stroke</div>
-    </div>
+  <button class="perm-btn" id="perm-btn">ENABLE SENSORS</button>
+  <div class="perm-note">
+    iOS: Settings → Safari → Motion &amp; Orientation Access<br/>
+    This app works offline once loaded.
   </div>
-
-  <canvas id="acc"></canvas>
-
-  <div class="ctrl">
-    <button id="mainBtn" class="start" onclick="mainAction()">START</button>
-  </div>
-
 </div>
 
+<!-- ══════════════════════════════════════════════════
+     LIVE SCREEN
+══════════════════════════════════════════════════ -->
+
+<div id="screen-live" class="screen">
+  <div class="hdr">
+    <span class="hdr-logo">SCULL · METRICS</span>
+    <span class="hdr-timer" id="hdr-timer">00:00</span>
+    <div class="pills">
+      <span class="pill pill-off" id="pill-gps">GPS</span>
+      <span class="pill pill-off" id="pill-acc">ACC</span>
+      <div class="rec-dot" id="rec-dot" style="display:none"></div>
+    </div>
+  </div>
+
+  <div class="scroll-area">
+    <!-- Rate + Pace -->
+    <div class="g2">
+      <div class="cell c-amber">
+        <span class="lbl">Stroke Rate</span>
+        <span class="val dim" id="val-rate">--</span>
+        <span class="unit">S / MIN</span>
+        <span class="sub" id="sub-strokes">strokes · 0</span>
+      </div>
+      <div class="cell c-green">
+        <span class="lbl">Pace / 500m</span>
+        <span class="val dim" id="val-pace">--:--</span>
+        <span class="unit">MIN / 500M</span>
+        <span class="sub" id="sub-speed">speed --</span>
+      </div>
+    </div>
+
+```
+<!-- Catch Slope -->
+<div class="panel c-blue">
+  <div class="panel-hdr">
+    <span class="panel-title" style="color:var(--blue)">Catch Acceleration · X-axis</span>
+    <span class="panel-meta" id="raw-acc">0.00 m/s²</span>
+  </div>
+  <div class="bar-bg">
+    <div class="bar-zero"></div>
+    <div class="bar-fill" id="catch-fill"></div>
+    <div class="bar-needle" id="catch-needle" style="left:50%;background:#333"></div>
+  </div>
+  <div class="bar-labels">
+    <span>−8</span><span>−4</span><span>0</span><span>+4</span><span>+8 m/s²</span>
+  </div>
+  <div class="catch-stats">
+    <div class="cs">
+      <span class="cs-lbl">LAST</span>
+      <span class="cs-val" id="cs-last">—</span>
+    </div>
+    <div class="cs">
+      <span class="cs-lbl">SESSION PEAK</span>
+      <span class="cs-val" id="cs-peak">—</span>
+    </div>
+    <div class="cs">
+      <span class="cs-lbl">8-STR AVG</span>
+      <span class="cs-val" id="cs-avg">—</span>
+    </div>
+  </div>
+</div>
+
+<!-- Live accel trace -->
+<div class="panel c-amber">
+  <div class="panel-hdr">
+    <span class="panel-title" style="color:var(--amber)">Acceleration Trace</span>
+    <span class="panel-meta">±8 m/s²</span>
+  </div>
+  <canvas id="trace-canvas" class="trace-canvas"></canvas>
+</div>
+
+<!-- Stroke Characteristic -->
+<div class="panel c-red">
+  <div class="char-meta">
+    <span class="panel-title" style="color:var(--red)">Stroke Characteristic</span>
+    <span class="char-name" id="char-name" style="color:#333">—</span>
+  </div>
+  <div class="char-track">
+    <div class="char-zones">
+      <div class="cz cz1"></div>
+      <div class="cz cz2"></div>
+      <div class="cz cz3"></div>
+    </div>
+    <div class="char-needle" id="char-needle" style="left:50%"></div>
+  </div>
+  <div class="char-labels">
+    <span>EARLY</span><span>FRONT</span><span>BALANCED</span><span>LATE</span><span>BACK</span>
+  </div>
+</div>
+
+<!-- Distance row -->
+<div class="g3">
+  <div class="cell c-blue">
+    <span class="lbl">Total</span>
+    <span class="val sm dim" id="val-dist">0.00</span>
+    <span class="unit">KM</span>
+  </div>
+  <div class="cell c-blue">
+    <span class="lbl">Lap</span>
+    <span class="val sm dim" id="val-lapdist">—</span>
+    <span class="unit">METRES</span>
+  </div>
+  <div class="cell c-blue">
+    <span class="lbl">Lap Time</span>
+    <span class="val sm dim" id="val-laptime">--:--</span>
+    <span class="unit">M : SS</span>
+  </div>
+</div>
+
+<!-- Laps -->
+<div class="laps-wrap" id="laps-wrap" style="display:none">
+  <div class="lap-hdr">
+    <span>#</span><span>DIST</span><span>TIME</span><span>PACE</span><span>RATE</span>
+  </div>
+  <div id="laps-body"></div>
+</div>
+
+<div style="height:8px"></div>
+```
+
+  </div><!-- /scroll-area -->
+
+  <!-- Controls -->
+
+  <div class="ctrl" id="ctrl-bar">
+    <button class="btn btn-start" id="btn-start">START</button>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab active" onclick="showTab('live')"><span class="tab-icon">📡</span>LIVE</button>
+    <button class="tab" onclick="showTab('analysis')"><span class="tab-icon">📊</span>ANALYSIS</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     ANALYSIS SCREEN
+══════════════════════════════════════════════════ -->
+
+<div id="screen-analysis" class="screen">
+  <div class="analysis-hdr">
+    <span class="analysis-title">SESSION HISTORY</span>
+    <span class="pill pill-off" id="session-count-pill">0 sessions</span>
+  </div>
+
+  <!-- Session list view -->
+
+  <div id="analysis-list-view" class="scroll-area">
+    <div class="session-list" id="session-list">
+      <div class="no-sessions" id="no-sessions">
+        No sessions recorded yet.<br/>
+        Start rowing to capture data.<br/><br/>
+        <span style="color:#1a1a1a">Sessions are saved automatically.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Session detail view -->
+
+  <div id="analysis-detail-view" class="scroll-area" style="display:none">
+    <div class="analysis-detail">
+      <button class="analysis-back" id="back-btn">← ALL SESSIONS</button>
+      <div id="detail-content"></div>
+    </div>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab" onclick="showTab('live')"><span class="tab-icon">📡</span>LIVE</button>
+    <button class="tab active" onclick="showTab('analysis')"><span class="tab-icon">📊</span>ANALYSIS</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- hidden file input for FIT -->
+
+<input type="file" id="fit-input" accept=".fit" style="display:none"/>
+
 <script>
-
-/* =========================
-STATE MACHINE (CORE V4)
-========================= */
-const STATE = {
-  IDLE: "idle",
-  ROWING: "rowing",
-  PAUSED: "paused",
-  STOPPED: "stopped"
+/* ══════════════════════════════════════════════════════════════════════
+   UTILITIES
+══════════════════════════════════════════════════════════════════════ */
+const fmt = s => {
+  s = Math.max(0, Math.round(s));
+  return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
 };
-
-let state = STATE.IDLE;
-
-/* =========================
-DATA
-========================= */
-let t = 0;
-let dist = 0;
-let lastPos = null;
-
-let strokes = [];
-let strokeState = false;
-let strokeStart = null;
-
-let accBuf = [];
-
-let session = {
-  start: 0,
-  strokes: [],
-  rawAcc: []
+const fmtH = s => {
+  s = Math.max(0, Math.round(s));
+  const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=s%60;
+  return h>0 ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}` : fmt(s);
 };
+const fmtDate = ts => {
+  const d = new Date(ts);
+  return d.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) +
+         ' ' + d.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'});
+};
+const haversine = (a,b) => {
+  const R=6371000, dLat=(b.lat-a.lat)*Math.PI/180, dLon=(b.lon-a.lon)*Math.PI/180;
+  const x=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+};
+const charLabel = v => v<25?'EARLY DRIVE':v<40?'FRONT LOADED':v<60?'BALANCED':v<75?'LATE DRIVE':'BACK LOADED';
+const charColor  = v => (v<25||v>75)?'var(--red)':(v<35||v>65)?'var(--amber)':'var(--green)';
+const catchColor = v => v>3?'var(--green)':v>1.5?'var(--amber)':'var(--red)';
 
-/* =========================
-STATE ACTIONS
-========================= */
-function mainAction(){
-  switch(state){
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2000);
+}
 
-    case STATE.IDLE:
-    case STATE.STOPPED:
-      start();
-      break;
+/* ══════════════════════════════════════════════════════════════════════
+   SESSION STORAGE
+══════════════════════════════════════════════════════════════════════ */
+const DB_KEY = 'scull_sessions';
 
-    case STATE.ROWING:
-      pause();
-      break;
+function loadSessions() {
+  try { return JSON.parse(localStorage.getItem(DB_KEY)||'[]'); }
+  catch { return []; }
+}
+function saveSessions(sessions) {
+  localStorage.setItem(DB_KEY, JSON.stringify(sessions));
+}
+function saveSession(session) {
+  const sessions = loadSessions();
+  sessions.unshift(session); // newest first
+  saveSessions(sessions);
+}
+function deleteSession(id) {
+  saveSessions(loadSessions().filter(s=>s.id!==id));
+}
 
-    case STATE.PAUSED:
-      resume();
-      break;
+/* ══════════════════════════════════════════════════════════════════════
+   SESSION DATA MODEL
+   Each session:
+   {
+     id, startTime, endTime, duration(s),
+     distance(m), avgPace(s/500m), maxRate, avgRate,
+     catchPeak, catchAvg, strokeCount,
+     strokes: [{t,catchPeak,char,rate,pace,dist}],  // per-stroke
+     paceTrace: [s/500m],   // sampled ~1/sec during session
+     gpsTrace: [{lat,lon,t}],
+     hrTrace: [{t,hr}],     // from FIT import (null until imported)
+     laps: [{n,dist,time,pace,rate}]
+   }
+══════════════════════════════════════════════════════════════════════ */
+
+/* ══════════════════════════════════════════════════════════════════════
+   LIVE SESSION STATE
+══════════════════════════════════════════════════════════════════════ */
+let running=false, paused=false, elapsed=0;
+let distance=0, pace=0, strokeRate=0, strokeCount=0;
+let catchLast=null, catchPeakSession=null, catchAvg8=null;
+let strokeChar=50;
+let rawAccX=0;
+let lapStartDist=0, lapStartTime=0;
+let laps=[];
+
+// Accelerometer detection
+const accHistory=[];
+let inStroke=false, peakAcc=0, peakTs=0, driveStartTs=0;
+const strokeTimestamps=[], catchValues=[];
+let sessionStrokes=[], sessionPaceTrace=[], sessionGpsTrace=[];
+
+// GPS
+let lastPos=null, gpsWatchId=null;
+
+// Timer
+let timerInterval=null, traceRafId=null;
+let wakeLock=null;
+
+// Canvas ref
+const traceCanvas = document.getElementById('trace-canvas');
+const traceCtx = traceCanvas.getContext('2d');
+let needsTraceDraw = false;
+
+/* ══════════════════════════════════════════════════════════════════════
+   ACCELEROMETER
+══════════════════════════════════════════════════════════════════════ */
+function handleMotion(e) {
+  const acc = e.acceleration || e.accelerationIncludingGravity;
+  if (!acc) return;
+  // Phone athwartships → X = bow-stern axis
+  const x = acc.x || 0;
+  rawAccX = x;
+  accHistory.push(x);
+  if (accHistory.length > 200) accHistory.shift();
+  needsTraceDraw = true;
+
+  if (!running || paused) return;
+
+  const now = performance.now();
+  const threshold = 1.5;
+
+  if (!inStroke && x > threshold) {
+    inStroke = true;
+    peakAcc = x;
+    peakTs = now;
+    driveStartTs = now;
+  } else if (inStroke) {
+    if (x > peakAcc) { peakAcc = x; peakTs = now; }
+    if (x < threshold * 0.5) {
+      inStroke = false;
+      const driveDur = now - driveStartTs;
+      const peakOffset = peakTs - driveStartTs;
+      const charPct = driveDur > 0 ? Math.min(100,(peakOffset/driveDur)*100) : 50;
+      const peak = +peakAcc.toFixed(2);
+
+      catchValues.push(peak);
+      if (catchValues.length > 8) catchValues.shift();
+      const avg8 = catchValues.reduce((a,b)=>a+b,0)/catchValues.length;
+      if (!catchPeakSession || peak > catchPeakSession) catchPeakSession = peak;
+
+      catchLast = peak;
+      catchAvg8 = +avg8.toFixed(2);
+      strokeChar = Math.round(charPct);
+      strokeCount++;
+
+      strokeTimestamps.push(now);
+      if (strokeTimestamps.length > 6) strokeTimestamps.shift();
+      if (strokeTimestamps.length >= 2) {
+        const intervals=[];
+        for(let i=1;i<strokeTimestamps.length;i++) intervals.push(strokeTimestamps[i]-strokeTimestamps[i-1]);
+        const avgInt = intervals.reduce((a,b)=>a+b,0)/intervals.length;
+        const rate = Math.round(60000/avgInt);
+        if (rate>=14&&rate<=50) strokeRate=rate;
+      }
+
+      // Record per-stroke data point
+      sessionStrokes.push({
+        t: Date.now(), catchPeak: peak, char: Math.round(charPct),
+        rate: strokeRate, pace: pace, dist: distance
+      });
+
+      updateCatchUI();
+      updateCharUI();
+      updateRateUI();
+      peakAcc = 0;
+    }
   }
 }
 
-function start(){
-  state = STATE.ROWING;
+/* ══════════════════════════════════════════════════════════════════════
+   GPS
+══════════════════════════════════════════════════════════════════════ */
+function handlePosition(pos) {
+  const pill = document.getElementById('pill-gps');
+  pill.className = 'pill pill-on'; pill.textContent = 'GPS';
 
-  session = {
-    start: Date.now(),
-    strokes: [],
-    rawAcc: []
+  const cur = {lat:pos.coords.latitude, lon:pos.coords.longitude};
+  sessionGpsTrace.push({...cur, t:Date.now()});
+
+  if (lastPos && running && !paused) {
+    const d = haversine(lastPos, cur);
+    if (d > 0.3 && d < 50) {
+      distance += d;
+      updateDistUI();
+    }
+  }
+  const spd = pos.coords.speed;
+  if (spd != null && spd > 0.3) {
+    pace = 500 / spd;
+    sessionPaceTrace.push(pace);
+    updatePaceUI();
+  }
+  lastPos = cur;
+}
+function handleGpsError() {
+  const pill = document.getElementById('pill-gps');
+  pill.className='pill pill-err'; pill.textContent='GPS!';
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   TRACE CANVAS
+══════════════════════════════════════════════════════════════════════ */
+function drawTrace() {
+  const dpr = window.devicePixelRatio||1;
+  const W = traceCanvas.offsetWidth*dpr;
+  const H = traceCanvas.offsetHeight*dpr;
+  if (traceCanvas.width!==W||traceCanvas.height!==H){traceCanvas.width=W;traceCanvas.height=H;}
+  traceCtx.clearRect(0,0,W,H);
+  const hist = accHistory.slice(-120);
+  if (hist.length < 2) return;
+  const min=-8, max=8;
+  const sy = v => H - ((v-min)/(max-min))*H;
+  // zero line
+  traceCtx.strokeStyle='#1a1a1a';traceCtx.lineWidth=1;
+  traceCtx.beginPath();traceCtx.moveTo(0,sy(0));traceCtx.lineTo(W,sy(0));traceCtx.stroke();
+  // threshold lines
+  traceCtx.strokeStyle='#2a1a00';traceCtx.lineWidth=1;
+  traceCtx.setLineDash([4,4]);
+  traceCtx.beginPath();traceCtx.moveTo(0,sy(1.5));traceCtx.lineTo(W,sy(1.5));traceCtx.stroke();
+  traceCtx.setLineDash([]);
+  // fill
+  const grad=traceCtx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'rgba(255,170,0,.35)');grad.addColorStop(1,'rgba(255,170,0,0)');
+  traceCtx.beginPath();
+  hist.forEach((v,i)=>i===0?traceCtx.moveTo(0,sy(v)):traceCtx.lineTo((i/(hist.length-1))*W,sy(v)));
+  traceCtx.lineTo(W,sy(0));traceCtx.lineTo(0,sy(0));traceCtx.closePath();
+  traceCtx.fillStyle=grad;traceCtx.fill();
+  // line
+  traceCtx.beginPath();
+  hist.forEach((v,i)=>i===0?traceCtx.moveTo(0,sy(v)):traceCtx.lineTo((i/(hist.length-1))*W,sy(v)));
+  traceCtx.strokeStyle='#ffaa00';traceCtx.lineWidth=1.5*dpr;traceCtx.lineJoin='round';traceCtx.stroke();
+}
+
+function rafLoop() {
+  if (needsTraceDraw) { drawTrace(); needsTraceDraw=false; }
+  // Update raw acc display
+  document.getElementById('raw-acc').textContent = (rawAccX>=0?'+':'')+rawAccX.toFixed(2)+' m/s²';
+  traceRafId = requestAnimationFrame(rafLoop);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   UI UPDATE FUNCTIONS
+══════════════════════════════════════════════════════════════════════ */
+function updateRateUI() {
+  const el = document.getElementById('val-rate');
+  el.textContent = running&&strokeRate>0 ? strokeRate : '--';
+  el.className = 'val' + (running&&strokeRate>0?'':' dim');
+  document.getElementById('sub-strokes').textContent = `strokes · ${strokeCount}`;
+}
+function updatePaceUI() {
+  const el = document.getElementById('val-pace');
+  el.textContent = running&&pace>0 ? fmt(pace) : '--:--';
+  el.className = 'val' + (running&&pace>0?'':' dim');
+  const mps = pace>0?(500/pace).toFixed(1):'--';
+  document.getElementById('sub-speed').textContent = `${mps} m/s`;
+}
+function updateDistUI() {
+  const el = document.getElementById('val-dist');
+  el.textContent = (distance/1000).toFixed(2);
+  el.className = 'val sm' + (distance>0?'':' dim');
+  const lapDist = Math.round(distance - lapStartDist);
+  const lapEl = document.getElementById('val-lapdist');
+  lapEl.textContent = running ? lapDist+'m' : '—';
+  lapEl.className = 'val sm' + (running&&lapDist>0?'':' dim');
+  const lapEl2 = document.getElementById('val-laptime');
+  lapEl2.textContent = running ? fmt(elapsed-lapStartTime) : '--:--';
+  lapEl2.className = 'val sm' + (running?'':' dim');
+}
+function updateCatchUI() {
+  const pct = catchLast!=null ? Math.max(0,Math.min(100,((catchLast+8)/16)*100)) : 50;
+  const col = catchLast!=null ? catchColor(catchLast) : '#333';
+  const fill = document.getElementById('catch-fill');
+  const needle = document.getElementById('catch-needle');
+  fill.style.left = catchLast!=null&&catchLast<0 ? pct+'%' : '50%';
+  fill.style.width = catchLast!=null ? Math.abs(pct-50)+'%' : '0';
+  fill.style.background = col;
+  needle.style.left = pct+'%';
+  needle.style.background = col;
+  const s = v => v!=null?(v>=0?'+':'')+v.toFixed(2):'—';
+  document.getElementById('cs-last').textContent = s(catchLast);
+  document.getElementById('cs-last').style.color = catchLast!=null?col:'#333';
+  document.getElementById('cs-peak').textContent = s(catchPeakSession);
+  document.getElementById('cs-avg').textContent = s(catchAvg8);
+}
+function updateCharUI() {
+  const needle = document.getElementById('char-needle');
+  const name   = document.getElementById('char-name');
+  needle.style.left = strokeChar+'%';
+  needle.style.background = running ? charColor(strokeChar) : '#333';
+  name.textContent = running ? charLabel(strokeChar) : '—';
+  name.style.color = running ? charColor(strokeChar) : '#333';
+}
+function updateTimerUI() {
+  document.getElementById('hdr-timer').textContent = fmtH(elapsed);
+  updateDistUI();
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   SESSION CONTROLS
+══════════════════════════════════════════════════════════════════════ */
+let sessionStartTime = null;
+
+function renderCtrl() {
+  const bar = document.getElementById('ctrl-bar');
+  const dot = document.getElementById('rec-dot');
+  if (!running) {
+    bar.innerHTML = `<button class="btn btn-start" id="btn-start">START</button>
+      ${elapsed>0?'<button class="btn btn-reset" id="btn-reset">RESET</button>':''}`;
+    dot.style.display='none';
+    document.getElementById('btn-start').onclick = startSession;
+    if (elapsed>0) document.getElementById('btn-reset').onclick = resetSession;
+  } else if (paused) {
+    bar.innerHTML = `<button class="btn btn-start" id="btn-resume">RESUME</button>
+                     <button class="btn btn-reset"  id="btn-reset">RESET</button>`;
+    dot.style.display='none';
+    document.getElementById('btn-resume').onclick = resumeSession;
+    document.getElementById('btn-reset').onclick  = resetSession;
+  } else {
+    bar.innerHTML = `<button class="btn btn-pause" id="btn-pause">PAUSE</button>
+                     <button class="btn btn-lap"   id="btn-lap">LAP</button>
+                     <button class="btn btn-stop"  id="btn-stop">STOP</button>`;
+    dot.style.display='block';
+    document.getElementById('btn-pause').onclick = pauseSession;
+    document.getElementById('btn-lap').onclick   = recordLap;
+    document.getElementById('btn-stop').onclick  = stopSession;
+  }
+}
+
+function startSession() {
+  if (!sessionStartTime) sessionStartTime = Date.now();
+  lapStartDist = distance; lapStartTime = elapsed;
+  running = true; paused = false;
+  timerInterval = setInterval(()=>{ elapsed++; updateTimerUI(); }, 1000);
+  renderCtrl();
+}
+function pauseSession() {
+  paused = true; clearInterval(timerInterval);
+  renderCtrl();
+}
+function resumeSession() {
+  paused = false;
+  timerInterval = setInterval(()=>{ elapsed++; updateTimerUI(); }, 1000);
+  renderCtrl();
+}
+function stopSession() {
+  running=false; paused=false;
+  clearInterval(timerInterval);
+  // Save session
+  if (elapsed > 10 && sessionStrokes.length > 0) {
+    const avgPace = sessionPaceTrace.length>0 ? sessionPaceTrace.reduce((a,b)=>a+b,0)/sessionPaceTrace.length : 0;
+    const avgRate = sessionStrokes.length>0 ? sessionStrokes.reduce((a,b)=>a+b.rate,0)/sessionStrokes.length : 0;
+    const session = {
+      id: Date.now().toString(),
+      startTime: sessionStartTime,
+      endTime: Date.now(),
+      duration: elapsed,
+      distance: Math.round(distance),
+      avgPace: Math.round(avgPace),
+      avgRate: Math.round(avgRate),
+      maxRate: Math.max(...sessionStrokes.map(s=>s.rate),0),
+      catchPeakSession,
+      catchAvg8: catchAvg8,
+      strokeCount,
+      strokes: sessionStrokes,
+      paceTrace: sessionPaceTrace,
+      gpsTrace: sessionGpsTrace,
+      hrTrace: null,
+      laps
+    };
+    saveSession(session);
+    showToast('Session saved');
+  }
+  renderCtrl();
+}
+function resetSession() {
+  running=false;paused=false;
+  clearInterval(timerInterval);
+  elapsed=0;distance=0;pace=0;strokeRate=0;strokeCount=0;
+  catchLast=null;catchPeakSession=null;catchAvg8=null;strokeChar=50;
+  lapStartDist=0;lapStartTime=0;laps=[];
+  sessionStrokes=[];sessionPaceTrace=[];sessionGpsTrace=[];
+  catchValues.length=0;strokeTimestamps.length=0;
+  inStroke=false;peakAcc=0;sessionStartTime=null;
+  document.getElementById('laps-wrap').style.display='none';
+  document.getElementById('laps-body').innerHTML='';
+  updateTimerUI();updateRateUI();updatePaceUI();updateCatchUI();updateCharUI();
+  renderCtrl();
+}
+function recordLap() {
+  if (!running||paused) return;
+  const lapDist = Math.round(distance - lapStartDist);
+  const lapTime = elapsed - lapStartTime;
+  const lapPace = lapDist>5&&lapTime>0 ? (lapTime/lapDist)*500 : 0;
+  const lap = {n:laps.length+1, dist:lapDist, time:lapTime, pace:lapPace, rate:strokeRate};
+  laps.push(lap);
+  lapStartDist=distance; lapStartTime=elapsed;
+  renderLaps();
+  showToast(`Lap ${lap.n} — ${lapDist}m`);
+}
+
+function renderLaps() {
+  const wrap = document.getElementById('laps-wrap');
+  const body = document.getElementById('laps-body');
+  if (laps.length===0){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  const best = laps.length>1 ? laps.reduce((b,l)=>l.pace<b.pace?l:b,laps[0]) : null;
+  body.innerHTML = [...laps].reverse().map(l=>`
+    <div class="lap-row${best&&l.n===best.n?' best':''}">
+      <span style="color:#2a2a2a">${l.n}</span>
+      <span>${l.dist}m</span>
+      <span>${fmt(l.time)}</span>
+      <span>${l.pace>0?fmt(l.pace):'—'}</span>
+      <span>${l.rate}</span>
+    </div>`).join('');
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   SENSOR INIT
+══════════════════════════════════════════════════════════════════════ */
+document.getElementById('perm-btn').onclick = async () => {
+  // DeviceMotion permission (iOS 13+)
+  if (typeof DeviceMotionEvent !== 'undefined' &&
+      typeof DeviceMotionEvent.requestPermission === 'function') {
+    try {
+      const res = await DeviceMotionEvent.requestPermission();
+      if (res !== 'granted') { alert('Motion permission denied. Enable in Settings → Safari → Motion & Orientation Access.'); return; }
+    } catch(e) { alert('Could not request motion permission: '+e.message); return; }
+  }
+
+  // Motion listener
+  window.addEventListener('devicemotion', handleMotion, {passive:true});
+  document.getElementById('pill-acc').className='pill pill-on';
+  document.getElementById('pill-acc').textContent='ACC';
+
+  // GPS
+  if (navigator.geolocation) {
+    gpsWatchId = navigator.geolocation.watchPosition(
+      handlePosition, handleGpsError,
+      {enableHighAccuracy:true, maximumAge:1000, timeout:15000}
+    );
+  } else {
+    document.getElementById('pill-gps').className='pill pill-err';
+    document.getElementById('pill-gps').textContent='NO GPS';
+  }
+
+  // Wake lock
+  if ('wakeLock' in navigator) {
+    try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e) {}
+    document.addEventListener('visibilitychange', async()=>{
+      if (document.visibilityState==='visible'&&wakeLock) {
+        try { wakeLock = await navigator.wakeLock.request('screen'); } catch {}
+      }
+    });
+  }
+
+  // Switch to live screen
+  document.getElementById('screen-perm').classList.remove('active');
+  document.getElementById('screen-live').classList.add('active');
+  renderCtrl();
+  rafLoop();
+};
+
+/* ══════════════════════════════════════════════════════════════════════
+   TAB NAVIGATION
+══════════════════════════════════════════════════════════════════════ */
+function showTab(tab) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(`screen-${tab}`).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t=>{
+    if (t.textContent.toLowerCase().includes(tab)) t.classList.add('active');
+  });
+  if (tab==='analysis') renderAnalysisList();
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ANALYSIS — SESSION LIST
+══════════════════════════════════════════════════════════════════════ */
+function renderAnalysisList() {
+  const sessions = loadSessions();
+  const pill = document.getElementById('session-count-pill');
+  pill.textContent = `${sessions.length} session${sessions.length!==1?'s':''}`;
+
+  const list = document.getElementById('session-list');
+  const noEl = document.getElementById('no-sessions');
+
+  if (sessions.length===0) {
+    noEl.style.display='block';
+    list.querySelectorAll('.session-item').forEach(e=>e.remove());
+    return;
+  }
+  noEl.style.display='none';
+  list.querySelectorAll('.session-item').forEach(e=>e.remove());
+
+  sessions.forEach(s=>{
+    const el = document.createElement('div');
+    el.className='session-item';
+    el.innerHTML=`
+      <div class="session-item-date">${fmtDate(s.startTime)}${s.hrTrace?'  🫀 HR imported':''}</div>
+      <div class="session-item-stats">
+        <div class="session-item-stat"><span>${(s.distance/1000).toFixed(2)}</span><span>KM</span></div>
+        <div class="session-item-stat"><span>${fmtH(s.duration)}</span><span>TIME</span></div>
+        <div class="session-item-stat"><span>${s.avgPace>0?fmt(s.avgPace):'—'}</span><span>AVG PACE</span></div>
+        <div class="session-item-stat"><span>${s.strokeCount||0}</span><span>STROKES</span></div>
+      </div>`;
+    el.onclick=()=>showSessionDetail(s.id);
+    list.appendChild(el);
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ANALYSIS — SESSION DETAIL
+══════════════════════════════════════════════════════════════════════ */
+function showSessionDetail(id) {
+  const sessions = loadSessions();
+  const s = sessions.find(x=>x.id===id);
+  if (!s) return;
+
+  document.getElementById('analysis-list-view').style.display='none';
+  document.getElementById('analysis-detail-view').style.display='block';
+  document.getElementById('back-btn').onclick=()=>{
+    document.getElementById('analysis-detail-view').style.display='none';
+    document.getElementById('analysis-list-view').style.display='block';
+    renderAnalysisList();
   };
 
-  setButton("pause", "PAUSE");
+  const avgCatch = s.strokes&&s.strokes.length>0 ?
+    (s.strokes.reduce((a,b)=>a+b.catchPeak,0)/s.strokes.length).toFixed(2) : '—';
 
-  navigator.geolocation.watchPosition(pos=>{
-    const c=pos.coords;
-
-    if(lastPos){
-      const d=haversine(lastPos,{lat:c.latitude,lon:c.longitude});
-      if(d>0 && d<25) dist+=d;
-    }
-
-    lastPos={lat:c.latitude,lon:c.longitude};
-    document.getElementById("dist").innerText=(dist/1000).toFixed(2);
-
-  },()=>{}, {enableHighAccuracy:true});
-}
-
-function pause(){
-  state = STATE.PAUSED;
-  setButton("resume","RESUME");
-}
-
-function resume(){
-  state = STATE.ROWING;
-  setButton("pause","PAUSE");
-}
-
-function stop(){
-  state = STATE.STOPPED;
-  setButton("start","RESTART");
-
-  const blob = new Blob([JSON.stringify(session,null,2)],{
-    type:"application/json"
-  });
-
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download="scull_v4.json";
-  a.click();
-}
-
-/* =========================
-BUTTON STATE BINDING
-========================= */
-function setButton(type,text){
-  const b=document.getElementById("mainBtn");
-
-  b.className=type;
-
-  if(type==="start") b.onclick=start;
-  if(type==="pause") b.onclick=mainAction;
-  if(type==="resume") b.onclick=mainAction;
-}
-
-/* =========================
-TIMER
-========================= */
-setInterval(()=>{
-  if(state!==STATE.ROWING) return;
-
-  t++;
-  document.getElementById("timer").innerText=
-    String(Math.floor(t/60)).padStart(2,'0')+":"+
-    String(t%60).padStart(2,'0');
-},1000);
-
-/* =========================
-ACCEL / STROKES
-========================= */
-window.addEventListener("devicemotion",e=>{
-  if(state!==STATE.ROWING) return;
-
-  const x = e.acceleration?.x || 0;
-
-  accBuf.push(x);
-  if(accBuf.length>200) accBuf.shift();
-
-  session.rawAcc.push({t:Date.now(),x});
-
-  const TH=1.3;
-
-  if(!strokeState && x>TH){
-    strokeState=true;
-    strokeStart={
-      t:Date.now(),
-      acc:[]
-    };
+  let hrHTML = '';
+  if (s.hrTrace && s.hrTrace.length>0) {
+    const hrs = s.hrTrace.map(h=>h.hr);
+    const avgHr=Math.round(hrs.reduce((a,b)=>a+b,0)/hrs.length);
+    const maxHr=Math.max(...hrs), minHr=Math.min(...hrs);
+    // HR zones (rough: max HR ~185 for masters)
+    const maxHRest = 185;
+    const zones=[0,0,0,0,0];
+    hrs.forEach(h=>{
+      const pct=h/maxHRest;
+      if(pct<.6)zones[0]++;else if(pct<.7)zones[1]++;else if(pct<.8)zones[2]++;
+      else if(pct<.9)zones[3]++;else zones[4]++;
+    });
+    const total=hrs.length;
+    const zPcts=zones.map(z=>Math.round(z/total*100));
+    const zColors=['#00aaff','#00ff88','#ffaa00','#ff6600','#ff2244'];
+    const zNames=['Z1','Z2','Z3','Z4','Z5'];
+    hrHTML=`
+      <div class="stat-row">
+        <div class="stat-box c-red"><span class="stat-box-lbl">AVG HR</span><span class="stat-box-val">${avgHr}</span><span class="stat-box-unit">BPM</span></div>
+        <div class="stat-box c-red"><span class="stat-box-lbl">MAX HR</span><span class="stat-box-val">${maxHr}</span><span class="stat-box-unit">BPM</span></div>
+        <div class="stat-box c-red"><span class="stat-box-lbl">MIN HR</span><span class="stat-box-val">${minHr}</span><span class="stat-box-unit">BPM</span></div>
+      </div>
+      <div class="hr-zones">
+        ${zNames.map((z,i)=>`<div class="hr-zone-bar" style="background:${zColors[i]}22;border:1px solid ${zColors[i]}44">
+          <span class="hr-zone-lbl" style="color:${zColors[i]}">${z}</span>
+          <span class="hr-zone-pct" style="color:${zColors[i]}">${zPcts[i]}%</span>
+        </div>`).join('')}
+      </div>
+      <canvas id="hr-canvas" class="analysis-canvas" style="margin-top:8px"></canvas>`;
+  } else {
+    hrHTML=`
+      <div class="fit-zone" id="fit-drop-zone">
+        <div class="fit-zone-text">
+          🫀 Import Heart Rate from Garmin<br/>
+          <span style="color:#1a1a1a">Tap to select .FIT file from Files app</span><br/>
+          <span style="font-size:10px;color:#1a1a1a">Garmin Connect → Sessions → Export FIT</span>
+        </div>
+      </div>
+      <div class="fit-status" id="fit-status" style="color:#333;text-align:center"></div>`;
   }
 
-  if(strokeState){
-    strokeStart.acc.push(x);
+  document.getElementById('detail-content').innerHTML=`
+    <div style="font-size:11px;color:#444;letter-spacing:.1em;margin-bottom:10px">${fmtDate(s.startTime)}</div>
 
-    if(x<0.4){
-      strokeState=false;
+    <div class="stat-row">
+      <div class="stat-box c-blue"><span class="stat-box-lbl">DISTANCE</span><span class="stat-box-val">${(s.distance/1000).toFixed(2)}</span><span class="stat-box-unit">KM</span></div>
+      <div class="stat-box c-green"><span class="stat-box-lbl">AVG PACE</span><span class="stat-box-val">${s.avgPace>0?fmt(s.avgPace):'—'}</span><span class="stat-box-unit">/500M</span></div>
+      <div class="stat-box c-amber"><span class="stat-box-lbl">DURATION</span><span class="stat-box-val">${fmtH(s.duration)}</span><span class="stat-box-unit">H:MM:SS</span></div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-box c-amber"><span class="stat-box-lbl">AVG RATE</span><span class="stat-box-val">${s.avgRate||'—'}</span><span class="stat-box-unit">S/MIN</span></div>
+      <div class="stat-box c-amber"><span class="stat-box-lbl">MAX RATE</span><span class="stat-box-val">${s.maxRate||'—'}</span><span class="stat-box-unit">S/MIN</span></div>
+      <div class="stat-box c-white"><span class="stat-box-lbl">STROKES</span><span class="stat-box-val">${s.strokeCount||0}</span><span class="stat-box-unit">TOTAL</span></div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-box c-blue"><span class="stat-box-lbl">CATCH PEAK</span><span class="stat-box-val">${s.catchPeakSession!=null?'+'+s.catchPeakSession.toFixed(2):'—'}</span><span class="stat-box-unit">M/S²</span></div>
+      <div class="stat-box c-blue"><span class="stat-box-lbl">CATCH AVG</span><span class="stat-box-val">${avgCatch!='—'?'+'+avgCatch:avgCatch}</span><span class="stat-box-unit">M/S²</span></div>
+      <div class="stat-box c-blue"><span class="stat-box-lbl">LAPS</span><span class="stat-box-val">${s.laps?s.laps.length:0}</span><span class="stat-box-unit">SPLITS</span></div>
+    </div>
 
-      const peak=Math.max(...strokeStart.acc);
+    ${hrHTML}
 
-      const stroke={
-        t:strokeStart.t,
-        peak
+    ${s.paceTrace&&s.paceTrace.length>2?`
+    <div class="chart-panel c-green" style="margin-top:8px">
+      <div class="chart-lbl"><span style="color:var(--green)">PACE TRACE</span><span>min/500m</span></div>
+      <canvas id="pace-canvas" class="analysis-canvas"></canvas>
+    </div>`:''}
+
+    ${s.strokes&&s.strokes.length>2?`
+    <div class="chart-panel c-blue">
+      <div class="chart-lbl"><span style="color:var(--blue)">CATCH ACCELERATION</span><span>m/s² per stroke</span></div>
+      <canvas id="catch-canvas" class="analysis-canvas"></canvas>
+    </div>
+    <div class="chart-panel c-amber">
+      <div class="chart-lbl"><span style="color:var(--amber)">STROKE RATE</span><span>s/min</span></div>
+      <canvas id="rate-canvas" class="analysis-canvas"></canvas>
+    </div>`:''}
+
+    ${s.laps&&s.laps.length>0?`
+    <div class="chart-panel" style="border-color:#333;margin-top:4px">
+      <div class="chart-lbl"><span style="color:#fff">LAPS</span></div>
+      <div class="lap-hdr"><span>#</span><span>DIST</span><span>TIME</span><span>PACE</span><span>RATE</span></div>
+      ${s.laps.map(l=>`<div class="lap-row"><span style="color:#2a2a2a">${l.n}</span><span>${l.dist}m</span><span>${fmt(l.time)}</span><span>${l.pace>0?fmt(l.pace):'—'}</span><span>${l.rate}</span></div>`).join('')}
+    </div>`:''}
+
+    <button class="export-btn" id="export-csv-btn">⬇ Export CSV</button>
+    <button class="delete-btn" id="delete-btn">Delete Session</button>
+    <div style="height:16px"></div>
+  `;
+
+  // Draw charts after render
+  requestAnimationFrame(()=>{
+    if (s.paceTrace&&s.paceTrace.length>2) drawAnalysisChart('pace-canvas', s.paceTrace, 'var(--green)', true);
+    if (s.strokes&&s.strokes.length>2) {
+      drawAnalysisChart('catch-canvas', s.strokes.map(x=>x.catchPeak), 'var(--blue)', false);
+      drawAnalysisChart('rate-canvas',  s.strokes.map(x=>x.rate), 'var(--amber)', false);
+    }
+    if (s.hrTrace&&s.hrTrace.length>2) drawAnalysisChart('hr-canvas', s.hrTrace.map(x=>x.hr), 'var(--red)', false);
+
+    // FIT import
+    const fitZone = document.getElementById('fit-drop-zone');
+    if (fitZone) {
+      fitZone.onclick=()=>{
+        const inp=document.getElementById('fit-input');
+        inp.onchange=e=>handleFitFile(e,s.id);
+        inp.click();
       };
+    }
 
-      strokes.push(stroke);
-      session.strokes.push(stroke);
+    // Export CSV
+    document.getElementById('export-csv-btn').onclick=()=>exportCSV(s);
+    // Delete
+    document.getElementById('delete-btn').onclick=()=>{
+      if (confirm('Delete this session?')) {
+        deleteSession(s.id);
+        document.getElementById('back-btn').click();
+        showToast('Session deleted');
+      }
+    };
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ANALYSIS CHARTS
+══════════════════════════════════════════════════════════════════════ */
+function drawAnalysisChart(canvasId, data, color, invertY) {
+  const canvas=document.getElementById(canvasId);
+  if(!canvas||data.length<2) return;
+  const dpr=window.devicePixelRatio||1;
+  const W=canvas.offsetWidth*dpr, H=canvas.offsetHeight*dpr;
+  canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  const min=Math.min(...data), max=Math.max(...data);
+  const range=max-min||1;
+  const pad=4;
+  const sy=v=>invertY
+    ? pad+(((v-min)/range)*(H-pad*2))
+    : (H-pad)-(((v-min)/range)*(H-pad*2));
+  // grid
+  ctx.strokeStyle='#111';ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const y=pad+i*(H-pad*2)/4;
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();
+  }
+  // fill
+  const grad=ctx.createLinearGradient(0,0,0,H);
+  const c=color.replace('var(','').replace(')','');
+  const hexMap={'--green':'#00ff88','--blue':'#00aaff','--amber':'#ffaa00','--red':'#ff2244'};
+  const hex=hexMap[c]||'#00aaff';
+  grad.addColorStop(0,hex+'44');grad.addColorStop(1,hex+'00');
+  ctx.beginPath();
+  data.forEach((v,i)=>i===0?ctx.moveTo(0,sy(v)):ctx.lineTo((i/(data.length-1))*W,sy(v)));
+  ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();
+  ctx.fillStyle=grad;ctx.fill();
+  // line
+  ctx.beginPath();
+  data.forEach((v,i)=>i===0?ctx.moveTo(0,sy(v)):ctx.lineTo((i/(data.length-1))*W,sy(v)));
+  ctx.strokeStyle=hex;ctx.lineWidth=1.5*dpr;ctx.lineJoin='round';ctx.stroke();
+  // labels
+  ctx.fillStyle='#444';ctx.font=`${9*dpr}px Share Tech Mono`;ctx.textAlign='left';
+  ctx.fillText(max.toFixed(1),4,12*dpr);
+  ctx.fillText(min.toFixed(1),4,H-4);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   FIT FILE PARSER
+   Minimal binary FIT parser — extracts HR + timestamp records
+══════════════════════════════════════════════════════════════════════ */
+async function handleFitFile(event, sessionId) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('fit-status');
+  status.textContent='Parsing FIT file…';status.style.color='var(--amber)';
+
+  try {
+    const buf = await file.arrayBuffer();
+    const hrData = parseFIT(buf);
+    if (!hrData || hrData.length===0) {
+      status.textContent='No HR data found in FIT file.';
+      status.style.color='var(--red)';
+      return;
+    }
+    // Save to session
+    const sessions=loadSessions();
+    const idx=sessions.findIndex(s=>s.id===sessionId);
+    if (idx>=0) {
+      sessions[idx].hrTrace=hrData;
+      saveSessions(sessions);
+      status.textContent=`✓ ${hrData.length} HR samples imported`;
+      status.style.color='var(--green)';
+      setTimeout(()=>showSessionDetail(sessionId),800);
+    }
+  } catch(e) {
+    status.textContent='Error parsing FIT: '+e.message;
+    status.style.color='var(--red)';
+  }
+  event.target.value='';
+}
+
+function parseFIT(buffer) {
+  const view = new DataView(buffer);
+  const FIT_EPOCH = 631065600000; // FIT epoch = 31 Dec 1989 00:00:00 UTC in ms
+
+  // Validate header
+  const headerSize = view.getUint8(0);
+  const protocol = view.getUint8(1);
+  const magic = view.getUint32(8, true);
+  // .FIT = 0x2E464954
+  if (magic !== 0x2E464954) throw new Error('Not a valid FIT file');
+
+  const hrRecords=[];
+  let pos=headerSize;
+  const dataSize=view.getUint32(4,true);
+  const end=headerSize+dataSize;
+
+  // Local message definitions (up to 16 local types)
+  const localDefs=new Array(16).fill(null);
+
+  while(pos < end-1) {
+    if(pos>=buffer.byteLength-1) break;
+    const recHeader=view.getUint8(pos); pos++;
+
+    if(recHeader & 0x40) {
+      // Definition message
+      const localMsgType = recHeader & 0x0F;
+      pos++; // reserved
+      const arch = view.getUint8(pos); pos++;
+      const globalMsgNum = arch===0 ? view.getUint16(pos,true) : view.getUint16(pos,false); pos+=2;
+      const numFields = view.getUint8(pos); pos++;
+      const fields=[];
+      for(let i=0;i<numFields;i++) {
+        const fieldNum=view.getUint8(pos);pos++;
+        const size=view.getUint8(pos);pos++;
+        const baseType=view.getUint8(pos);pos++;
+        fields.push({fieldNum,size,baseType});
+      }
+      // Handle developer fields if present
+      if(recHeader & 0x20) {
+        const numDevFields=view.getUint8(pos);pos++;
+        for(let i=0;i<numDevFields;i++){pos+=3;}
+      }
+      localDefs[localMsgType]={globalMsgNum,arch,fields};
+
+    } else if(!(recHeader & 0x80)) {
+      // Data message
+      const localMsgType = recHeader & 0x0F;
+      const def = localDefs[localMsgType];
+      if(!def){
+        // Skip unknown — can't parse without definition
+        break;
+      }
+      const le = def.arch===0;
+      const msgStart=pos;
+      let timestamp=null, hr=null;
+
+      for(const f of def.fields) {
+        if(pos+f.size > buffer.byteLength) {pos=end;break;}
+        // Global msg 20 = record message
+        if(def.globalMsgNum===20) {
+          if(f.fieldNum===253 && f.size===4) { // timestamp
+            timestamp=view.getUint32(pos,le);
+          }
+          if(f.fieldNum===3 && f.size===1) { // heart_rate
+            hr=view.getUint8(pos);
+          }
+        }
+        pos+=f.size;
+      }
+
+      if(def.globalMsgNum===20 && hr!=null && hr>0 && hr<250 && timestamp!=null) {
+        hrRecords.push({
+          t: FIT_EPOCH + timestamp*1000,
+          hr
+        });
+      }
+
+    } else {
+      // Compressed timestamp record — skip
+      const localMsgType=(recHeader>>5)&0x03;
+      const def=localDefs[localMsgType];
+      if(def) { for(const f of def.fields){pos+=f.size;} }
+      else break;
     }
   }
-
-  draw(accBuf);
-});
-
-/* =========================
-HELPERS
-========================= */
-function haversine(a,b){
-  const R=6371000;
-  const dLat=(b.lat-a.lat)*Math.PI/180;
-  const dLon=(b.lon-a.lon)*Math.PI/180;
-
-  const x=
-    Math.sin(dLat/2)**2+
-    Math.cos(a.lat*Math.PI/180)*
-    Math.cos(b.lat*Math.PI/180)*
-    Math.sin(dLon/2)**2;
-
-  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+  return hrRecords;
 }
 
-/* =========================
-GRAPH
-========================= */
-const c=document.getElementById("acc");
-const ctx=c.getContext("2d");
+/* ══════════════════════════════════════════════════════════════════════
+   CSV EXPORT
+══════════════════════════════════════════════════════════════════════ */
+function exportCSV(session) {
+  const rows=[['timestamp','catch_peak_ms2','stroke_char_pct','stroke_rate','pace_s_per_500m','distance_m']];
 
-function draw(buf){
-  const w=c.width=c.offsetWidth;
-  const h=c.height=c.offsetHeight;
+  if (session.strokes && session.strokes.length>0) {
+    session.strokes.forEach(s=>{
+      rows.push([
+        new Date(s.t).toISOString(),
+        s.catchPeak.toFixed(2),
+        s.char,
+        s.rate,
+        s.pace>0?s.pace.toFixed(1):'',
+        s.dist.toFixed(1)
+      ]);
+    });
+  }
 
-  ctx.clearRect(0,0,w,h);
+  // If HR data, add it as a separate section
+  if (session.hrTrace && session.hrTrace.length>0) {
+    rows.push([]);
+    rows.push(['hr_timestamp','heart_rate_bpm','','','','']);
+    session.hrTrace.forEach(h=>{
+      rows.push([new Date(h.t).toISOString(),h.hr,'','','','']);
+    });
+  }
 
-  ctx.beginPath();
-  buf.slice(-120).forEach((v,i)=>{
-    const x=i/120*w;
-    const y=h/2-v*12;
-    i?ctx.lineTo(x,y):ctx.moveTo(x,y);
-  });
-
-  ctx.strokeStyle="#00ff88";
-  ctx.stroke();
+  const csv=rows.map(r=>r.join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`scull_${new Date(session.startTime).toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV exported');
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   SERVICE WORKER (PWA offline)
+══════════════════════════════════════════════════════════════════════ */
+if ('serviceWorker' in navigator) {
+  const swCode = `
+    const CACHE='scull-v1';
+    self.addEventListener('install',e=>{
+      e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./'])));
+      self.skipWaiting();
+    });
+    self.addEventListener('fetch',e=>{
+      e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));
+    });
+  `;
+  const blob=new Blob([swCode],{type:'application/javascript'});
+  const swUrl=URL.createObjectURL(blob);
+  navigator.serviceWorker.register(swUrl).catch(()=>{});
+}
 </script>
 
 </body>
