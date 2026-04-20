@@ -3,178 +3,320 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
+<title>Scull Metrics V3</title>
 
-<meta name="apple-mobile-web-app-capable" content="yes"/>
-<meta name="apple-mobile-web-app-status-bar-style" content="black"/>
-<meta name="apple-mobile-web-app-title" content="Scull"/>
-<meta name="theme-color" content="#000000"/>
-
-<title>Scull · Metrics</title>
-
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
 
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html{height:100%;font-size:16px;-webkit-text-size-adjust:none}
-body{
-  height:100%;background:#000;color:#fff;overflow:hidden;
-  font-family:'Oswald',sans-serif;
-  padding-top:env(safe-area-inset-top);
-  padding-bottom:env(safe-area-inset-bottom);
-}
-
 :root{
-  --amber:#ffaa00;
   --green:#00ff88;
   --blue:#00aaff;
+  --amber:#ffaa00;
   --red:#ff2244;
-  --dim:#333;
-  --subdim:#1a1a1a;
-  --muted:#555;
+  --bg:#000;
 }
 
-.screen{display:none;flex-direction:column;height:100vh;overflow:hidden}
-.screen.active{display:flex}
-
-.tab-bar{
-display:flex;border-top:1px solid #111;
-background:#000;flex-shrink:0;
-padding-bottom:env(safe-area-inset-bottom);
+body{
+  margin:0;background:#000;color:#fff;
+  font-family:Oswald,sans-serif;
 }
 
-.tab{
-flex:1;padding:10px 0 8px;text-align:center;
-font-size:9px;letter-spacing:.2em;color:#444;
-font-weight:600;cursor:pointer;border:none;background:none;
-text-transform:uppercase;
-}
-
-.tab.active{color:var(--blue)}
+.screen{display:none;height:100vh;flex-direction:column}
+.active{display:flex}
 
 .hdr{
-display:flex;align-items:center;justify-content:space-between;
-padding:10px 14px 8px;border-bottom:1px solid #111;flex-shrink:0;
+  display:flex;justify-content:space-between;
+  padding:10px;border-bottom:1px solid #111;
 }
 
-.hdr-timer{
-font-family:'Share Tech Mono',monospace;
-font-size:30px;
+.timer{font-family:"Share Tech Mono";font-size:26px}
+
+.grid{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:1px;background:#111;
 }
 
-.pill-on{background:var(--green);color:#000}
-.pill-off{background:#111;color:#333}
-
-.scroll-area{flex:1;overflow-y:auto}
-
-.cell{background:#000;padding:11px 12px;border-top:3px solid transparent}
-
-.c-amber{border-color:var(--amber)}
-.c-green{border-color:var(--green)}
-.c-blue{border-color:var(--blue)}
-.c-red{border-color:var(--red)}
-
-.lbl{font-size:9px;color:#444}
-.val{
-font-family:'Share Tech Mono',monospace;
-font-size:50px;
+.cell{
+  background:#000;padding:10px;
 }
 
+.label{font-size:9px;color:#555;letter-spacing:.2em}
+.value{font-family:"Share Tech Mono";font-size:42px}
 .unit{font-size:9px;color:var(--blue)}
 
-.btn-start{background:var(--green);color:#000}
-.btn-stop{background:var(--red);color:#fff}
-.btn{flex:1;height:54px;border:none;font-weight:700}
+button{
+  flex:1;padding:14px;font-weight:700;
+  border:none;
+}
 
-.trace-canvas{width:100%;height:48px;display:block;background:#050505}
+.start{background:var(--green)}
+.stop{background:var(--red)}
+.pause{background:var(--amber)}
+.ctrl{display:flex;gap:8px;padding:10px}
+canvas{width:100%;height:70px;background:#050505}
 </style>
 </head>
 
 <body>
 
-<div id="screen-live" class="screen active">
+<div id="live" class="screen active">
 
-  <div class="hdr">
-    <span>SCULL</span>
-    <span class="hdr-timer" id="timer">00:00</span>
-    <span id="acc-pill" class="pill-off">ACC</span>
+<div class="hdr">
+  <div>SCULL V3</div>
+  <div class="timer" id="timer">00:00</div>
+</div>
+
+<div class="grid">
+  <div class="cell">
+    <div class="label">PACE /500</div>
+    <div class="value" id="pace">--:--</div>
+    <div class="unit">min/500</div>
   </div>
 
-  <div class="scroll-area">
-
-    <div class="cell c-amber">
-      <div class="lbl">Stroke Rate</div>
-      <div class="val" id="rate">--</div>
-    </div>
-
-    <div class="cell c-green">
-      <div class="lbl">Pace / 500m</div>
-      <div class="val" id="pace">--:--</div>
-    </div>
-
-    <canvas id="trace" class="trace-canvas"></canvas>
-
+  <div class="cell">
+    <div class="label">RATE</div>
+    <div class="value" id="rate">--</div>
+    <div class="unit">spm</div>
   </div>
 
-  <div style="display:flex">
-    <button class="btn btn-start" id="start">START</button>
+  <div class="cell">
+    <div class="label">DIST</div>
+    <div class="value" id="dist">0.00</div>
+    <div class="unit">km</div>
   </div>
+
+  <div class="cell">
+    <div class="label">STR LEN</div>
+    <div class="value" id="slen">--</div>
+    <div class="unit">m/stroke</div>
+  </div>
+</div>
+
+<canvas id="acc"></canvas>
+
+<div class="ctrl" id="ctrl">
+  <button class="start" onclick="start()">START</button>
+</div>
 
 </div>
 
 <script>
-let running=false;
-let accX=0;
-let history=[];
-let canvas=document.getElementById('trace');
-let ctx=null;
 
-requestAnimationFrame(()=>{
-  ctx=canvas.getContext('2d');
+/* =========================
+STATE (V3 MODEL)
+========================= */
+let running=false;
+let t=0;
+let dist=0;
+
+let lastPos=null;
+
+let strokes=[];
+let strokeState=false;
+let strokeStart=null;
+
+let accBuf=[];
+
+/* biomech model */
+let session={
+  strokes:[],
+  rawAcc:[],
+  gps:[],
+  start:0
+};
+
+/* =========================
+TIMER
+========================= */
+setInterval(()=>{
+  if(!running) return;
+  t++;
+  document.getElementById("timer").innerText=
+    String(Math.floor(t/60)).padStart(2,'0')+":"+
+    String(t%60).padStart(2,'0');
+},1000);
+
+/* =========================
+START
+========================= */
+function start(){
+  running=true;
+  session.start=Date.now();
+
+  navigator.geolocation.watchPosition(pos=>{
+    const c=pos.coords;
+
+    if(lastPos){
+      const d=haversine(lastPos,{lat:c.latitude,lon:c.longitude});
+      if(d>0 && d<25) dist+=d;
+    }
+
+    lastPos={lat:c.latitude,lon:c.longitude};
+    document.getElementById("dist").innerText=(dist/1000).toFixed(2);
+
+  },()=>{}, {enableHighAccuracy:true});
+}
+
+/* =========================
+STROKE MODEL V3
+========================= */
+window.addEventListener("devicemotion",e=>{
+  if(!running) return;
+
+  const x=e.acceleration?.x||0;
+  accBuf.push(x);
+  if(accBuf.length>200) accBuf.shift();
+
+  session.rawAcc.push({t:Date.now(),x});
+
+  const TH=1.3;
+
+  if(!strokeState && x>TH){
+    strokeState=true;
+    strokeStart={
+      t:Date.now(),
+      accSamples:[],
+      startDist:dist
+    };
+  }
+
+  if(strokeState){
+    strokeStart.accSamples.push(x);
+
+    if(x<0.5){
+      strokeState=false;
+
+      const end=Date.now();
+
+      const driveTime=end-strokeStart.t;
+
+      const peak=Math.max(...strokeStart.accSamples);
+
+      const impulse=strokeStart.accSamples.reduce((a,b)=>a+Math.max(0,b),0);
+
+      const strokeDist=dist-strokeStart.startDist;
+
+      const stroke={
+        time:strokeStart.t,
+        driveTime,
+        peakAcc:peak,
+        impulse,
+        strokeLength:strokeDist,
+        rate:calcRate(),
+        dist:strokeDist
+      };
+
+      strokes.push(stroke);
+      session.strokes.push(stroke);
+
+      updateStrokeLength();
+    }
+  }
+
+  draw(accBuf);
 });
 
-function draw(){
-  if(!ctx) return;
-  let w=canvas.width=canvas.offsetWidth;
-  let h=canvas.height=canvas.offsetHeight;
+/* =========================
+RATE
+========================= */
+function calcRate(){
+  if(strokes.length<2) return 0;
+  const last=strokes.slice(-6).map(s=>s.time);
+  const intervals=[];
+  for(let i=1;i<last.length;i++) intervals.push(last[i]-last[i-1]);
+  const avg=intervals.reduce((a,b)=>a+b,0)/intervals.length;
+  return Math.round(60000/avg);
+}
+
+/* =========================
+STROKE LENGTH
+========================= */
+function updateStrokeLength(){
+  if(strokes.length<3) return;
+
+  const avg=strokes
+    .slice(-10)
+    .map(s=>s.strokeLength)
+    .reduce((a,b)=>a+b,0)/Math.min(10,strokes.length);
+
+  document.getElementById("slen").innerText=avg.toFixed(2);
+}
+
+/* =========================
+UI UPDATE
+========================= */
+setInterval(()=>{
+  if(!running) return;
+
+  document.getElementById("rate").innerText=
+    strokes.length?strokes.at(-1).rate:"--";
+
+  const pace=t>0 && dist>0 ? t/(dist/500) : 0;
+  document.getElementById("pace").innerText=
+    pace?fmt(pace):"--:--";
+
+},1000);
+
+/* =========================
+HELPERS
+========================= */
+function fmt(s){
+  s=Math.round(s);
+  return String(Math.floor(s/60)).padStart(2,'0')+":"+
+         String(s%60).padStart(2,'0');
+}
+
+function haversine(a,b){
+  const R=6371000;
+  const dLat=(b.lat-a.lat)*Math.PI/180;
+  const dLon=(b.lon-a.lon)*Math.PI/180;
+
+  const x=
+    Math.sin(dLat/2)**2+
+    Math.cos(a.lat*Math.PI/180)*
+    Math.cos(b.lat*Math.PI/180)*
+    Math.sin(dLon/2)**2;
+
+  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+
+/* =========================
+EXPORT (V3 JSON)
+========================= */
+window.onbeforeunload=()=>{
+  const blob=new Blob([JSON.stringify(session,null,2)],{
+    type:"application/json"
+  });
+
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="scull_v3_session.json";
+  a.click();
+};
+
+/* =========================
+GRAPH
+========================= */
+const c=document.getElementById("acc");
+const ctx=c.getContext("2d");
+
+function draw(buf){
+  const w=c.width=c.offsetWidth;
+  const h=c.height=c.offsetHeight;
 
   ctx.clearRect(0,0,w,h);
 
   ctx.beginPath();
-  ctx.moveTo(0,h/2);
-
-  history.slice(-80).forEach((v,i)=>{
-    let x=i/80*w;
-    let y=h/2 - v*10;
-    ctx.lineTo(x,y);
+  buf.slice(-120).forEach((v,i)=>{
+    const x=i/120*w;
+    const y=h/2-v*12;
+    i?ctx.lineTo(x,y):ctx.moveTo(x,y);
   });
 
-  ctx.strokeStyle="#ffaa00";
+  ctx.strokeStyle="#00ff88";
   ctx.stroke();
 }
 
-function motion(e){
-  let a=e.accelerationIncludingGravity;
-  if(!a) return;
-
-  accX=a.x||0;
-  history.push(accX);
-  if(history.length>200) history.shift();
-
-  draw();
-}
-
-document.getElementById('start').onclick=async()=>{
-  if(typeof DeviceMotionEvent.requestPermission==='function'){
-    let res=await DeviceMotionEvent.requestPermission();
-    if(res!=='granted') return;
-  }
-
-  window.addEventListener('devicemotion',motion);
-
-  document.getElementById('acc-pill').className='pill-on';
-  running=true;
-};
 </script>
 
 </body>
