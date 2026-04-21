@@ -80,134 +80,79 @@ min-height:28px;
 .recdot{width:7px;height:7px;border-radius:50%;background:#e74c3c;animation:blink 1s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
 
-/* ── main body (tiles + optional ctrl column) ── */
-.live-body{
-flex:1;min-height:0;min-width:0;
-display:flex;
-}
+/* ── live-body: row container for grid + ctrl-col ── */
+.live-body{flex:1;min-height:0;min-width:0;display:flex;flex-direction:row;}
 
-/* ═══════════════════════════════════════════════
-TILE GRID
-Portrait:  2 col × 4 row
-Landscape: 4 col × 2 row  (via media query)
-═══════════════════════════════════════════════ */
+/* ── TILE GRID — portrait: 2×4, landscape: 4×2 ── */
 .tile-grid{
 flex:1;min-height:0;min-width:0;
 display:grid;
-grid-template-columns: repeat(2, minmax(0,1fr));
-grid-template-rows:    repeat(4, minmax(0,1fr));
-gap:2px;
-background:#999;
-padding:2px;
+grid-template-columns:repeat(2,minmax(0,1fr));
+grid-template-rows:   repeat(4,minmax(0,1fr));
+gap:2px;background:#999;padding:2px;
 }
-
-/* ── individual tile ── */
 .tile{
-background:#fff;
-display:flex;flex-direction:column;
+background:#fff;display:flex;flex-direction:column;
 overflow:hidden;min-height:0;min-width:0;
 }
 .tile-val-wrap{
 flex:1;min-height:0;min-width:0;overflow:hidden;
 display:flex;flex-direction:column;
 align-items:center;justify-content:center;
-padding:2px 6px;
-gap:2px;
+padding:2px 6px;gap:2px;
 }
-/* Main number — scales with tile height using dvh */
 .tval{
-font-family:‘Roboto Condensed’,sans-serif;
-font-weight:300;
-font-size:clamp(24px, 8dvh, 96px);
-line-height:1;color:#111;
-white-space:nowrap;overflow:hidden;max-width:100%;
-text-align:center;
+font-family:‘Roboto Condensed’,sans-serif;font-weight:300;
+font-size:clamp(22px,8dvh,96px);
+line-height:1;color:#111;white-space:nowrap;overflow:hidden;max-width:100%;text-align:center;
 }
 .tval.dim{color:#ccc}
-/* Label band at bottom */
+.tval-primary{font-size:clamp(26px,9.5dvh,110px);font-weight:400;}
+.lap-sub{font-size:clamp(9px,1.4dvh,13px);color:#aaa;font-weight:400;text-align:center;}
+
+/* Label bands */
 .tlbl{
 background:#1a5276;color:#fff;
-font-size:clamp(8px, 1.4vw, 13px);
-font-weight:400;letter-spacing:.02em;
-text-align:center;padding:3px 4px;
-flex-shrink:0;white-space:nowrap;
-overflow:hidden;text-overflow:ellipsis;
+font-size:clamp(8px,1.4vw,13px);font-weight:400;letter-spacing:.02em;
+text-align:center;padding:3px 4px;flex-shrink:0;
+white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.tlbl-primary{
+background:#154360;font-weight:700;
+font-size:clamp(9px,1.6vw,14px);
+border-top:3px solid #5dade2;padding:4px 4px 3px;
 }
 
-/* ── char bar (inside stroke char tile) ── */
+/* Char bar */
 .cbar-wrap{width:88%;flex-shrink:0}
-.cbar-track{
-height:6px;background:#e8e8e8;border-radius:3px;
-position:relative;overflow:hidden;
-}
-.cbar-zones{position:absolute;inset:0;display:flex}
+.cbar-track{height:6px;background:#e8e8e8;border-radius:3px;position:relative;overflow:hidden;}
+.cbar-zones{position:absolute;inset:0;display:flex;}
 .cz1{background:#e74c3c;flex:1;opacity:.4}
 .cz2{background:#27ae60;flex:2;opacity:.4}
 .cz3{background:#f39c12;flex:1;opacity:.4}
-.cbar-needle{
-position:absolute;top:-3px;width:3px;height:12px;
-background:#1a5276;border-radius:2px;
-transform:translateX(-50%);
-transition:left .35s cubic-bezier(.34,1.56,.64,1);
-box-shadow:0 1px 3px rgba(0,0,0,.25);
-}
+.cbar-needle{position:absolute;top:-3px;width:3px;height:12px;background:#1a5276;border-radius:2px;transform:translateX(-50%);transition:left .35s cubic-bezier(.34,1.56,.64,1);box-shadow:0 1px 3px rgba(0,0,0,.25);}
 .cbar-sub{display:flex;justify-content:space-between;font-size:7px;color:#bbb;margin-top:1px}
-.char-badge{
-font-size:clamp(7px,1.4dvh,11px);font-weight:700;color:#fff;
-padding:1px 8px;border-radius:10px;white-space:nowrap;flex-shrink:0;
-}
+.char-badge{font-size:clamp(7px,1.4dvh,11px);font-weight:700;color:#fff;padding:1px 8px;border-radius:10px;white-space:nowrap;flex-shrink:0;}
 
-/* ── catch bar ── */
+/* Catch bar */
 .catch-bar-wrap{width:88%;flex-shrink:0}
-.catch-bar-bg{
-height:6px;background:#e8e8e8;border-radius:3px;
-position:relative;overflow:hidden;
-}
-.catch-bar-fill{
-position:absolute;top:0;height:100%;border-radius:3px;
-transition:left .12s,width .12s,background .12s;
-}
-.catch-needle{
-position:absolute;top:-3px;width:3px;height:12px;border-radius:2px;
-transform:translateX(-50%);
-transition:left .12s,background .12s;
-box-shadow:0 1px 3px rgba(0,0,0,.25);
-}
+.catch-bar-bg{height:6px;background:#e8e8e8;border-radius:3px;position:relative;overflow:hidden;}
+.catch-bar-fill{position:absolute;top:0;height:100%;border-radius:3px;transition:width .12s,background .12s;}
+.catch-needle{position:absolute;top:-3px;width:3px;height:12px;border-radius:2px;transform:translateX(-50%);transition:left .12s,background .12s;box-shadow:0 1px 3px rgba(0,0,0,.25);}
 .catch-sub{display:flex;justify-content:space-between;font-size:7px;color:#bbb;margin-top:1px}
 .catch-stats{display:flex;gap:14px;flex-shrink:0}
 .cst-v{font-size:clamp(10px,1.8dvh,15px);font-weight:700;color:#111;display:block;line-height:1.1;text-align:center}
 .cst-l{font-size:7px;color:#aaa;letter-spacing:.08em;display:block;text-align:center}
 
-/* ═══════════════════════════════════════════════
-PORTRAIT: controls below grid
-═══════════════════════════════════════════════ */
+/* Portrait controls + tabs */
+.ctrl-col{display:none;}
 .ctrl-row{
-background:#1a5276;
-display:flex;gap:5px;padding:5px 8px;
-padding-bottom:calc(5px + env(safe-area-inset-bottom));
-flex-shrink:0;
+background:#1a5276;display:flex;gap:5px;flex-shrink:0;
+padding:5px 8px calc(5px + env(safe-area-inset-bottom));
 }
-.ctrl-col{display:none} /* hidden in portrait */
-
-.btn{
-flex:1;border:none;border-radius:3px;
-font-family:‘Roboto’,sans-serif;font-weight:700;
-letter-spacing:.06em;text-transform:uppercase;cursor:pointer;
-padding:clamp(8px,1.8dvh,16px) 4px;
-font-size:clamp(11px,1.5dvh,14px);
-transition:filter .1s,transform .1s;
-}
-.btn:active{filter:brightness(.82);transform:scale(.96)}
-.btn-start{background:#27ae60;color:#fff}
-.btn-stop {background:#c0392b;color:#fff}
-.btn-pause{background:#f39c12;color:#fff}
-.btn-lap  {background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3)}
-.btn-reset{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
-
-/* ── tab bar ── */
 .tab-bar{
 display:flex;background:#0f3a54;flex-shrink:0;
-border-top:1px solid rgba(255,255,255,.08);
+border-top:1px solid rgba(255,255,255,.1);
 padding-bottom:env(safe-area-inset-bottom);
 }
 .tab{
@@ -218,49 +163,81 @@ letter-spacing:.18em;text-transform:uppercase;cursor:pointer;
 }
 .tab.active{color:#fff;border-top:2px solid #fff}
 .tab-icon{font-size:14px;display:block;margin-bottom:1px}
+.tab-txt{display:inline}
+.btn{
+flex:1;border:none;border-radius:3px;
+font-family:‘Roboto’,sans-serif;font-weight:700;
+letter-spacing:.06em;text-transform:uppercase;cursor:pointer;
+padding:clamp(8px,1.8dvh,16px) 4px;font-size:clamp(11px,1.5dvh,14px);
+transition:filter .1s,transform .1s;
+}
+.btn:active{filter:brightness(.82);transform:scale(.96)}
+.btn-start{background:#27ae60;color:#fff}
+.btn-stop{background:#c0392b;color:#fff}
+.btn-pause{background:#f39c12;color:#fff}
+.btn-lap{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3)}
+.btn-reset{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
 
 /* ═══════════════════════════════════════════════
-LANDSCAPE OVERRIDES
-Grid becomes 4 col × 2 row.
-Controls move to a narrow right column.
-Tab bar hides (accessed via gear icon or swipe).
+LANDSCAPE — pure CSS, works for both rotation directions
+Strategy: screen-live becomes a flex ROW in landscape.
+sbar spans full width (order:-1).
+live-body takes flex:1.
+ctrl-col appears inside live-body (right of grid).
+tab-bar becomes a narrow vertical right strip (order:2).
+ctrl-row is hidden.
 ═══════════════════════════════════════════════ */
 @media (orientation:landscape){
-/* tile grid reflows */
-.tile-grid{
-grid-template-columns: repeat(4, minmax(0,1fr));
-grid-template-rows:    repeat(2, minmax(0,1fr));
+/* Screen becomes a row so sbar/tabs span full width via flex-wrap */
+#screen-live{
+flex-direction:row;
+flex-wrap:wrap;
+align-content:flex-start;
 }
-/* hide bottom ctrl row & tab bar — use side column */
-.ctrl-row{display:none}
-/* show side ctrl column */
-.ctrl-col{
-display:flex;
+/* sbar and ctrl-row span full width */
+#screen-live > .sbar{width:100%;order:0;}
+/* live-body fills all space except ctrl-col (already inside) and tab strip */
+#screen-live > .live-body{flex:1;min-width:0;order:1;}
+/* tab bar becomes a narrow right column */
+#screen-live > #live-tabs{
+order:2;
 flex-direction:column;
-gap:4px;
-background:#1a5276;
-padding:4px 6px;
-flex-shrink:0;
-width:clamp(64px, 9vw, 96px);
-justify-content:space-between;
+width:clamp(38px,5vw,50px);
+border-top:none;border-left:1px solid rgba(255,255,255,.1);
+padding-bottom:env(safe-area-inset-bottom);
+padding-right:env(safe-area-inset-right);
+align-self:stretch;
+}
+.tab-txt{display:none;}
+.tab{padding:10px 0;}
+.tab-icon{font-size:18px;margin-bottom:0}
+.tab.active{border-top:none;border-left:2px solid #fff;}
+
+/* Portrait ctrl-row hidden */
+.ctrl-row{display:none;}
+
+/* Landscape ctrl-col: right side of live-body */
+.ctrl-col{
+display:flex;flex-direction:column;gap:4px;
+background:#1a5276;flex-shrink:0;
+width:clamp(68px,9.5vw,100px);
+padding:5px 5px calc(5px + env(safe-area-inset-bottom));
 }
 .ctrl-col .btn{
-flex:1;width:100%;
-padding:0 4px;
-font-size:clamp(9px,1.2vw,12px);
-letter-spacing:.04em;
+flex:1;width:100%;padding:0 3px;
+font-size:clamp(9px,1.1vw,13px);letter-spacing:.04em;
 }
-/* tab bar collapses to tiny strip */
-.tab-bar{
-flex-direction:column;
-width:clamp(40px,5vw,52px);
-border-top:none;border-left:1px solid rgba(255,255,255,.08);
-padding-bottom:0;padding-right:env(safe-area-inset-right);
+
+/* Grid: 4 col × 2 row */
+.tile-grid{
+grid-template-columns:repeat(4,minmax(0,1fr));
+grid-template-rows:   repeat(2,minmax(0,1fr));
 }
-.tab{padding:10px 0;font-size:0} /* hide text, keep icon */
-.tab-icon{font-size:18px;margin-bottom:0}
-/* font size: tiles are now 1/2 viewport height → bigger numbers */
-.tval{font-size:clamp(28px, 11dvh, 110px)}
+/* Bigger numbers — tiles are ~50dvh tall */
+.tval        {font-size:clamp(28px,10dvh,110px);}
+.tval-primary{font-size:clamp(32px,12dvh,130px);}
+.tlbl        {font-size:clamp(8px,1.2vw,12px);}
+.tlbl-primary{font-size:clamp(9px,1.4vw,13px);}
 }
 
 /* ═══════════════════════════════════════════════
@@ -382,6 +359,16 @@ opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:no
 <!-- LIVE -->
 
 <div id="screen-live" class="screen">
+
+  <!--
+    STRUCTURE (pure CSS controls orientation — NO JS display toggling):
+    Portrait:  [sbar] [tile-grid flex:1] [ctrl-row] [tab-bar]
+    Landscape: [sbar] [live-body: [tile-grid flex:1] [ctrl-col]] [tab-bar]
+
+    The ctrl-row and ctrl-col both exist in DOM.
+    CSS media query shows/hides them. renderCtrl() writes buttons to BOTH.
+  -->
+
   <div class="sbar">
     <div class="sbar-l">
       <span class="sbar-title">SCULL</span>
@@ -391,25 +378,27 @@ opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:no
     <div class="rec" id="rec-ind" style="display:none"><div class="recdot"></div>REC</div>
   </div>
 
+  <!-- live-body: in landscape this is a row; ctrl-col sits inside it -->
+
   <div class="live-body">
-    <!-- 8 metric tiles -->
-    <div class="tile-grid">
 
 ```
-  <!-- T1: Pace -->
+<div class="tile-grid">
+
+  <!-- T1: Pace — PRIMARY (highlighted label) -->
   <div class="tile">
     <div class="tile-val-wrap">
-      <div class="tval dim" id="t-pace">--:--</div>
+      <div class="tval tval-primary dim" id="t-pace">--:--</div>
     </div>
-    <div class="tlbl">Pace / 500m</div>
+    <div class="tlbl tlbl-primary">Pace / 500m</div>
   </div>
 
-  <!-- T2: Stroke Rate -->
+  <!-- T2: Stroke Rate — PRIMARY -->
   <div class="tile">
     <div class="tile-val-wrap">
-      <div class="tval dim" id="t-rate">--</div>
+      <div class="tval tval-primary dim" id="t-rate">--</div>
     </div>
-    <div class="tlbl">Stroke rate [str/min]</div>
+    <div class="tlbl tlbl-primary">Stroke rate [str/min]</div>
   </div>
 
   <!-- T3: Dist/stroke -->
@@ -441,8 +430,8 @@ opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:no
       <div class="tval dim" id="t-catch">--</div>
       <div class="catch-bar-wrap">
         <div class="catch-bar-bg">
-          <div class="catch-bar-fill" id="catch-fill" style="left:50%;width:0"></div>
-          <div class="catch-needle" id="catch-needle" style="left:50%;background:#ccc"></div>
+          <div class="catch-bar-fill" id="catch-fill" style="left:0;width:0"></div>
+          <div class="catch-needle" id="catch-needle" style="left:0;background:#ccc"></div>
         </div>
         <div class="catch-sub"><span>0</span><span>+30</span><span>+60</span></div>
       </div>
@@ -470,40 +459,34 @@ opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:no
     <div class="tlbl">Elapsed time</div>
   </div>
 
-  <!-- T8: Lap / split -->
+  <!-- T8: Lap -->
   <div class="tile">
     <div class="tile-val-wrap">
       <div class="tval dim" id="t-lap">--:--</div>
-      <div style="font-size:clamp(10px,1.5dvh,14px);color:#aaa;font-weight:400" id="t-lap-dist">lap --m</div>
+      <div class="lap-sub" id="t-lap-dist">lap --m</div>
     </div>
     <div class="tlbl">Lap pace / dist</div>
   </div>
 
 </div><!-- /tile-grid -->
 
-<!-- Landscape side control column -->
-<div class="ctrl-col" id="ctrl-col">
-  <!-- buttons injected by renderCtrl() -->
-</div>
-
-<!-- Landscape tab strip -->
-<div class="tab-bar" id="tab-bar-land" style="display:none">
-  <button class="tab active" onclick="showTab('live')"><span class="tab-icon">📡</span></button>
-  <button class="tab" onclick="showTab('analysis')"><span class="tab-icon">📊</span></button>
-</div>
+<!-- Landscape-only ctrl column (shown by CSS media query) -->
+<div class="ctrl-col" id="ctrl-col"></div>
 ```
 
+  </div><!-- /live-body -->
+
+  <!-- Portrait-only ctrl row (shown by CSS media query) -->
+
+  <div class="ctrl-row" id="ctrl-row"></div>
+
+  <!-- Single tab bar — CSS repositions it in landscape -->
+
+  <div class="tab-bar" id="live-tabs">
+    <button class="tab active" onclick="showTab('live')"><span class="tab-icon">📡</span><span class="tab-txt">LIVE</span></button>
+    <button class="tab" onclick="showTab('analysis')"><span class="tab-icon">📊</span><span class="tab-txt">ANALYSIS</span></button>
   </div>
 
-  <!-- Portrait controls + tabs -->
-
-  <div class="ctrl-row" id="ctrl-row">
-    <!-- buttons injected by renderCtrl() -->
-  </div>
-  <div class="tab-bar" id="tab-bar-port">
-    <button class="tab active" onclick="showTab('live')"><span class="tab-icon">📡</span>LIVE</button>
-    <button class="tab" onclick="showTab('analysis')"><span class="tab-icon">📊</span>ANALYSIS</button>
-  </div>
 </div>
 
 <!-- ANALYSIS -->
@@ -548,18 +531,9 @@ const catchCol =v=>v>15?'#27ae60':v>7?'#f39c12':'#c0392b';
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
 
 /* ═══════════════════════════════════════════════
-   ORIENTATION — show/hide correct ctrl containers
+   ORIENTATION — pure CSS handles layout now.
+   renderCtrl() writes buttons to BOTH ctrl-row and ctrl-col.
 ═══════════════════════════════════════════════ */
-function applyOrientation(){
-  const land = window.matchMedia('(orientation:landscape)').matches;
-  document.getElementById('ctrl-row').style.display     = land ? 'none'  : 'flex';
-  document.getElementById('tab-bar-port').style.display = land ? 'none'  : 'flex';
-  document.getElementById('ctrl-col').style.display     = land ? 'flex'  : 'none';
-  document.getElementById('tab-bar-land').style.display = land ? 'flex'  : 'none';
-  renderCtrl();
-}
-window.addEventListener('orientationchange', ()=>setTimeout(applyOrientation,150));
-window.addEventListener('resize', ()=>setTimeout(applyOrientation,150));
 
 /* ═══════════════════════════════════════════════
    SESSION STORAGE
@@ -794,11 +768,7 @@ function updateUI(){
    SESSION CONTROLS
 ═══════════════════════════════════════════════ */
 function renderCtrl(){
-  const land=window.matchMedia('(orientation:landscape)').matches;
-  const row=document.getElementById('ctrl-row');
-  const col=document.getElementById('ctrl-col');
   const rec=document.getElementById('rec-ind');
-
   let html='';
   if(!running){
     html=`<button class="btn btn-start" onclick="startSess()">Start</button>`;
@@ -811,7 +781,9 @@ function renderCtrl(){
     html=`<button class="btn btn-pause" onclick="pauseSess()">Pause</button><button class="btn btn-lap" onclick="recordLap()">Lap</button><button class="btn btn-stop" onclick="stopSess()">Stop</button>`;
     rec.style.display='flex';
   }
-  row.innerHTML=html; col.innerHTML=html;
+  // Write to BOTH — CSS shows/hides the right one per orientation
+  document.getElementById('ctrl-row').innerHTML=html;
+  document.getElementById('ctrl-col').innerHTML=html;
 }
 
 function startSess(){
@@ -907,7 +879,7 @@ document.getElementById('perm-btn').onclick=async()=>{
   // Show live screen
   document.getElementById('screen-perm').classList.remove('active');
   document.getElementById('screen-live').classList.add('active');
-  applyOrientation();
+  renderCtrl();
   updateUI();
 };
 
@@ -922,7 +894,6 @@ function showTab(tab){
     if(t.getAttribute('onclick')&&t.getAttribute('onclick').includes(tab))t.classList.add('active');
   });
   if(tab==='analysis')renderAnalysisList();
-  if(tab==='live')applyOrientation();
 }
 
 /* ═══════════════════════════════════════════════
