@@ -144,17 +144,27 @@ border-top:3px solid #5dade2;padding:4px 4px 3px;
 .cst-v{font-size:clamp(10px,1.8dvh,15px);font-weight:700;color:#111;display:block;line-height:1.1;text-align:center}
 .cst-l{font-size:7px;color:#aaa;letter-spacing:.08em;display:block;text-align:center}
 
-/* Portrait controls + tabs */
+/* Portrait defaults */
 .ctrl-col{display:none;}
 .ctrl-row{
 background:#1a5276;display:flex;gap:5px;flex-shrink:0;
 padding:5px 8px calc(5px + env(safe-area-inset-bottom));
 }
+/* Portrait tab bar (outside live-body) */
+#live-tabs-port{
+display:flex;background:#0f3a54;flex-shrink:0;
+border-top:1px solid rgba(255,255,255,.1);
+padding-bottom:env(safe-area-inset-bottom);
+}
+/* Analysis screen tab bar */
 .tab-bar{
 display:flex;background:#0f3a54;flex-shrink:0;
 border-top:1px solid rgba(255,255,255,.1);
 padding-bottom:env(safe-area-inset-bottom);
 }
+/* The tab bar inside live-body (landscape-only) — hidden in portrait */
+#live-tabs{display:none;}
+
 .tab{
 flex:1;padding:6px 0 5px;text-align:center;border:none;
 background:none;color:rgba(255,255,255,.38);
@@ -179,44 +189,24 @@ transition:filter .1s,transform .1s;
 .btn-reset{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
 
 /* ═══════════════════════════════════════════════
-LANDSCAPE — pure CSS, works for both rotation directions
-Strategy: screen-live becomes a flex ROW in landscape.
-sbar spans full width (order:-1).
-live-body takes flex:1.
-ctrl-col appears inside live-body (right of grid).
-tab-bar becomes a narrow vertical right strip (order:2).
-ctrl-row is hidden.
+LANDSCAPE — pure CSS, both rotation directions
+screen-live stays column:
+sbar        (fixed height)
+live-body   (flex:1) ← this becomes a ROW:
+tile-grid (flex:1)
+ctrl-col  (fixed width)
+live-tabs (fixed width, vertical)
+ctrl-row    (hidden)
 ═══════════════════════════════════════════════ */
 @media (orientation:landscape){
-/* Screen becomes a row so sbar/tabs span full width via flex-wrap */
-#screen-live{
-flex-direction:row;
-flex-wrap:wrap;
-align-content:flex-start;
-}
-/* sbar and ctrl-row span full width */
-#screen-live > .sbar{width:100%;order:0;}
-/* live-body fills all space except ctrl-col (already inside) and tab strip */
-#screen-live > .live-body{flex:1;min-width:0;order:1;}
-/* tab bar becomes a narrow right column */
-#screen-live > #live-tabs{
-order:2;
-flex-direction:column;
-width:clamp(38px,5vw,50px);
-border-top:none;border-left:1px solid rgba(255,255,255,.1);
-padding-bottom:env(safe-area-inset-bottom);
-padding-right:env(safe-area-inset-right);
-align-self:stretch;
-}
-.tab-txt{display:none;}
-.tab{padding:10px 0;}
-.tab-icon{font-size:18px;margin-bottom:0}
-.tab.active{border-top:none;border-left:2px solid #fff;}
-
-/* Portrait ctrl-row hidden */
+/* Hide portrait-only elements */
 .ctrl-row{display:none;}
+#live-tabs-port{display:none;}
 
-/* Landscape ctrl-col: right side of live-body */
+/* live-body becomes a row */
+.live-body{flex-direction:row;}
+
+/* ctrl-col visible on right of grid */
 .ctrl-col{
 display:flex;flex-direction:column;gap:4px;
 background:#1a5276;flex-shrink:0;
@@ -228,12 +218,29 @@ flex:1;width:100%;padding:0 3px;
 font-size:clamp(9px,1.1vw,13px);letter-spacing:.04em;
 }
 
+/* Tab bar inside live-body — show as vertical strip */
+#live-tabs{
+display:flex;
+flex-direction:column;
+align-self:stretch;
+flex-shrink:0;
+width:clamp(38px,5vw,50px);
+background:#0f3a54;
+border-top:none;
+border-left:1px solid rgba(255,255,255,.1);
+padding-bottom:env(safe-area-inset-bottom);
+padding-right:env(safe-area-inset-right);
+}
+#live-tabs .tab{flex:1;padding:10px 0;}
+#live-tabs .tab-txt{display:none;}
+#live-tabs .tab-icon{font-size:18px;margin-bottom:0;}
+#live-tabs .tab.active{border-top:none;border-left:2px solid #fff;}
+
 /* Grid: 4 col × 2 row */
 .tile-grid{
 grid-template-columns:repeat(4,minmax(0,1fr));
 grid-template-rows:   repeat(2,minmax(0,1fr));
 }
-/* Bigger numbers — tiles are ~50dvh tall */
 .tval        {font-size:clamp(28px,10dvh,110px);}
 .tval-primary{font-size:clamp(32px,12dvh,130px);}
 .tlbl        {font-size:clamp(8px,1.2vw,12px);}
@@ -470,19 +477,25 @@ opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:no
 
 </div><!-- /tile-grid -->
 
-<!-- Landscape-only ctrl column (shown by CSS media query) -->
+<!-- Landscape ctrl column -->
 <div class="ctrl-col" id="ctrl-col"></div>
+
+<!-- Tab bar: portrait=hidden here, landscape=vertical strip here -->
+<div class="tab-bar" id="live-tabs">
+  <button class="tab active" onclick="showTab('live')"><span class="tab-icon">📡</span><span class="tab-txt">LIVE</span></button>
+  <button class="tab" onclick="showTab('analysis')"><span class="tab-icon">📊</span><span class="tab-txt">ANALYSIS</span></button>
+</div>
 ```
 
   </div><!-- /live-body -->
 
-  <!-- Portrait-only ctrl row (shown by CSS media query) -->
+  <!-- Portrait ctrl row -->
 
   <div class="ctrl-row" id="ctrl-row"></div>
 
-  <!-- Single tab bar — CSS repositions it in landscape -->
+  <!-- Portrait tab bar -->
 
-  <div class="tab-bar" id="live-tabs">
+  <div class="tab-bar" id="live-tabs-port">
     <button class="tab active" onclick="showTab('live')"><span class="tab-icon">📡</span><span class="tab-txt">LIVE</span></button>
     <button class="tab" onclick="showTab('analysis')"><span class="tab-icon">📊</span><span class="tab-txt">ANALYSIS</span></button>
   </div>
