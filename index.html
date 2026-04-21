@@ -9,345 +9,348 @@
 <meta name="apple-mobile-web-app-title" content="Scull"/>
 <meta name="theme-color" content="#1a5276"/>
 <title>Scull · Metrics</title>
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700;900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet"/>
 <style>
-/* ── RESET ─────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════
+   BASE
+═══════════════════════════════════════════════ */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{
-  height:100%;height:100dvh;
-  overflow:hidden;-webkit-text-size-adjust:none;background:#c8c8c8;
-}
+html{height:100%;-webkit-text-size-adjust:none}
 body{
+  height:100dvh;
   font-family:'Roboto',sans-serif;
-  padding-top:env(safe-area-inset-top);
-  padding-left:env(safe-area-inset-left);
-  padding-right:env(safe-area-inset-right);
-  padding-bottom:env(safe-area-inset-bottom);
+  background:#aaa;
+  overflow:hidden;
+  /* Safe areas for notch / home bar */
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
-/* ── SCREENS ───────────────────────────────────────── */
-.screen{display:none;flex-direction:column;height:100dvh;height:100vh}
-.screen.active{display:flex}
+/* ═══════════════════════════════════════════════
+SCREENS
+═══════════════════════════════════════════════ */
+.screen{display:none;width:100%;height:100%}
+.screen.active{display:flex;flex-direction:column}
 
-/* ── TOP STATUS BAR ────────────────────────────────── */
-.status-bar{
+/* ═══════════════════════════════════════════════
+PERMISSION SCREEN
+═══════════════════════════════════════════════ */
+#screen-perm{
+background:#1a5276;
+align-items:center;justify-content:center;
+overflow-y:auto;
+}
+.perm-inner{
+display:flex;flex-direction:column;align-items:center;
+gap:16px;padding:28px 28px;text-align:center;
+max-width:400px;width:100%;
+}
+.perm-icon{font-size:44px;line-height:1}
+.perm-title{font-size:22px;font-weight:700;color:#fff;letter-spacing:.06em}
+.perm-body{font-size:13px;color:rgba(255,255,255,.72);line-height:1.7}
+.perm-btn{
+background:#fff;color:#1a5276;border:none;
+font-family:‘Roboto’,sans-serif;font-size:15px;font-weight:700;
+letter-spacing:.1em;padding:14px 0;border-radius:4px;cursor:pointer;
+text-transform:uppercase;width:100%;
+}
+.perm-note{font-size:10px;color:rgba(255,255,255,.28);line-height:1.7}
+
+/* ═══════════════════════════════════════════════
+LIVE SCREEN WRAPPER
+Portrait:  status-bar / tile-grid(2×4) / ctrl-row / tab-bar
+Landscape: status-bar / [tile-grid(4×2) | ctrl-col] / tab-bar
+═══════════════════════════════════════════════ */
+#screen-live{flex-direction:column}
+
+/* ── status bar ── */
+.sbar{
 background:#1a5276;
 display:flex;align-items:center;justify-content:space-between;
-padding:4px 10px;flex-shrink:0;
-/* Short as possible — every pixel counts in landscape */
+padding:3px 10px;flex-shrink:0;
+min-height:28px;
 }
-.status-left{display:flex;align-items:center;gap:6px}
-.status-title{color:#fff;font-size:11px;font-weight:700;letter-spacing:.08em}
-.status-right{display:flex;align-items:center;gap:5px}
-.s-pill{
-font-size:9px;font-weight:700;letter-spacing:.1em;
-padding:2px 6px;border-radius:2px;
+.sbar-l{display:flex;align-items:center;gap:6px}
+.sbar-title{color:#fff;font-size:10px;font-weight:700;letter-spacing:.1em}
+.pill{font-size:8px;font-weight:700;letter-spacing:.1em;padding:2px 6px;border-radius:2px}
+.pill-on {background:#27ae60;color:#fff}
+.pill-off{background:rgba(255,255,255,.18);color:rgba(255,255,255,.4)}
+.pill-err{background:#c0392b;color:#fff}
+.pill-warn{background:#f39c12;color:#000}
+.rec{display:flex;align-items:center;gap:4px;color:#fff;font-size:9px;font-weight:700}
+.recdot{width:7px;height:7px;border-radius:50%;background:#e74c3c;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
+
+/* ── main body (tiles + optional ctrl column) ── */
+.live-body{
+flex:1;min-height:0;min-width:0;
+display:flex;
 }
-.s-on {background:#27ae60;color:#fff}
-.s-off{background:rgba(255,255,255,.15);color:rgba(255,255,255,.4)}
-.s-err{background:#c0392b;color:#fff}
-.rec-indicator{
-display:flex;align-items:center;gap:4px;
-color:rgba(255,255,255,.9);font-size:10px;font-weight:700;letter-spacing:.08em;
+
+/* ═══════════════════════════════════════════════
+TILE GRID
+Portrait:  2 col × 4 row
+Landscape: 4 col × 2 row  (via media query)
+═══════════════════════════════════════════════ */
+.tile-grid{
+flex:1;min-height:0;min-width:0;
+display:grid;
+grid-template-columns: repeat(2, minmax(0,1fr));
+grid-template-rows:    repeat(4, minmax(0,1fr));
+gap:2px;
+background:#999;
+padding:2px;
 }
-.rec-dot{width:7px;height:7px;border-radius:50%;background:#e74c3c;animation:blink 1s infinite}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
 
-/* ── TILE GRID ─────────────────────────────────────── */
-/*
-Critical rules:
-
-1. The grid must fill exactly the flex space between status bar + controls + tabs.
-1. Each row must be exactly 1/3 of that space — NO exceptions.
-1. Tile content must NEVER push the row taller. overflow:hidden on everything.
-   */
-   .tile-grid{
-   flex:1;
-   min-height:0;        /* MUST have this — flex child won’t shrink without it */
-   display:grid;
-   grid-template-columns:1fr 1fr;
-   grid-template-rows:repeat(3, minmax(0,1fr));   /* minmax(0,1fr) not just 1fr */
-   gap:2px;
-   background:#b0b0b0;
-   padding:2px;
-   }
-
-/* ── SINGLE TILE ───────────────────────────────────── */
+/* ── individual tile ── */
 .tile{
 background:#fff;
 display:flex;flex-direction:column;
-overflow:hidden;     /* content CANNOT expand the cell */
-min-height:0;
-min-width:0;
+overflow:hidden;min-height:0;min-width:0;
 }
-.tile-value-area{
-flex:1;
-min-height:0;
-min-width:0;
-overflow:hidden;
-display:flex;align-items:center;justify-content:center;
-flex-direction:column;
-gap:0;
-padding:3px 6px 2px;
+.tile-val-wrap{
+flex:1;min-height:0;min-width:0;overflow:hidden;
+display:flex;flex-direction:column;
+align-items:center;justify-content:center;
+padding:2px 6px;
+gap:2px;
 }
-/*
-Use container-relative units (cqh) where supported, fall back to vh.
-Each tile is 1/3 of the grid height. Grid height ≈ 75% of dvh in landscape.
-So tile height ≈ 25dvh. We target ~55% of that for the main number.
-*/
-.tile-value{
-font-size:clamp(22px, 5vh, 68px);
+/* Main number — scales with tile height using dvh */
+.tval{
+font-family:‘Roboto Condensed’,sans-serif;
 font-weight:300;
-color:#111;
-line-height:1;
+font-size:clamp(24px, 8dvh, 96px);
+line-height:1;color:#111;
+white-space:nowrap;overflow:hidden;max-width:100%;
 text-align:center;
-letter-spacing:-.02em;
-white-space:nowrap;
-overflow:hidden;
-max-width:100%;
 }
-.tile-value.no-data{ color:#bbb; }
-.tile-value.large{ font-size:clamp(24px, 6.5vh, 80px); }
-.tile-label{
-background:#1a5276;
-color:#fff;
-font-size:clamp(8px, 1.6vw, 13px);
-font-weight:400;
-letter-spacing:.02em;
-text-align:center;
-padding:3px 5px;
-flex-shrink:0;
-line-height:1.25;
-white-space:nowrap;
-overflow:hidden;
-text-overflow:ellipsis;
+.tval.dim{color:#ccc}
+/* Label band at bottom */
+.tlbl{
+background:#1a5276;color:#fff;
+font-size:clamp(8px, 1.4vw, 13px);
+font-weight:400;letter-spacing:.02em;
+text-align:center;padding:3px 4px;
+flex-shrink:0;white-space:nowrap;
+overflow:hidden;text-overflow:ellipsis;
 }
 
-/* ── CATCH SLOPE TILE inner content ─────────────────── */
-.catch-bar-area{
-width:90%;flex-shrink:0;
+/* ── char bar (inside stroke char tile) ── */
+.cbar-wrap{width:88%;flex-shrink:0}
+.cbar-track{
+height:6px;background:#e8e8e8;border-radius:3px;
+position:relative;overflow:hidden;
 }
+.cbar-zones{position:absolute;inset:0;display:flex}
+.cz1{background:#e74c3c;flex:1;opacity:.4}
+.cz2{background:#27ae60;flex:2;opacity:.4}
+.cz3{background:#f39c12;flex:1;opacity:.4}
+.cbar-needle{
+position:absolute;top:-3px;width:3px;height:12px;
+background:#1a5276;border-radius:2px;
+transform:translateX(-50%);
+transition:left .35s cubic-bezier(.34,1.56,.64,1);
+box-shadow:0 1px 3px rgba(0,0,0,.25);
+}
+.cbar-sub{display:flex;justify-content:space-between;font-size:7px;color:#bbb;margin-top:1px}
+.char-badge{
+font-size:clamp(7px,1.4dvh,11px);font-weight:700;color:#fff;
+padding:1px 8px;border-radius:10px;white-space:nowrap;flex-shrink:0;
+}
+
+/* ── catch bar ── */
+.catch-bar-wrap{width:88%;flex-shrink:0}
 .catch-bar-bg{
 height:6px;background:#e8e8e8;border-radius:3px;
 position:relative;overflow:hidden;
 }
 .catch-bar-fill{
 position:absolute;top:0;height:100%;border-radius:3px;
-transition:left .15s,width .15s,background .15s;
+transition:left .12s,width .12s,background .12s;
 }
-.catch-bar-needle{
-position:absolute;top:-3px;width:3px;height:12px;
-border-radius:2px;transform:translateX(-50%);
-transition:left .15s,background .15s;
-box-shadow:0 1px 3px rgba(0,0,0,.3);
+.catch-needle{
+position:absolute;top:-3px;width:3px;height:12px;border-radius:2px;
+transform:translateX(-50%);
+transition:left .12s,background .12s;
+box-shadow:0 1px 3px rgba(0,0,0,.25);
 }
-.catch-sub{
-display:flex;justify-content:space-between;
-font-size:7px;color:#bbb;margin-top:1px;padding:0 1px;
-}
-.catch-stats-row{
-display:flex;justify-content:center;gap:16px;
-flex-shrink:0;
-}
-.cst{text-align:center}
-.cst-v{font-size:clamp(10px,2vh,16px);font-weight:700;color:#111;display:block;line-height:1.1}
-.cst-l{font-size:7px;color:#aaa;letter-spacing:.08em;display:block}
+.catch-sub{display:flex;justify-content:space-between;font-size:7px;color:#bbb;margin-top:1px}
+.catch-stats{display:flex;gap:14px;flex-shrink:0}
+.cst-v{font-size:clamp(10px,1.8dvh,15px);font-weight:700;color:#111;display:block;line-height:1.1;text-align:center}
+.cst-l{font-size:7px;color:#aaa;letter-spacing:.08em;display:block;text-align:center}
 
-/* ── STROKE CHAR TILE inner content ─────────────────── */
-.char-bar-area{width:90%;flex-shrink:0}
-.char-track{
-height:6px;background:#e8e8e8;border-radius:3px;
-position:relative;overflow:hidden;
-}
-.char-zones{position:absolute;inset:0;display:flex;overflow:hidden}
-.cz{height:100%}
-.cz1{background:#e74c3c;flex:1;opacity:.4}
-.cz2{background:#27ae60;flex:2;opacity:.4}
-.cz3{background:#f39c12;flex:1;opacity:.4}
-.char-needle{
-position:absolute;top:-3px;width:3px;height:12px;
-background:#1a5276;border-radius:2px;transform:translateX(-50%);
-transition:left .4s cubic-bezier(.34,1.56,.64,1);
-box-shadow:0 1px 3px rgba(0,0,0,.3);
-}
-.char-sub{
-display:flex;justify-content:space-between;
-font-size:7px;color:#bbb;margin-top:1px;padding:0 1px;
-}
-.char-name-badge{
-font-size:clamp(8px,1.6vh,11px);font-weight:700;
-color:#fff;padding:1px 7px;border-radius:10px;
-flex-shrink:0;display:inline-block;
-white-space:nowrap;
-}
-
-/* ── CONTROLS BAR ──────────────────────────────────── */
-.ctrl-bar{
+/* ═══════════════════════════════════════════════
+PORTRAIT: controls below grid
+═══════════════════════════════════════════════ */
+.ctrl-row{
 background:#1a5276;
-display:flex;gap:5px;
-padding:5px 10px;
+display:flex;gap:5px;padding:5px 8px;
 padding-bottom:calc(5px + env(safe-area-inset-bottom));
 flex-shrink:0;
 }
+.ctrl-col{display:none} /* hidden in portrait */
+
 .btn{
-flex:1;
-/* Height auto — short in landscape, taller in portrait */
-padding:clamp(6px, 1.5vh, 14px) 6px;
-border:none;border-radius:3px;
-font-family:‘Roboto’,sans-serif;
-font-size:clamp(11px,1.4vh,14px);
-font-weight:700;
+flex:1;border:none;border-radius:3px;
+font-family:‘Roboto’,sans-serif;font-weight:700;
 letter-spacing:.06em;text-transform:uppercase;cursor:pointer;
+padding:clamp(8px,1.8dvh,16px) 4px;
+font-size:clamp(11px,1.5dvh,14px);
 transition:filter .1s,transform .1s;
 }
-.btn:active{filter:brightness(.85);transform:scale(.97)}
+.btn:active{filter:brightness(.82);transform:scale(.96)}
 .btn-start{background:#27ae60;color:#fff}
 .btn-stop {background:#c0392b;color:#fff}
 .btn-pause{background:#f39c12;color:#fff}
-.btn-lap  {background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25)}
-.btn-reset{background:rgba(255,255,255,.08);color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.12)}
+.btn-lap  {background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3)}
+.btn-reset{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
 
-/* ── TAB BAR ───────────────────────────────────────── */
+/* ── tab bar ── */
 .tab-bar{
 display:flex;background:#0f3a54;flex-shrink:0;
 border-top:1px solid rgba(255,255,255,.08);
+padding-bottom:env(safe-area-inset-bottom);
 }
 .tab{
-flex:1;
-padding:clamp(4px,1vh,9px) 0;
-text-align:center;border:none;
-background:none;color:rgba(255,255,255,.4);
-font-family:‘Roboto’,sans-serif;font-size:9px;font-weight:700;
-letter-spacing:.2em;text-transform:uppercase;cursor:pointer;
+flex:1;padding:6px 0 5px;text-align:center;border:none;
+background:none;color:rgba(255,255,255,.38);
+font-family:‘Roboto’,sans-serif;font-size:8px;font-weight:700;
+letter-spacing:.18em;text-transform:uppercase;cursor:pointer;
 }
 .tab.active{color:#fff;border-top:2px solid #fff}
 .tab-icon{font-size:14px;display:block;margin-bottom:1px}
 
-/* ── PERMISSION SCREEN ─────────────────────────────── */
-#screen-perm{
+/* ═══════════════════════════════════════════════
+LANDSCAPE OVERRIDES
+Grid becomes 4 col × 2 row.
+Controls move to a narrow right column.
+Tab bar hides (accessed via gear icon or swipe).
+═══════════════════════════════════════════════ */
+@media (orientation:landscape){
+/* tile grid reflows */
+.tile-grid{
+grid-template-columns: repeat(4, minmax(0,1fr));
+grid-template-rows:    repeat(2, minmax(0,1fr));
+}
+/* hide bottom ctrl row & tab bar — use side column */
+.ctrl-row{display:none}
+/* show side ctrl column */
+.ctrl-col{
+display:flex;
+flex-direction:column;
+gap:4px;
 background:#1a5276;
-overflow-y:auto;
--webkit-overflow-scrolling:touch;
-}
-.perm-inner{
-min-height:100%;
-display:flex;flex-direction:column;
-justify-content:center;align-items:center;
-gap:14px;padding:24px 28px;text-align:center;
-}
-.perm-icon{font-size:40px;line-height:1}
-.perm-title{font-size:24px;font-weight:700;color:#fff;letter-spacing:.05em}
-.perm-body{font-size:13px;color:rgba(255,255,255,.7);line-height:1.7;max-width:320px}
-.perm-btn{
-background:#fff;color:#1a5276;border:none;
-font-family:‘Roboto’,sans-serif;font-size:15px;font-weight:700;
-letter-spacing:.1em;padding:14px 0;border-radius:4px;cursor:pointer;
-text-transform:uppercase;width:100%;max-width:300px;
+padding:4px 6px;
 flex-shrink:0;
+width:clamp(64px, 9vw, 96px);
+justify-content:space-between;
 }
-.perm-note{font-size:10px;color:rgba(255,255,255,.3);line-height:1.7;letter-spacing:.04em;max-width:300px}
+.ctrl-col .btn{
+flex:1;width:100%;
+padding:0 4px;
+font-size:clamp(9px,1.2vw,12px);
+letter-spacing:.04em;
+}
+/* tab bar collapses to tiny strip */
+.tab-bar{
+flex-direction:column;
+width:clamp(40px,5vw,52px);
+border-top:none;border-left:1px solid rgba(255,255,255,.08);
+padding-bottom:0;padding-right:env(safe-area-inset-right);
+}
+.tab{padding:10px 0;font-size:0} /* hide text, keep icon */
+.tab-icon{font-size:18px;margin-bottom:0}
+/* font size: tiles are now 1/2 viewport height → bigger numbers */
+.tval{font-size:clamp(28px, 11dvh, 110px)}
+}
 
-/* ── ANALYSIS SCREEN ───────────────────────────────── */
-.analysis-hdr{
-background:#1a5276;padding:10px 14px 8px;flex-shrink:0;
+/* ═══════════════════════════════════════════════
+ANALYSIS SCREEN
+═══════════════════════════════════════════════ */
+.ahdr{
+background:#1a5276;padding:8px 14px;flex-shrink:0;
 display:flex;align-items:center;justify-content:space-between;
 }
-.analysis-hdr-title{font-size:11px;letter-spacing:.2em;color:rgba(255,255,255,.6);font-weight:700}
-.s-count{font-size:10px;color:rgba(255,255,255,.4);letter-spacing:.1em}
+.ahdr-title{font-size:10px;letter-spacing:.2em;color:rgba(255,255,255,.6);font-weight:700}
+.scnt{font-size:10px;color:rgba(255,255,255,.35);letter-spacing:.08em}
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#efefef}
 
-.scroll-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#f0f0f0}
-
-.session-list{padding:8px}
-.session-card{
+/* session list */
+.slist{padding:8px}
+.scard{
 background:#fff;border-radius:4px;margin-bottom:6px;
-padding:12px 14px;cursor:pointer;
-box-shadow:0 1px 3px rgba(0,0,0,.08);
-border-left:4px solid #1a5276;
+padding:12px 14px;cursor:pointer;border-left:4px solid #1a5276;
+box-shadow:0 1px 3px rgba(0,0,0,.07);
 }
-.session-card:active{background:#f8f8f8}
-.session-card-date{font-size:11px;color:#888;margin-bottom:6px;letter-spacing:.05em}
-.session-card-stats{display:flex;gap:16px}
-.scs{display:flex;flex-direction:column}
-.scs-val{font-size:20px;font-weight:300;color:#111}
-.scs-lbl{font-size:9px;color:#aaa;letter-spacing:.1em;text-transform:uppercase}
-
-.no-sessions{
-text-align:center;padding:60px 24px;
-color:#bbb;font-size:13px;line-height:2;
-}
+.scard:active{background:#f5f5f5}
+.scard-date{font-size:10px;color:#999;margin-bottom:6px;letter-spacing:.04em}
+.scard-stats{display:flex;gap:14px}
+.scs-v{font-size:19px;font-weight:300;color:#111;display:block}
+.scs-l{font-size:8px;color:#bbb;letter-spacing:.1em;text-transform:uppercase;display:block}
+.no-sess{text-align:center;padding:60px 24px;color:#ccc;font-size:13px;line-height:2}
 
 /* detail */
-.detail-wrap{padding:10px 10px 20px;background:#f0f0f0}
-.back-btn{
+.dback{
 background:none;border:none;color:#1a5276;
-font-family:‘Roboto’,sans-serif;font-size:12px;font-weight:700;
-letter-spacing:.1em;cursor:pointer;padding:4px 0 12px;
+font-family:‘Roboto’,sans-serif;font-size:11px;font-weight:700;
+letter-spacing:.1em;cursor:pointer;padding:4px 0 10px;
 text-transform:uppercase;display:flex;align-items:center;gap:4px;
 }
-.stat-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px}
-.stat-card{
-background:#fff;border-radius:4px;padding:10px 8px 8px;
-border-top:3px solid #1a5276;box-shadow:0 1px 3px rgba(0,0,0,.06);
+.detail-wrap{padding:10px 10px 20px}
+.sgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:5px}
+.sbox{
+background:#fff;border-radius:3px;padding:9px 8px 7px;
+border-top:3px solid #1a5276;box-shadow:0 1px 2px rgba(0,0,0,.06);
 }
-.stat-card.g{border-color:#27ae60}
-.stat-card.a{border-color:#f39c12}
-.stat-card.r{border-color:#c0392b}
-.stat-card-val{font-size:22px;font-weight:300;color:#111;display:block}
-.stat-card-lbl{font-size:8px;color:#aaa;letter-spacing:.12em;text-transform:uppercase;display:block;margin-top:2px}
-.stat-card-unit{font-size:8px;color:#1a5276;letter-spacing:.1em;display:block;margin-top:1px}
+.sbox.g{border-color:#27ae60}.sbox.a{border-color:#f39c12}.sbox.r{border-color:#c0392b}
+.sbox-v{font-size:20px;font-weight:300;color:#111;display:block}
+.sbox-l{font-size:7px;color:#bbb;letter-spacing:.12em;text-transform:uppercase;display:block;margin-top:2px}
+.sbox-u{font-size:7px;color:#1a5276;letter-spacing:.1em;display:block;margin-top:1px}
 
 .chart-card{
-background:#fff;border-radius:4px;padding:10px 12px 8px;
-margin-bottom:6px;box-shadow:0 1px 3px rgba(0,0,0,.06);
-border-top:2px solid #e0e0e0;
+background:#fff;border-radius:3px;padding:9px 11px 7px;
+margin-bottom:5px;border-top:2px solid #ddd;
+box-shadow:0 1px 2px rgba(0,0,0,.05);
 }
-.chart-card.g{border-color:#27ae60}
-.chart-card.b{border-color:#1a5276}
-.chart-card.a{border-color:#f39c12}
-.chart-card.r{border-color:#c0392b}
-.chart-card-lbl{
-display:flex;justify-content:space-between;
-font-size:9px;color:#aaa;letter-spacing:.1em;margin-bottom:6px;
-text-transform:uppercase;
-}
-.a-canvas{width:100%;height:72px;display:block;border-radius:2px}
+.chart-card.g{border-color:#27ae60}.chart-card.b{border-color:#1a5276}
+.chart-card.a{border-color:#f39c12}.chart-card.r{border-color:#c0392b}
+.chart-lbl{display:flex;justify-content:space-between;font-size:8px;color:#bbb;letter-spacing:.1em;margin-bottom:5px;text-transform:uppercase}
+.acanvas{width:100%;height:68px;display:block;border-radius:2px}
 
-.hr-zones{display:flex;gap:3px;margin:8px 0}
-.hrz{flex:1;border-radius:3px;padding:5px 2px;text-align:center}
-.hrz-lbl{font-size:8px;letter-spacing:.06em;display:block}
-.hrz-pct{font-size:12px;font-weight:700;display:block;margin-top:1px}
+.hr-zones{display:flex;gap:3px;margin:6px 0}
+.hrz{flex:1;border-radius:3px;padding:4px 2px;text-align:center}
+.hrz-l{font-size:7px;letter-spacing:.06em;display:block}
+.hrz-p{font-size:11px;font-weight:700;display:block;margin-top:1px}
 
 .fit-zone{
-border:2px dashed #ddd;border-radius:4px;
-padding:18px;text-align:center;cursor:pointer;
-margin:4px 0;background:#fff;
+border:2px dashed #ddd;border-radius:4px;padding:16px;text-align:center;
+cursor:pointer;margin:4px 0;background:#fff;
 }
 .fit-zone:active{border-color:#1a5276;background:#f0f7ff}
-.fit-zone-text{font-size:12px;color:#bbb;line-height:1.9;letter-spacing:.04em}
-.fit-status{font-size:11px;text-align:center;padding:6px 0;letter-spacing:.08em}
+.fit-txt{font-size:11px;color:#ccc;line-height:1.9}
+.fit-st{font-size:10px;text-align:center;padding:5px 0;letter-spacing:.08em}
 
-.export-btn,.delete-btn{
-width:100%;padding:13px;border-radius:4px;
-font-family:‘Roboto’,sans-serif;font-size:12px;font-weight:700;
-letter-spacing:.1em;text-transform:uppercase;cursor:pointer;margin-top:4px;
+.lap-tbl{width:100%;border-collapse:collapse;font-size:11px}
+.lap-tbl th{font-size:8px;color:#bbb;letter-spacing:.1em;text-align:left;padding:3px 5px;font-weight:400;text-transform:uppercase}
+.lap-tbl td{padding:5px 5px;border-top:1px solid #f0f0f0;color:#444}
+.lap-tbl tr.best td{color:#27ae60;font-weight:700}
+
+.exp-btn{
+width:100%;padding:12px;border-radius:3px;background:#1a5276;
+color:#fff;border:none;font-family:‘Roboto’,sans-serif;font-size:11px;
+font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;margin-top:4px;
 }
-.export-btn{background:#1a5276;color:#fff;border:none}
-.export-btn:active{background:#154360}
-.delete-btn{background:#fff;color:#c0392b;border:1px solid #e0e0e0}
-.delete-btn:active{border-color:#c0392b}
+.del-btn{
+width:100%;padding:12px;border-radius:3px;background:#fff;
+color:#c0392b;border:1px solid #e0e0e0;font-family:‘Roboto’,sans-serif;
+font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;margin-top:4px;
+}
 
-.lap-table{width:100%;border-collapse:collapse;font-size:12px}
-.lap-table th{font-size:9px;color:#aaa;letter-spacing:.12em;text-align:left;padding:4px 6px;text-transform:uppercase;font-weight:400}
-.lap-table td{padding:6px 6px;border-top:1px solid #f0f0f0;color:#333}
-.lap-table tr.best td{color:#27ae60;font-weight:700}
-
-/* ── TOAST ─────────────────────────────────────────── */
+/* toast */
 .toast{
-position:fixed;bottom:100px;left:50%;transform:translateX(-50%);
-background:#1a5276;color:#fff;padding:8px 20px;border-radius:20px;
-font-size:12px;letter-spacing:.08em;font-weight:700;
-opacity:0;transition:opacity .3s;pointer-events:none;z-index:999;
-white-space:nowrap;
+position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+background:#1a5276;color:#fff;padding:7px 18px;border-radius:18px;
+font-size:11px;letter-spacing:.08em;font-weight:700;
+opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:nowrap;
 }
 .toast.show{opacity:1}
 </style>
@@ -355,159 +358,169 @@ white-space:nowrap;
 </head>
 <body>
 
-<!-- ══════════════════════
-     PERMISSION SCREEN
-══════════════════════ -->
+<!-- PERMISSION -->
 
 <div id="screen-perm" class="screen active">
   <div class="perm-inner">
     <div class="perm-icon">🚣</div>
     <div class="perm-title">SCULL METRICS</div>
     <div class="perm-body">
-      GPS pace &amp; distance<br/>
-      Accelerometer catch slope (m/s³)<br/>
-      Session recording &amp; Garmin HR import<br/><br/>
-      Mount phone <strong style="color:#fff">athwartships</strong>, screen up.<br/>
-      X-axis = bow-stern direction.
+      Real-time GPS pace &amp; distance<br/>
+      Accelerometer catch slope [m/s³]<br/>
+      Session recording · Garmin HR import<br/><br/>
+      Mount phone <strong style="color:#fff">athwartships</strong> (screen up).<br/>
+      X-axis faces bow.
     </div>
     <button class="perm-btn" id="perm-btn">ENABLE SENSORS</button>
     <div class="perm-note">
       iOS: Settings → Safari → Motion &amp; Orientation Access<br/>
-      Works offline · Add to Home Screen for full screen
+      Add to Home Screen for full-screen use · Works offline
     </div>
   </div>
 </div>
 
-<!-- ══════════════════════
-     LIVE SCREEN
-══════════════════════ -->
+<!-- LIVE -->
 
 <div id="screen-live" class="screen">
-
-  <!-- Status bar -->
-
-  <div class="status-bar">
-    <div class="status-left">
-      <span class="status-title">SCULL METRICS</span>
-      <span class="s-pill s-off" id="pill-gps">GPS</span>
-      <span class="s-pill s-off" id="pill-acc">ACC</span>
+  <div class="sbar">
+    <div class="sbar-l">
+      <span class="sbar-title">SCULL</span>
+      <span class="pill pill-off" id="p-gps">GPS</span>
+      <span class="pill pill-off" id="p-acc">ACC</span>
     </div>
-    <div class="status-right">
-      <div class="rec-indicator" id="rec-indicator" style="display:none">
-        <div class="rec-dot"></div>REC
-      </div>
-    </div>
+    <div class="rec" id="rec-ind" style="display:none"><div class="recdot"></div>REC</div>
   </div>
 
-  <!-- 2×3 Tile Grid — matches RIM layout exactly -->
-
-  <div class="tile-grid">
+  <div class="live-body">
+    <!-- 8 metric tiles -->
+    <div class="tile-grid">
 
 ```
-<!-- Tile 1: Pace -->
-<div class="tile">
-  <div class="tile-value-area">
-    <div class="tile-value large no-data" id="tile-pace">--:--</div>
+  <!-- T1: Pace -->
+  <div class="tile">
+    <div class="tile-val-wrap">
+      <div class="tval dim" id="t-pace">--:--</div>
+    </div>
+    <div class="tlbl">Pace / 500m</div>
   </div>
-  <div class="tile-label">Pace over 500m</div>
-</div>
 
-<!-- Tile 2: Distance/stroke -->
-<div class="tile">
-  <div class="tile-value-area">
-    <div class="tile-value no-data" id="tile-dst-stroke">--</div>
+  <!-- T2: Stroke Rate -->
+  <div class="tile">
+    <div class="tile-val-wrap">
+      <div class="tval dim" id="t-rate">--</div>
+    </div>
+    <div class="tlbl">Stroke rate [str/min]</div>
   </div>
-  <div class="tile-label">Distance/stroke over ground [m]</div>
-</div>
 
-<!-- Tile 3: Stroke rate -->
-<div class="tile">
-  <div class="tile-value-area">
-    <div class="tile-value no-data" id="tile-rate">--</div>
+  <!-- T3: Dist/stroke -->
+  <div class="tile">
+    <div class="tile-val-wrap">
+      <div class="tval dim" id="t-dps">--</div>
+    </div>
+    <div class="tlbl">Distance / stroke [m]</div>
   </div>
-  <div class="tile-label">Stroke rate [str/min]</div>
-</div>
 
-<!-- Tile 4: Stroke characteristic -->
-<div class="tile">
-  <div class="tile-value-area">
-    <span class="char-name-badge" id="char-badge" style="background:#ccc">—</span>
-    <div class="char-bar-area">
-      <div class="char-track">
-        <div class="char-zones"><div class="cz cz1"></div><div class="cz cz2"></div><div class="cz cz3"></div></div>
-        <div class="char-needle" id="char-needle" style="left:50%"></div>
+  <!-- T4: Stroke characteristic -->
+  <div class="tile">
+    <div class="tile-val-wrap">
+      <span class="char-badge" id="char-badge" style="background:#ccc">—</span>
+      <div class="cbar-wrap">
+        <div class="cbar-track">
+          <div class="cbar-zones"><div class="cz1"></div><div class="cz2"></div><div class="cz3"></div></div>
+          <div class="cbar-needle" id="cbar-needle" style="left:50%"></div>
+        </div>
+        <div class="cbar-sub"><span>early</span><span>balanced</span><span>late</span></div>
       </div>
-      <div class="char-sub"><span>early</span><span>front</span><span>balanced</span><span>late</span><span>back</span></div>
     </div>
+    <div class="tlbl">Stroke characteristic</div>
   </div>
-  <div class="tile-label">Stroke characteristic</div>
-</div>
 
-<!-- Tile 5: Elapsed time -->
-<div class="tile">
-  <div class="tile-value-area">
-    <div class="tile-value large" id="tile-timer">0:00:00</div>
-  </div>
-  <div class="tile-label">Elapsed time [h:m:s]</div>
-</div>
-
-<!-- Tile 6: Catch slope -->
-<div class="tile">
-  <div class="tile-value-area">
-    <div class="tile-value no-data" id="tile-catch">--</div>
-    <div class="catch-bar-area">
-      <div class="catch-bar-bg">
-        <div class="catch-bar-fill" id="catch-fill" style="left:50%;width:0"></div>
-        <div class="catch-bar-needle" id="catch-needle" style="left:50%;background:#ccc"></div>
+  <!-- T5: Catch slope -->
+  <div class="tile">
+    <div class="tile-val-wrap">
+      <div class="tval dim" id="t-catch">--</div>
+      <div class="catch-bar-wrap">
+        <div class="catch-bar-bg">
+          <div class="catch-bar-fill" id="catch-fill" style="left:50%;width:0"></div>
+          <div class="catch-needle" id="catch-needle" style="left:50%;background:#ccc"></div>
+        </div>
+        <div class="catch-sub"><span>0</span><span>+30</span><span>+60</span></div>
       </div>
-      <div class="catch-sub"><span>−30</span><span>0</span><span>+30</span></div>
+      <div class="catch-stats">
+        <div><span class="cst-v" id="cst-peak">—</span><span class="cst-l">PEAK</span></div>
+        <div><span class="cst-v" id="cst-avg">—</span><span class="cst-l">AVG</span></div>
+      </div>
     </div>
-    <div class="catch-stats-row">
-      <div class="cst"><span class="cst-v" id="cst-peak">—</span><span class="cst-l">PEAK</span></div>
-      <div class="cst"><span class="cst-v" id="cst-avg">—</span><span class="cst-l">8-STR AVG</span></div>
-    </div>
+    <div class="tlbl">Catch slope [m/s³]</div>
   </div>
-  <div class="tile-label">Catch slope [m/s³]</div>
+
+  <!-- T6: Total distance -->
+  <div class="tile">
+    <div class="tile-val-wrap">
+      <div class="tval dim" id="t-dist">0.00</div>
+    </div>
+    <div class="tlbl">Distance [km]</div>
+  </div>
+
+  <!-- T7: Elapsed time -->
+  <div class="tile">
+    <div class="tile-val-wrap">
+      <div class="tval" id="t-timer">0:00:00</div>
+    </div>
+    <div class="tlbl">Elapsed time</div>
+  </div>
+
+  <!-- T8: Lap / split -->
+  <div class="tile">
+    <div class="tile-val-wrap">
+      <div class="tval dim" id="t-lap">--:--</div>
+      <div style="font-size:clamp(10px,1.5dvh,14px);color:#aaa;font-weight:400" id="t-lap-dist">lap --m</div>
+    </div>
+    <div class="tlbl">Lap pace / dist</div>
+  </div>
+
+</div><!-- /tile-grid -->
+
+<!-- Landscape side control column -->
+<div class="ctrl-col" id="ctrl-col">
+  <!-- buttons injected by renderCtrl() -->
+</div>
+
+<!-- Landscape tab strip -->
+<div class="tab-bar" id="tab-bar-land" style="display:none">
+  <button class="tab active" onclick="showTab('live')"><span class="tab-icon">📡</span></button>
+  <button class="tab" onclick="showTab('analysis')"><span class="tab-icon">📊</span></button>
 </div>
 ```
 
-  </div><!-- /tile-grid -->
-
-  <!-- Controls -->
-
-  <div class="ctrl-bar" id="ctrl-bar">
-    <button class="btn btn-start" id="btn-start">Start</button>
   </div>
 
-  <div class="tab-bar">
+  <!-- Portrait controls + tabs -->
+
+  <div class="ctrl-row" id="ctrl-row">
+    <!-- buttons injected by renderCtrl() -->
+  </div>
+  <div class="tab-bar" id="tab-bar-port">
     <button class="tab active" onclick="showTab('live')"><span class="tab-icon">📡</span>LIVE</button>
     <button class="tab" onclick="showTab('analysis')"><span class="tab-icon">📊</span>ANALYSIS</button>
   </div>
 </div>
 
-<!-- ══════════════════════
-     ANALYSIS SCREEN
-══════════════════════ -->
+<!-- ANALYSIS -->
 
 <div id="screen-analysis" class="screen">
-  <div class="analysis-hdr">
-    <span class="analysis-hdr-title">SESSION HISTORY</span>
-    <span class="s-count" id="s-count">0 sessions</span>
+  <div class="ahdr">
+    <span class="ahdr-title">SESSION HISTORY</span>
+    <span class="scnt" id="scnt">0 sessions</span>
   </div>
-
-  <div id="analysis-list-view" class="scroll-area">
-    <div class="session-list" id="session-list">
-      <div class="no-sessions" id="no-sessions">
-        No sessions yet.<br/>
-        Start rowing to record your first session.
-      </div>
+  <div id="alist-view" class="scroll">
+    <div class="slist" id="slist">
+      <div class="no-sess" id="no-sess">No sessions yet.<br/>Start rowing to record your first session.</div>
     </div>
   </div>
-
-  <div id="analysis-detail-view" class="scroll-area" style="display:none">
+  <div id="adetail-view" class="scroll" style="display:none">
     <div class="detail-wrap" id="detail-content"></div>
   </div>
-
   <div class="tab-bar">
     <button class="tab" onclick="showTab('live')"><span class="tab-icon">📡</span>LIVE</button>
     <button class="tab active" onclick="showTab('analysis')"><span class="tab-icon">📊</span>ANALYSIS</button>
@@ -518,251 +531,325 @@ white-space:nowrap;
 <input type="file" id="fit-input" accept=".fit" style="display:none"/>
 
 <script>
-/* ══════════════════════════════════════════════════
+'use strict';
+/* ═══════════════════════════════════════════════
    UTILITIES
-══════════════════════════════════════════════════ */
+═══════════════════════════════════════════════ */
 const fmt=s=>{s=Math.max(0,Math.round(s));return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`};
-const fmtH=s=>{s=Math.max(0,Math.round(s));const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;return`${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`};
+const fmtH=s=>{s=Math.max(0,Math.round(s));return`${Math.floor(s/3600)}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`};
 const fmtDate=ts=>{const d=new Date(ts);return d.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})+' '+d.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'})};
 const haversine=(a,b)=>{const R=6371000,dLat=(b.lat-a.lat)*Math.PI/180,dLon=(b.lon-a.lon)*Math.PI/180,x=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))};
-const charLabel=v=>v<25?'EARLY DRIVE':v<40?'FRONT LOADED':v<60?'BALANCED':v<75?'LATE DRIVE':'BACK LOADED';
-const charBg=v=>(v<25||v>75)?'#c0392b':(v<35||v>65)?'#f39c12':'#27ae60';
-const catchCol=v=>v>8?'#27ae60':v>3?'#f39c12':'#c0392b';
-function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
 
-/* ══════════════════════════════════════════════════
+const charLabel=v=>v<22?'EARLY DRIVE':v<40?'FRONT LOADED':v<60?'BALANCED':v<78?'LATE DRIVE':'BACK LOADED';
+const charBg   =v=>(v<22||v>78)?'#c0392b':(v<35||v>65)?'#f39c12':'#27ae60';
+// Catch colour: good jerk for sculling is ~15-50 m/s³
+const catchCol =v=>v>15?'#27ae60':v>7?'#f39c12':'#c0392b';
+
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
+
+/* ═══════════════════════════════════════════════
+   ORIENTATION — show/hide correct ctrl containers
+═══════════════════════════════════════════════ */
+function applyOrientation(){
+  const land = window.matchMedia('(orientation:landscape)').matches;
+  document.getElementById('ctrl-row').style.display     = land ? 'none'  : 'flex';
+  document.getElementById('tab-bar-port').style.display = land ? 'none'  : 'flex';
+  document.getElementById('ctrl-col').style.display     = land ? 'flex'  : 'none';
+  document.getElementById('tab-bar-land').style.display = land ? 'flex'  : 'none';
+  renderCtrl();
+}
+window.addEventListener('orientationchange', ()=>setTimeout(applyOrientation,150));
+window.addEventListener('resize', ()=>setTimeout(applyOrientation,150));
+
+/* ═══════════════════════════════════════════════
    SESSION STORAGE
-══════════════════════════════════════════════════ */
-const DB='scull_v2';
-const loadSessions=()=>{try{return JSON.parse(localStorage.getItem(DB)||'[]')}catch{return[]}};
-const saveSessions=s=>localStorage.setItem(DB,JSON.stringify(s));
-const saveSession=s=>{const a=loadSessions();a.unshift(s);saveSessions(a)};
-const deleteSession=id=>saveSessions(loadSessions().filter(s=>s.id!==id));
+═══════════════════════════════════════════════ */
+const DB='scull_v3';
+const loadSess=()=>{try{return JSON.parse(localStorage.getItem(DB)||'[]')}catch{return[]}};
+const saveSess=a=>localStorage.setItem(DB,JSON.stringify(a));
+const addSess=s=>{const a=loadSess();a.unshift(s);saveSess(a)};
+const delSess=id=>saveSess(loadSess().filter(s=>s.id!==id));
 
-/* ══════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════
    LIVE STATE
-══════════════════════════════════════════════════ */
-let running=false,paused=false,elapsed=0;
-let distance=0,pace=0,strokeRate=0,strokeCount=0;
-let distPerStroke=0,lastStrokeDist=0;
-let catchLast=null,catchPeakSess=null,catchAvg8=null;
-let catchJerk=null; // actual m/s³ jerk value
-let strokeChar=50;
-let lapStartDist=0,lapStartTime=0,laps=[];
-let sessionStartTime=null;
-let sessionStrokes=[],sessionPaceTrace=[],sessionGpsTrace=[];
+═══════════════════════════════════════════════ */
+let running=false, paused=false, elapsed=0;
+let distance=0, lapStartDist=0, lapStartTime=0;
+let strokeRate=0, strokeCount=0;
+let catchLast=null, catchPeakSess=null, catchVals=[], catchAvg8=null;
+let strokeChar=50, distPerStroke=0, lastStrokeDist=0;
+let laps=[], sessStart=null;
+let sessStrokes=[], sessPaceTrace=[], sessGpsTrace=[];
 
-// Accelerometer — jerk detection (m/s³ = derivative of acceleration)
-// We differentiate X-axis acceleration to get jerk, detect catch from jerk spike
-const ACC_HIST=[];
-let prevAcc=0,prevAccT=0;
-let jerkHist=[];
-let inStroke=false,peakJerk=0,driveStartT=0,peakJerkT=0;
-const catchVals=[],strokeTs=[];
-let gpsWatchId=null,timerInt=null,wakeLock=null;
-let lastPos=null;
+/* ── GPS state ── */
+let lastPos=null, gpsWatchId=null;
+// Rolling window for pace: keep last N positions with timestamps
+const gpsWindow=[];  // [{lat,lon,t,dist}]
+const GPS_WINDOW_S=8; // use last 8s for pace calc
 
-/* ══════════════════════════════════════════════════
-   ACCELEROMETER — JERK (m/s³)
-   Phone athwartships → X axis = bow-stern
-   We smooth acc with a small IIR filter before
-   differentiating to suppress sensor noise.
-══════════════════════════════════════════════════ */
-const ALPHA=0.25; // IIR smoothing factor (lower = smoother but more lag)
-let smoothAcc=0;
+/* ── Accelerometer state ── */
+// IIR smoothed acc for differentiation
+let smoothAcc=0, prevSmooth=0, prevSmoothT=0;
+// Catch detection state machine
+let inStroke=false, peakJerk=0, peakJerkT=0, strokeStartT=0;
+// REFRACTORY PERIOD: minimum ms between detected catches
+// At r40 (max realistic) catch period = 1500ms → use 1000ms refractory
+const REFRACTORY_MS=1000;
+let lastCatchT=0;
+// Stroke timestamps for rate calculation
+const strokeTs=[];
+let timerInt=null, wakeLock=null;
+
+/* ═══════════════════════════════════════════════
+   ACCELEROMETER — SMOOTHED JERK WITH REFRACTORY
+═══════════════════════════════════════════════ */
 function handleMotion(e){
   const acc=e.acceleration||e.accelerationIncludingGravity;
   if(!acc)return;
-  const x=acc.x||0;
+  const raw=acc.x||0;
   const now=performance.now();
 
-  // IIR low-pass smooth the raw acceleration
-  smoothAcc = ALPHA*x + (1-ALPHA)*smoothAcc;
+  // IIR low-pass filter (α=0.2 → ~5Hz cutoff at 50Hz sample rate)
+  smoothAcc = 0.2*raw + 0.8*smoothAcc;
 
-  // Differentiate smoothed signal to get jerk (m/s³)
+  // Differentiate smoothed signal → jerk
   let jerk=0;
-  if(prevAccT>0){
-    const dt=(now-prevAccT)/1000;
-    if(dt>0&&dt<0.2){ // only differentiate at reasonable sample rates
-      jerk=(smoothAcc-prevAcc)/dt;
-      // Clamp to sane rowing range — ignore noise spikes
-      jerk=Math.max(-60,Math.min(60,jerk));
+  if(prevSmoothT>0){
+    const dt=(now-prevSmoothT)/1000;
+    if(dt>0.005&&dt<0.15){ // 7Hz–200Hz window
+      jerk=(smoothAcc-prevSmooth)/dt;
+      jerk=Math.max(-80,Math.min(80,jerk)); // clamp
     }
   }
-  prevAcc=smoothAcc; prevAccT=now;
-
-  ACC_HIST.push(smoothAcc);
-  if(ACC_HIST.length>180)ACC_HIST.shift();
-  jerkHist.push(jerk);
-  if(jerkHist.length>180)jerkHist.shift();
+  prevSmooth=smoothAcc; prevSmoothT=now;
 
   if(!running||paused)return;
 
-  // Threshold: expect catch jerk ~5–25 m/s³ in a sculling boat
-  const JERK_THRESH=5;
+  // Enforce refractory period — cannot detect catch within REFRACTORY_MS of last one
+  const sinceLastCatch=now-lastCatchT;
 
-  if(!inStroke&&jerk>JERK_THRESH){
-    inStroke=true;peakJerk=jerk;peakJerkT=now;driveStartT=now;
+  const THRESH=8; // m/s³ — minimum jerk to start catch detection
+
+  if(!inStroke && jerk>THRESH && sinceLastCatch>REFRACTORY_MS){
+    // Rising edge — begin stroke
+    inStroke=true; peakJerk=jerk; peakJerkT=now; strokeStartT=now;
   } else if(inStroke){
-    if(jerk>peakJerk){peakJerk=jerk;peakJerkT=now;}
-    if(jerk<JERK_THRESH*0.4){
+    if(jerk>peakJerk){peakJerk=jerk; peakJerkT=now;}
+    // End of catch impulse when jerk falls below 30% of threshold
+    if(jerk<THRESH*0.3){
       inStroke=false;
-      const driveDur=now-driveStartT;
-      const peakOff=peakJerkT-driveStartT;
-      const charPct=driveDur>0?Math.min(100,(peakOff/driveDur)*100):50;
-      const peak=+peakJerk.toFixed(1);
+      lastCatchT=now;
 
+      // Stroke characteristic: where in the drive did peak jerk occur?
+      const driveDur=now-strokeStartT;
+      const peakOff=peakJerkT-strokeStartT;
+      const charPct=driveDur>0?Math.min(100,(peakOff/driveDur)*100):50;
+      const peak=Math.round(peakJerk*10)/10;
+
+      // Running stats
       catchVals.push(peak);
       if(catchVals.length>8)catchVals.shift();
-      const avg=+(catchVals.reduce((a,b)=>a+b,0)/catchVals.length).toFixed(1);
-      if(!catchPeakSess||peak>catchPeakSess)catchPeakSess=peak;
-      catchLast=peak;catchAvg8=avg;catchJerk=peak;
-      strokeChar=Math.round(charPct);
+      const avg=Math.round(catchVals.reduce((a,b)=>a+b,0)/catchVals.length*10)/10;
+      if(catchPeakSess===null||peak>catchPeakSess)catchPeakSess=peak;
+      catchLast=peak; catchAvg8=avg; strokeChar=Math.round(charPct);
 
-      distPerStroke=+(distance-lastStrokeDist).toFixed(1);
+      // Distance per stroke
+      distPerStroke=Math.round((distance-lastStrokeDist)*10)/10;
       lastStrokeDist=distance;
 
+      // Stroke rate from inter-catch timing
       strokeTs.push(now);
-      if(strokeTs.length>6)strokeTs.shift();
-      if(strokeTs.length>=2){
-        const ints=[];for(let i=1;i<strokeTs.length;i++)ints.push(strokeTs[i]-strokeTs[i-1]);
+      if(strokeTs.length>8)strokeTs.shift();
+      if(strokeTs.length>=3){
+        const ints=[];
+        for(let i=1;i<strokeTs.length;i++)ints.push(strokeTs[i]-strokeTs[i-1]);
         const avgInt=ints.reduce((a,b)=>a+b,0)/ints.length;
-        const rate=Math.round(60000/avgInt);
-        if(rate>=14&&rate<=50)strokeRate=rate;
+        const r=Math.round(60000/avgInt);
+        if(r>=14&&r<=46)strokeRate=r;
       }
       strokeCount++;
-      sessionStrokes.push({t:Date.now(),catchPeak:peak,char:Math.round(charPct),rate:strokeRate,pace,dist:distance,distPerStroke});
+      sessStrokes.push({t:Date.now(),catchPeak:peak,char:Math.round(charPct),rate:strokeRate,pace,dist:distance,dps:distPerStroke});
       peakJerk=0;
-      updateLiveUI();
+      updateUI();
     }
   }
 }
 
-/* ══════════════════════════════════════════════════
-   GPS
-══════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════
+   GPS — ROLLING WINDOW PACE
+═══════════════════════════════════════════════ */
+let pace=0; // sec/500m, updated by GPS
+
 function handlePos(pos){
-  const p=document.getElementById('pill-gps');
-  p.className='s-pill s-on';p.textContent='GPS';
-  const cur={lat:pos.coords.latitude,lon:pos.coords.longitude};
-  sessionGpsTrace.push({...cur,t:Date.now()});
-  if(lastPos&&running&&!paused){
+  const pill=document.getElementById('p-gps');
+  pill.className='pill pill-on'; pill.textContent='GPS';
+
+  const cur={lat:pos.coords.latitude, lon:pos.coords.longitude, t:Date.now()};
+  sessGpsTrace.push(cur);
+
+  if(lastPos){
     const d=haversine(lastPos,cur);
-    if(d>0.3&&d<50)distance+=d;
+    // Sanity filter: reject jumps > 30m or < 0.3m between GPS fixes
+    if(d>=0.3&&d<30){
+      distance+=d;
+      cur.dist=distance;
+      if(running&&!paused){
+        gpsWindow.push(cur);
+        // Trim to GPS_WINDOW_S seconds
+        const cutoff=cur.t-GPS_WINDOW_S*1000;
+        while(gpsWindow.length>1&&gpsWindow[0].t<cutoff)gpsWindow.shift();
+        // Need at least 2 points and 2s of data for a meaningful pace
+        if(gpsWindow.length>=2){
+          const first=gpsWindow[0], last=gpsWindow[gpsWindow.length-1];
+          const dWindow=haversine(first,last);
+          const tWindow=(last.t-first.t)/1000;
+          if(dWindow>1&&tWindow>1){
+            pace=(tWindow/dWindow)*500; // sec/500m
+            sessPaceTrace.push(pace);
+          }
+        }
+      }
+    }
   }
-  const spd=pos.coords.speed;
-  if(spd!=null&&spd>0.3){pace=500/spd;sessionPaceTrace.push(pace);}
   lastPos=cur;
-  updateLiveUI();
+  updateUI();
 }
-function handleGpsErr(){
-  const p=document.getElementById('pill-gps');p.className='s-pill s-err';p.textContent='GPS!';
+function handleGpsErr(err){
+  const pill=document.getElementById('p-gps');
+  pill.className='pill pill-err';
+  pill.textContent=err.code===1?'GPS DENIED':'GPS ERR';
 }
 
-/* ══════════════════════════════════════════════════
-   LIVE UI UPDATE
-══════════════════════════════════════════════════ */
-function updateLiveUI(){
+/* ═══════════════════════════════════════════════
+   UI UPDATE
+═══════════════════════════════════════════════ */
+function updateUI(){
   // Timer
-  document.getElementById('tile-timer').textContent=fmtH(elapsed);
-  document.getElementById('tile-timer').className='tile-value large';
+  const tel=document.getElementById('t-timer');
+  tel.textContent=fmtH(elapsed);
+  tel.className='tval';
 
   // Pace
-  const pEl=document.getElementById('tile-pace');
-  if(running&&pace>0){pEl.textContent=fmt(pace);pEl.className='tile-value large';}
-  else{pEl.textContent='--:--';pEl.className='tile-value large no-data';}
+  const pel=document.getElementById('t-pace');
+  if(running&&pace>0){pel.textContent=fmt(pace);pel.className='tval';}
+  else{pel.textContent='--:--';pel.className='tval dim';}
 
-  // Stroke rate
-  const rEl=document.getElementById('tile-rate');
-  if(running&&strokeRate>0){rEl.textContent=strokeRate;rEl.className='tile-value';}
-  else{rEl.textContent='--';rEl.className='tile-value no-data';}
+  // Rate
+  const rel=document.getElementById('t-rate');
+  if(running&&strokeRate>0){rel.textContent=strokeRate;rel.className='tval';}
+  else{rel.textContent='--';rel.className='tval dim';}
 
-  // Distance/stroke
-  const dsEl=document.getElementById('tile-dst-stroke');
-  if(running&&distPerStroke>0){dsEl.textContent=distPerStroke.toFixed(1);dsEl.className='tile-value';}
-  else{dsEl.textContent='--';dsEl.className='tile-value no-data';}
+  // Dist/stroke
+  const dps=document.getElementById('t-dps');
+  if(running&&distPerStroke>0){dps.textContent=distPerStroke.toFixed(1);dps.className='tval';}
+  else{dps.textContent='--';dps.className='tval dim';}
 
-  // Catch slope (jerk m/s³) — bar scale ±30
-  const CATCH_SCALE=30;
-  const cEl=document.getElementById('tile-catch');
-  if(catchLast!=null){
-    cEl.textContent=(catchLast>=0?'+':'')+catchLast.toFixed(1);
-    cEl.className='tile-value';
-    cEl.style.color=catchCol(catchLast);
-  } else {cEl.textContent='--';cEl.className='tile-value no-data';cEl.style.color='';}
+  // Total dist
+  const de=document.getElementById('t-dist');
+  de.textContent=(distance/1000).toFixed(2);
+  de.className=distance>0?'tval':'tval dim';
 
-  const pct=catchLast!=null?Math.max(0,Math.min(100,((catchLast+CATCH_SCALE)/(CATCH_SCALE*2))*100)):50;
-  const col=catchLast!=null?catchCol(catchLast):'#ccc';
-  const fill=document.getElementById('catch-fill');
-  const needle=document.getElementById('catch-needle');
-  fill.style.left=(catchLast!=null&&catchLast<0?pct:50)+'%';
-  fill.style.width=catchLast!=null?Math.abs(pct-50)+'%':'0';
-  fill.style.background=col;needle.style.left=pct+'%';needle.style.background=col;
+  // Catch slope
+  const SCALE=60;
+  const ce=document.getElementById('t-catch');
+  if(catchLast!==null){
+    ce.textContent='+'+catchLast.toFixed(1);
+    ce.className='tval';
+    ce.style.color=catchCol(catchLast);
+    const pct=Math.max(0,Math.min(100,(catchLast/SCALE)*100));
+    const col=catchCol(catchLast);
+    document.getElementById('catch-fill').style.left='0';
+    document.getElementById('catch-fill').style.width=pct+'%';
+    document.getElementById('catch-fill').style.background=col+'55';
+    document.getElementById('catch-needle').style.left=pct+'%';
+    document.getElementById('catch-needle').style.background=col;
+  } else{
+    ce.textContent='--';ce.className='tval dim';ce.style.color='';
+  }
+  document.getElementById('cst-peak').textContent=catchPeakSess!==null?'+'+catchPeakSess.toFixed(1):'—';
+  document.getElementById('cst-avg').textContent=catchAvg8!==null?'+'+catchAvg8.toFixed(1):'—';
 
-  document.getElementById('cst-peak').textContent=catchPeakSess!=null?(catchPeakSess>=0?'+':'')+catchPeakSess.toFixed(1):'—';
-  document.getElementById('cst-avg').textContent=catchAvg8!=null?(catchAvg8>=0?'+':'')+catchAvg8.toFixed(1):'—';
-
-  // Stroke characteristic
-  const needle2=document.getElementById('char-needle');
+  // Stroke char
+  const needle=document.getElementById('cbar-needle');
   const badge=document.getElementById('char-badge');
-  needle2.style.left=strokeChar+'%';
-  if(running){badge.textContent=charLabel(strokeChar);badge.style.background=charBg(strokeChar);}
-  else{badge.textContent='—';badge.style.background='#ccc';}
+  needle.style.left=strokeChar+'%';
+  if(running&&strokeCount>0){
+    badge.textContent=charLabel(strokeChar);
+    badge.style.background=charBg(strokeChar);
+    needle.style.background=charBg(strokeChar);
+  } else{badge.textContent='—';badge.style.background='#ccc';needle.style.background='#ccc';}
+
+  // Lap tile
+  const lapDist=Math.round(distance-lapStartDist);
+  const lapTime=elapsed-lapStartTime;
+  const lapPace=lapDist>5&&lapTime>0?(lapTime/lapDist)*500:0;
+  const lte=document.getElementById('t-lap');
+  const lde=document.getElementById('t-lap-dist');
+  if(running&&lapPace>0){lte.textContent=fmt(lapPace);lte.className='tval';}
+  else{lte.textContent='--:--';lte.className='tval dim';}
+  lde.textContent=running?`lap ${lapDist}m`:`lap --m`;
 }
 
-/* ══════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════
    SESSION CONTROLS
-══════════════════════════════════════════════════ */
+═══════════════════════════════════════════════ */
 function renderCtrl(){
-  const bar=document.getElementById('ctrl-bar');
-  const rec=document.getElementById('rec-indicator');
+  const land=window.matchMedia('(orientation:landscape)').matches;
+  const row=document.getElementById('ctrl-row');
+  const col=document.getElementById('ctrl-col');
+  const rec=document.getElementById('rec-ind');
+
+  let html='';
   if(!running){
-    bar.innerHTML=`<button class="btn btn-start" onclick="startSess()">Start</button>${elapsed>0?'<button class="btn btn-reset" onclick="resetSess()">Reset</button>':''}`;
+    html=`<button class="btn btn-start" onclick="startSess()">Start</button>`;
+    if(elapsed>0)html+=`<button class="btn btn-reset" onclick="resetSess()">Reset</button>`;
     rec.style.display='none';
   } else if(paused){
-    bar.innerHTML=`<button class="btn btn-start" onclick="resumeSess()">Resume</button><button class="btn btn-reset" onclick="resetSess()">Reset</button>`;
+    html=`<button class="btn btn-start" onclick="resumeSess()">Resume</button><button class="btn btn-reset" onclick="resetSess()">Reset</button>`;
     rec.style.display='none';
   } else {
-    bar.innerHTML=`<button class="btn btn-pause" onclick="pauseSess()">Pause</button><button class="btn btn-lap" onclick="recordLap()">Lap</button><button class="btn btn-stop" onclick="stopSess()">Stop</button>`;
+    html=`<button class="btn btn-pause" onclick="pauseSess()">Pause</button><button class="btn btn-lap" onclick="recordLap()">Lap</button><button class="btn btn-stop" onclick="stopSess()">Stop</button>`;
     rec.style.display='flex';
   }
+  row.innerHTML=html; col.innerHTML=html;
 }
+
 function startSess(){
-  if(!sessionStartTime)sessionStartTime=Date.now();
-  lapStartDist=distance;lapStartTime=elapsed;
-  running=true;paused=false;
-  timerInt=setInterval(()=>{elapsed++;updateLiveUI();},1000);
+  if(!sessStart)sessStart=Date.now();
+  lapStartDist=distance; lapStartTime=elapsed;
+  running=true; paused=false;
+  timerInt=setInterval(()=>{elapsed++;updateUI();},1000);
   renderCtrl();
 }
 function pauseSess(){paused=true;clearInterval(timerInt);renderCtrl();}
-function resumeSess(){paused=false;timerInt=setInterval(()=>{elapsed++;updateLiveUI();},1000);renderCtrl();}
+function resumeSess(){paused=false;timerInt=setInterval(()=>{elapsed++;updateUI();},1000);renderCtrl();}
 function stopSess(){
   running=false;paused=false;clearInterval(timerInt);
-  if(elapsed>10&&sessionStrokes.length>0){
-    const avgPace=sessionPaceTrace.length>0?sessionPaceTrace.reduce((a,b)=>a+b,0)/sessionPaceTrace.length:0;
-    const avgRate=sessionStrokes.length>0?Math.round(sessionStrokes.reduce((a,b)=>a+b.rate,0)/sessionStrokes.length):0;
-    saveSession({
-      id:Date.now().toString(),startTime:sessionStartTime,endTime:Date.now(),
-      duration:elapsed,distance:Math.round(distance),avgPace:Math.round(avgPace),
-      avgRate,maxRate:Math.max(...sessionStrokes.map(s=>s.rate),0),
-      catchPeakSess,catchAvg8,strokeCount,
-      strokes:sessionStrokes,paceTrace:sessionPaceTrace,gpsTrace:sessionGpsTrace,
-      hrTrace:null,laps
+  if(elapsed>10&&sessStrokes.length>0){
+    const avgPace=sessPaceTrace.length>0?Math.round(sessPaceTrace.reduce((a,b)=>a+b,0)/sessPaceTrace.length):0;
+    const avgRate=sessStrokes.length>0?Math.round(sessStrokes.reduce((a,b)=>a+b.rate,0)/sessStrokes.length):0;
+    addSess({
+      id:Date.now().toString(), startTime:sessStart, endTime:Date.now(),
+      duration:elapsed, distance:Math.round(distance),
+      avgPace, avgRate, maxRate:Math.max(...sessStrokes.map(s=>s.rate),0),
+      catchPeakSess, catchAvg8, strokeCount,
+      strokes:sessStrokes, paceTrace:sessPaceTrace,
+      gpsTrace:sessGpsTrace, hrTrace:null, laps
     });
-    showToast('Session saved');
+    toast('Session saved');
   }
   renderCtrl();
 }
 function resetSess(){
   running=false;paused=false;clearInterval(timerInt);
   elapsed=0;distance=0;pace=0;strokeRate=0;strokeCount=0;
-  distPerStroke=0;lastStrokeDist=0;
-  catchLast=null;catchPeakSess=null;catchAvg8=null;catchJerk=null;strokeChar=50;
-  lapStartDist=0;lapStartTime=0;laps=[];
-  sessionStrokes=[];sessionPaceTrace=[];sessionGpsTrace=[];
-  catchVals.length=0;strokeTs.length=0;inStroke=false;peakJerk=0;sessionStartTime=null;
-  prevAcc=0;prevAccT=0;
-  updateLiveUI();renderCtrl();
+  distPerStroke=0;lastStrokeDist=0;lapStartDist=0;lapStartTime=0;
+  catchLast=null;catchPeakSess=null;catchAvg8=null;catchVals=[];
+  strokeChar=50;laps=[];sessStrokes=[];sessPaceTrace=[];sessGpsTrace=[];
+  strokeTs.length=0;gpsWindow.length=0;
+  inStroke=false;peakJerk=0;lastCatchT=0;sessStart=null;
+  smoothAcc=0;prevSmooth=0;prevSmoothT=0;
+  updateUI();renderCtrl();
 }
 function recordLap(){
   if(!running||paused)return;
@@ -770,76 +857,107 @@ function recordLap(){
   const p=d>5&&t>0?(t/d)*500:0;
   laps.push({n:laps.length+1,dist:d,time:t,pace:p,rate:strokeRate});
   lapStartDist=distance;lapStartTime=elapsed;
-  showToast(`Lap ${laps.length} — ${d}m`);
+  toast(`Lap ${laps.length} · ${d}m`);
 }
 
-/* ══════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════
    SENSOR INIT
-══════════════════════════════════════════════════ */
+═══════════════════════════════════════════════ */
 document.getElementById('perm-btn').onclick=async()=>{
+  // iOS motion permission
   if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
-    try{const r=await DeviceMotionEvent.requestPermission();if(r!=='granted'){alert('Motion denied. Enable in Settings → Safari → Motion & Orientation Access.');return;}}
-    catch(e){alert('Permission error: '+e.message);return;}
+    try{
+      const r=await DeviceMotionEvent.requestPermission();
+      if(r!=='granted'){alert('Motion permission denied.\nEnable in Settings → Safari → Motion & Orientation Access.');return;}
+    }catch(e){alert('Permission error: '+e.message);return;}
   }
+
   window.addEventListener('devicemotion',handleMotion,{passive:true});
-  document.getElementById('pill-acc').className='s-pill s-on';
-  document.getElementById('pill-acc').textContent='ACC';
+  document.getElementById('p-acc').className='pill pill-on';
+  document.getElementById('p-acc').textContent='ACC';
 
+  // GPS — request immediately, don't wait
   if(navigator.geolocation){
-    gpsWatchId=navigator.geolocation.watchPosition(handlePos,handleGpsErr,{enableHighAccuracy:true,maximumAge:1000,timeout:15000});
-  } else {document.getElementById('pill-gps').className='s-pill s-err';}
+    // Single position first to trigger permission dialog
+    navigator.geolocation.getCurrentPosition(
+      pos=>{
+        handlePos(pos);
+        // Then continuous watch
+        gpsWatchId=navigator.geolocation.watchPosition(handlePos,handleGpsErr,
+          {enableHighAccuracy:true,maximumAge:500,timeout:20000});
+      },
+      handleGpsErr,
+      {enableHighAccuracy:true,timeout:20000}
+    );
+  } else {
+    document.getElementById('p-gps').className='pill pill-err';
+    document.getElementById('p-gps').textContent='NO GPS';
+  }
 
+  // Wake lock
   if('wakeLock' in navigator){
     try{wakeLock=await navigator.wakeLock.request('screen');}catch{}
-    document.addEventListener('visibilitychange',async()=>{if(document.visibilityState==='visible')try{wakeLock=await navigator.wakeLock.request('screen');}catch{}});
+    document.addEventListener('visibilitychange',async()=>{
+      if(document.visibilityState==='visible'&&wakeLock){
+        try{wakeLock=await navigator.wakeLock.request('screen');}catch{}
+      }
+    });
   }
+
+  // Show live screen
   document.getElementById('screen-perm').classList.remove('active');
   document.getElementById('screen-live').classList.add('active');
-  renderCtrl();updateLiveUI();
+  applyOrientation();
+  updateUI();
 };
 
-/* ══════════════════════════════════════════════════
-   TAB NAV
-══════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════
+   TAB NAVIGATION
+═══════════════════════════════════════════════ */
 function showTab(tab){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('screen-'+tab).classList.add('active');
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t=>{if(t.textContent.toLowerCase().includes(tab))t.classList.add('active');});
+  document.querySelectorAll('.tab').forEach(t=>{
+    if(t.getAttribute('onclick')&&t.getAttribute('onclick').includes(tab))t.classList.add('active');
+  });
   if(tab==='analysis')renderAnalysisList();
+  if(tab==='live')applyOrientation();
 }
 
-/* ══════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════
    ANALYSIS LIST
-══════════════════════════════════════════════════ */
+═══════════════════════════════════════════════ */
 function renderAnalysisList(){
-  const sessions=loadSessions();
-  document.getElementById('s-count').textContent=`${sessions.length} session${sessions.length!==1?'s':''}`;
-  const list=document.getElementById('session-list');
-  list.querySelectorAll('.session-card').forEach(e=>e.remove());
-  document.getElementById('no-sessions').style.display=sessions.length===0?'block':'none';
+  const sessions=loadSess();
+  document.getElementById('scnt').textContent=`${sessions.length} session${sessions.length!==1?'s':''}`;
+  const list=document.getElementById('slist');
+  list.querySelectorAll('.scard').forEach(e=>e.remove());
+  document.getElementById('no-sess').style.display=sessions.length?'none':'block';
   sessions.forEach(s=>{
-    const el=document.createElement('div');el.className='session-card';
-    el.innerHTML=`<div class="session-card-date">${fmtDate(s.startTime)}${s.hrTrace?' 🫀':''}</div>
-      <div class="session-card-stats">
-        <div class="scs"><span class="scs-val">${(s.distance/1000).toFixed(2)}</span><span class="scs-lbl">km</span></div>
-        <div class="scs"><span class="scs-val">${fmtH(s.duration)}</span><span class="scs-lbl">time</span></div>
-        <div class="scs"><span class="scs-val">${s.avgPace>0?fmt(s.avgPace):'—'}</span><span class="scs-lbl">avg pace</span></div>
-        <div class="scs"><span class="scs-val">${s.strokeCount||0}</span><span class="scs-lbl">strokes</span></div>
+    const el=document.createElement('div');el.className='scard';
+    el.innerHTML=`<div class="scard-date">${fmtDate(s.startTime)}${s.hrTrace?' 🫀':''}</div>
+      <div class="scard-stats">
+        <div><span class="scs-v">${(s.distance/1000).toFixed(2)}</span><span class="scs-l">km</span></div>
+        <div><span class="scs-v">${fmtH(s.duration)}</span><span class="scs-l">time</span></div>
+        <div><span class="scs-v">${s.avgPace>0?fmt(s.avgPace):'—'}</span><span class="scs-l">avg pace</span></div>
+        <div><span class="scs-v">${s.strokeCount||0}</span><span class="scs-l">strokes</span></div>
       </div>`;
     el.onclick=()=>showDetail(s.id);
     list.appendChild(el);
   });
 }
 
-/* ══════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════
    ANALYSIS DETAIL
-══════════════════════════════════════════════════ */
+═══════════════════════════════════════════════ */
 function showDetail(id){
-  const s=loadSessions().find(x=>x.id===id);if(!s)return;
-  document.getElementById('analysis-list-view').style.display='none';
-  document.getElementById('analysis-detail-view').style.display='block';
-  const avgCatch=s.strokes&&s.strokes.length>0?(s.strokes.reduce((a,b)=>a+b.catchPeak,0)/s.strokes.length).toFixed(1):'—';
+  const s=loadSess().find(x=>x.id===id);if(!s)return;
+  document.getElementById('alist-view').style.display='none';
+  document.getElementById('adetail-view').style.display='block';
+
+  const avgCatch=s.strokes&&s.strokes.length>0
+    ?(s.strokes.reduce((a,b)=>a+b.catchPeak,0)/s.strokes.length).toFixed(1):'—';
 
   let hrHTML='';
   if(s.hrTrace&&s.hrTrace.length>0){
@@ -849,117 +967,117 @@ function showDetail(id){
     const MHR=185,zones=[0,0,0,0,0];
     hrs.forEach(h=>{const p=h/MHR;if(p<.6)zones[0]++;else if(p<.7)zones[1]++;else if(p<.8)zones[2]++;else if(p<.9)zones[3]++;else zones[4]++;});
     const tot=hrs.length,zc=['#3498db','#27ae60','#f39c12','#e67e22','#c0392b'],zn=['Z1','Z2','Z3','Z4','Z5'];
-    hrHTML=`
-      <div class="stat-grid">
-        <div class="stat-card r"><span class="stat-card-val">${avgHr}</span><span class="stat-card-lbl">Avg HR</span><span class="stat-card-unit">BPM</span></div>
-        <div class="stat-card r"><span class="stat-card-val">${maxHr}</span><span class="stat-card-lbl">Max HR</span><span class="stat-card-unit">BPM</span></div>
-        <div class="stat-card r"><span class="stat-card-val">${minHr}</span><span class="stat-card-lbl">Min HR</span><span class="stat-card-unit">BPM</span></div>
-      </div>
-      <div class="hr-zones">
-        ${zn.map((z,i)=>`<div class="hrz" style="background:${zc[i]}18;border:1px solid ${zc[i]}44"><span class="hrz-lbl" style="color:${zc[i]}">${z}</span><span class="hrz-pct" style="color:${zc[i]}">${Math.round(zones[i]/tot*100)}%</span></div>`).join('')}
-      </div>
-      <div class="chart-card r"><div class="chart-card-lbl"><span>Heart Rate</span><span>bpm</span></div><canvas id="a-hr" class="a-canvas"></canvas></div>`;
+    hrHTML=`<div class="sgrid">
+      <div class="sbox r"><span class="sbox-v">${avgHr}</span><span class="sbox-l">Avg HR</span><span class="sbox-u">BPM</span></div>
+      <div class="sbox r"><span class="sbox-v">${maxHr}</span><span class="sbox-l">Max HR</span><span class="sbox-u">BPM</span></div>
+      <div class="sbox r"><span class="sbox-v">${minHr}</span><span class="sbox-l">Min HR</span><span class="sbox-u">BPM</span></div>
+    </div>
+    <div class="hr-zones">${zn.map((z,i)=>`<div class="hrz" style="background:${zc[i]}18;border:1px solid ${zc[i]}33"><span class="hrz-l" style="color:${zc[i]}">${z}</span><span class="hrz-p" style="color:${zc[i]}">${Math.round(zones[i]/tot*100)}%</span></div>`).join('')}</div>
+    <div class="chart-card r"><div class="chart-lbl"><span>Heart Rate</span><span>bpm</span></div><canvas id="a-hr" class="acanvas"></canvas></div>`;
   } else {
     hrHTML=`<div class="fit-zone" id="fit-zone">
-      <div class="fit-zone-text">🫀 Import Heart Rate from Garmin<br/><span style="color:#ccc">Tap to select .FIT file from Files app</span><br/><span style="font-size:10px;color:#ccc">Garmin Connect → Sessions → ⋮ → Export FIT</span></div>
-    </div><div class="fit-status" id="fit-status"></div>`;
+      <div class="fit-txt">🫀 Import HR from Garmin<br/><span style="color:#ccc">Tap to select .FIT file</span><br/><span style="font-size:10px;color:#ccc">Garmin Connect → Sessions → ⋮ → Export FIT</span></div>
+    </div><div class="fit-st" id="fit-st"></div>`;
   }
 
   document.getElementById('detail-content').innerHTML=`
-    <button class="back-btn" onclick="document.getElementById('analysis-detail-view').style.display='none';document.getElementById('analysis-list-view').style.display='block';renderAnalysisList()">← All Sessions</button>
-    <div style="font-size:11px;color:#aaa;margin-bottom:10px;letter-spacing:.05em">${fmtDate(s.startTime)}</div>
-    <div class="stat-grid">
-      <div class="stat-card"><span class="stat-card-val">${(s.distance/1000).toFixed(2)}</span><span class="stat-card-lbl">Distance</span><span class="stat-card-unit">KM</span></div>
-      <div class="stat-card g"><span class="stat-card-val">${s.avgPace>0?fmt(s.avgPace):'—'}</span><span class="stat-card-lbl">Avg Pace</span><span class="stat-card-unit">/500M</span></div>
-      <div class="stat-card a"><span class="stat-card-val">${fmtH(s.duration)}</span><span class="stat-card-lbl">Duration</span><span class="stat-card-unit">H:MM:SS</span></div>
+    <button class="dback" onclick="document.getElementById('adetail-view').style.display='none';document.getElementById('alist-view').style.display='block';renderAnalysisList()">← All Sessions</button>
+    <div style="font-size:10px;color:#aaa;margin-bottom:10px;letter-spacing:.04em">${fmtDate(s.startTime)}</div>
+    <div class="sgrid">
+      <div class="sbox"><span class="sbox-v">${(s.distance/1000).toFixed(2)}</span><span class="sbox-l">Distance</span><span class="sbox-u">KM</span></div>
+      <div class="sbox g"><span class="sbox-v">${s.avgPace>0?fmt(s.avgPace):'—'}</span><span class="sbox-l">Avg Pace</span><span class="sbox-u">/500M</span></div>
+      <div class="sbox a"><span class="sbox-v">${fmtH(s.duration)}</span><span class="sbox-l">Duration</span><span class="sbox-u">H:MM:SS</span></div>
     </div>
-    <div class="stat-grid">
-      <div class="stat-card a"><span class="stat-card-val">${s.avgRate||'—'}</span><span class="stat-card-lbl">Avg Rate</span><span class="stat-card-unit">S/MIN</span></div>
-      <div class="stat-card a"><span class="stat-card-val">${s.maxRate||'—'}</span><span class="stat-card-lbl">Max Rate</span><span class="stat-card-unit">S/MIN</span></div>
-      <div class="stat-card"><span class="stat-card-val">${s.strokeCount||0}</span><span class="stat-card-lbl">Strokes</span><span class="stat-card-unit">TOTAL</span></div>
+    <div class="sgrid">
+      <div class="sbox a"><span class="sbox-v">${s.avgRate||'—'}</span><span class="sbox-l">Avg Rate</span><span class="sbox-u">S/MIN</span></div>
+      <div class="sbox a"><span class="sbox-v">${s.maxRate||'—'}</span><span class="sbox-l">Max Rate</span><span class="sbox-u">S/MIN</span></div>
+      <div class="sbox"><span class="sbox-v">${s.strokeCount||0}</span><span class="sbox-l">Strokes</span><span class="sbox-u">TOTAL</span></div>
     </div>
-    <div class="stat-grid">
-      <div class="stat-card"><span class="stat-card-val">${s.catchPeakSess!=null?'+'+s.catchPeakSess.toFixed(1):'—'}</span><span class="stat-card-lbl">Catch Peak</span><span class="stat-card-unit">M/S³</span></div>
-      <div class="stat-card"><span class="stat-card-val">${avgCatch!=='—'?'+'+avgCatch:avgCatch}</span><span class="stat-card-lbl">Catch Avg</span><span class="stat-card-unit">M/S³</span></div>
-      <div class="stat-card"><span class="stat-card-val">${s.laps?s.laps.length:0}</span><span class="stat-card-lbl">Laps</span><span class="stat-card-unit">SPLITS</span></div>
+    <div class="sgrid">
+      <div class="sbox"><span class="sbox-v">${s.catchPeakSess!=null?'+'+s.catchPeakSess.toFixed(1):'—'}</span><span class="sbox-l">Catch Peak</span><span class="sbox-u">M/S³</span></div>
+      <div class="sbox"><span class="sbox-v">${avgCatch!=='—'?'+'+avgCatch:avgCatch}</span><span class="sbox-l">Catch Avg</span><span class="sbox-u">M/S³</span></div>
+      <div class="sbox"><span class="sbox-v">${s.laps?s.laps.length:0}</span><span class="sbox-l">Laps</span><span class="sbox-u">SPLITS</span></div>
     </div>
     ${hrHTML}
-    ${s.paceTrace&&s.paceTrace.length>2?`<div class="chart-card g"><div class="chart-card-lbl"><span>Pace</span><span>min/500m</span></div><canvas id="a-pace" class="a-canvas"></canvas></div>`:''}
+    ${s.paceTrace&&s.paceTrace.length>2?`<div class="chart-card g"><div class="chart-lbl"><span>Pace</span><span>min/500m</span></div><canvas id="a-pace" class="acanvas"></canvas></div>`:''}
     ${s.strokes&&s.strokes.length>2?`
-      <div class="chart-card b"><div class="chart-card-lbl"><span>Catch Slope</span><span>m/s³ per stroke</span></div><canvas id="a-catch" class="a-canvas"></canvas></div>
-      <div class="chart-card a"><div class="chart-card-lbl"><span>Stroke Rate</span><span>str/min</span></div><canvas id="a-rate" class="a-canvas"></canvas></div>`:''}
-    ${s.laps&&s.laps.length>0?`
-      <div class="chart-card" style="border-color:#ddd">
-        <div class="chart-card-lbl"><span>Laps</span></div>
-        <table class="lap-table">
-          <tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>Rate</th></tr>
-          ${(()=>{const best=s.laps.length>1?s.laps.reduce((b,l)=>l.pace<b.pace?l:b,s.laps[0]):null;return s.laps.map(l=>`<tr class="${best&&l.n===best.n?'best':''}"><td>${l.n}</td><td>${l.dist}m</td><td>${fmt(l.time)}</td><td>${l.pace>0?fmt(l.pace):'—'}</td><td>${l.rate}</td></tr>`).join('')})()}
-        </table>
-      </div>`:''}
-    <button class="export-btn" onclick="exportCSV(${JSON.stringify(s).replace(/</g,'&lt;')}" style="display:none"></button>
-    <button class="export-btn" id="exp-btn">⬇ Export CSV</button>
-    <button class="delete-btn" id="del-btn">Delete Session</button>
+      <div class="chart-card b"><div class="chart-lbl"><span>Catch Slope</span><span>m/s³</span></div><canvas id="a-catch" class="acanvas"></canvas></div>
+      <div class="chart-card a"><div class="chart-lbl"><span>Stroke Rate</span><span>str/min</span></div><canvas id="a-rate" class="acanvas"></canvas></div>`:''}
+    ${s.laps&&s.laps.length>0?`<div class="chart-card" style="border-color:#ddd">
+      <div class="chart-lbl"><span>Laps</span></div>
+      <table class="lap-tbl"><tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>Rate</th></tr>
+      ${(()=>{const best=s.laps.length>1?s.laps.reduce((b,l)=>l.pace<b.pace?l:b,s.laps[0]):null;return s.laps.map(l=>`<tr class="${best&&l.n===best.n?'best':''}"><td>${l.n}</td><td>${l.dist}m</td><td>${fmt(l.time)}</td><td>${l.pace>0?fmt(l.pace):'—'}</td><td>${l.rate}</td></tr>`).join('')})()}
+      </table></div>`:''}
+    <button class="exp-btn" id="exp-btn">⬇ Export CSV</button>
+    <button class="del-btn" id="del-btn">Delete Session</button>
     <div style="height:20px"></div>`;
 
   requestAnimationFrame(()=>{
-    if(s.paceTrace&&s.paceTrace.length>2)drawAChart('a-pace',s.paceTrace,'#27ae60',true);
+    if(s.paceTrace&&s.paceTrace.length>2)drawChart('a-pace',s.paceTrace,'#27ae60',true);
     if(s.strokes&&s.strokes.length>2){
-      drawAChart('a-catch',s.strokes.map(x=>x.catchPeak),'#1a5276',false);
-      drawAChart('a-rate',s.strokes.map(x=>x.rate),'#f39c12',false);
+      drawChart('a-catch',s.strokes.map(x=>x.catchPeak),'#1a5276',false);
+      drawChart('a-rate', s.strokes.map(x=>x.rate),'#f39c12',false);
     }
-    if(s.hrTrace&&s.hrTrace.length>2)drawAChart('a-hr',s.hrTrace.map(x=>x.hr),'#c0392b',false);
+    if(s.hrTrace&&s.hrTrace.length>2)drawChart('a-hr',s.hrTrace.map(x=>x.hr),'#c0392b',false);
     const fz=document.getElementById('fit-zone');
-    if(fz)fz.onclick=()=>{const inp=document.getElementById('fit-input');inp.onchange=e=>handleFIT(e,s.id);inp.click();};
+    if(fz)fz.onclick=()=>{const inp=document.getElementById('fit-input');inp.onchange=ev=>handleFIT(ev,s.id);inp.click();};
     document.getElementById('exp-btn').onclick=()=>exportCSV(s);
-    document.getElementById('del-btn').onclick=()=>{if(confirm('Delete this session?')){deleteSession(s.id);document.getElementById('analysis-detail-view').style.display='none';document.getElementById('analysis-list-view').style.display='block';renderAnalysisList();showToast('Deleted');}};
+    document.getElementById('del-btn').onclick=()=>{
+      if(confirm('Delete this session?')){delSess(s.id);
+        document.getElementById('adetail-view').style.display='none';
+        document.getElementById('alist-view').style.display='block';
+        renderAnalysisList();toast('Deleted');}
+    };
   });
 }
 
-/* ══════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════
    ANALYSIS CHARTS
-══════════════════════════════════════════════════ */
-function drawAChart(id,data,color,invertY){
-  const canvas=document.getElementById(id);if(!canvas||data.length<2)return;
+═══════════════════════════════════════════════ */
+function drawChart(id,data,color,invertY){
+  const c=document.getElementById(id);if(!c||data.length<2)return;
   const dpr=window.devicePixelRatio||1;
-  const W=canvas.offsetWidth*dpr,H=canvas.offsetHeight*dpr;
-  canvas.width=W;canvas.height=H;
-  const ctx=canvas.getContext('2d');ctx.clearRect(0,0,W,H);
-  const min=Math.min(...data),max=Math.max(...data),range=max-min||1,pad=4;
-  const sy=v=>invertY?pad+(((v-min)/range)*(H-pad*2)):(H-pad)-(((v-min)/range)*(H-pad*2));
+  const W=c.offsetWidth*dpr,H=c.offsetHeight*dpr;
+  c.width=W;c.height=H;
+  const ctx=c.getContext('2d');ctx.clearRect(0,0,W,H);
+  const mn=Math.min(...data),mx=Math.max(...data),range=mx-mn||1,pad=4;
+  const sy=v=>invertY?pad+(((v-mn)/range)*(H-pad*2)):(H-pad)-(((v-mn)/range)*(H-pad*2));
   ctx.strokeStyle='#f0f0f0';ctx.lineWidth=1;
   for(let i=0;i<=3;i++){const y=pad+i*(H-pad*2)/3;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
-  const grad=ctx.createLinearGradient(0,0,0,H);
-  grad.addColorStop(0,color+'33');grad.addColorStop(1,color+'05');
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,color+'33');g.addColorStop(1,color+'05');
   ctx.beginPath();data.forEach((v,i)=>i===0?ctx.moveTo(0,sy(v)):ctx.lineTo((i/(data.length-1))*W,sy(v)));
-  ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
+  ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fillStyle=g;ctx.fill();
   ctx.beginPath();data.forEach((v,i)=>i===0?ctx.moveTo(0,sy(v)):ctx.lineTo((i/(data.length-1))*W,sy(v)));
   ctx.strokeStyle=color;ctx.lineWidth=1.5*dpr;ctx.lineJoin='round';ctx.stroke();
   ctx.fillStyle='#aaa';ctx.font=`${8*dpr}px Roboto`;ctx.textAlign='left';
-  ctx.fillText(max.toFixed(1),4,11*dpr);ctx.fillText(min.toFixed(1),4,H-3);
+  ctx.fillText(mx.toFixed(1),4,11*dpr);ctx.fillText(mn.toFixed(1),4,H-3);
 }
 
-/* ══════════════════════════════════════════════════
-   FIT BINARY PARSER
-══════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════
+   FIT FILE PARSER
+═══════════════════════════════════════════════ */
 async function handleFIT(e,sessionId){
   const file=e.target.files[0];if(!file)return;
-  const st=document.getElementById('fit-status');
-  st.textContent='Parsing…';st.style.color='#f39c12';
+  const st=document.getElementById('fit-st');
+  if(st){st.textContent='Parsing…';st.style.color='#f39c12';}
   try{
-    const buf=await file.arrayBuffer();
-    const hr=parseFIT(buf);
-    if(!hr||hr.length===0){st.textContent='No HR data found.';st.style.color='#c0392b';return;}
-    const sessions=loadSessions();
+    const hr=parseFIT(await file.arrayBuffer());
+    if(!hr||!hr.length){if(st){st.textContent='No HR data found.';st.style.color='#c0392b';}return;}
+    const sessions=loadSess();
     const idx=sessions.findIndex(s=>s.id===sessionId);
-    if(idx>=0){sessions[idx].hrTrace=hr;saveSessions(sessions);st.textContent=`✓ ${hr.length} HR samples imported`;st.style.color='#27ae60';setTimeout(()=>showDetail(sessionId),800);}
-  }catch(err){st.textContent='Parse error: '+err.message;st.style.color='#c0392b';}
+    if(idx>=0){sessions[idx].hrTrace=hr;saveSess(sessions);
+      if(st){st.textContent=`✓ ${hr.length} samples imported`;st.style.color='#27ae60';}
+      setTimeout(()=>showDetail(sessionId),700);}
+  }catch(err){if(st){st.textContent='Parse error: '+err.message;st.style.color='#c0392b';}}
   e.target.value='';
 }
+
 function parseFIT(buf){
   const v=new DataView(buf),FIT_EPOCH=631065600000;
   if(v.getUint32(8,true)!==0x2E464954)throw new Error('Not a valid FIT file');
   const hSz=v.getUint8(0),dSz=v.getUint32(4,true),end=hSz+dSz;
-  const defs=new Array(16).fill(null);const records=[];let pos=hSz;
+  const defs=new Array(16).fill(null);const recs=[];let pos=hSz;
   while(pos<end-1&&pos<buf.byteLength-1){
     const rec=v.getUint8(pos);pos++;
     if(rec&0x40){
@@ -970,42 +1088,38 @@ function parseFIT(buf){
       for(let i=0;i<nf;i++){const fn=v.getUint8(pos),sz=v.getUint8(pos+1);pos+=3;fields.push({fn,sz});}
       if(rec&0x20){const nd=v.getUint8(pos);pos++;for(let i=0;i<nd;i++)pos+=3;}
       defs[lmt]={gmn,arch,fields};
-    } else if(!(rec&0x80)){
-      const lmt=rec&0x0F,def=defs[lmt];
-      if(!def)break;
+    }else if(!(rec&0x80)){
+      const lmt=rec&0x0F,def=defs[lmt];if(!def)break;
       const le=def.arch===0;let ts=null,hr=null;
       for(const f of def.fields){
         if(pos+f.sz>buf.byteLength){pos=end;break;}
         if(def.gmn===20){if(f.fn===253&&f.sz===4)ts=v.getUint32(pos,le);if(f.fn===3&&f.sz===1)hr=v.getUint8(pos);}
         pos+=f.sz;
       }
-      if(def.gmn===20&&hr!=null&&hr>0&&hr<250&&ts!=null)records.push({t:FIT_EPOCH+ts*1000,hr});
-    } else {
-      const lmt=(rec>>5)&0x03,def=defs[lmt];
-      if(def)for(const f of def.fields)pos+=f.sz;else break;
-    }
+      if(def.gmn===20&&hr!=null&&hr>0&&hr<250&&ts!=null)recs.push({t:FIT_EPOCH+ts*1000,hr});
+    }else{const lmt=(rec>>5)&0x03,def=defs[lmt];if(def)for(const f of def.fields)pos+=f.sz;else break;}
   }
-  return records;
+  return recs;
 }
 
-/* ══════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════
    CSV EXPORT
-══════════════════════════════════════════════════ */
+═══════════════════════════════════════════════ */
 function exportCSV(s){
   const rows=[['timestamp','catch_jerk_ms3','stroke_char_pct','stroke_rate','pace_s_per_500m','distance_m','dist_per_stroke_m']];
-  if(s.strokes)s.strokes.forEach(r=>rows.push([new Date(r.t).toISOString(),r.catchPeak.toFixed(2),r.char,r.rate,r.pace>0?r.pace.toFixed(1):'',r.dist.toFixed(1),(r.distPerStroke||0).toFixed(1)]));
-  if(s.hrTrace&&s.hrTrace.length>0){rows.push([]);rows.push(['hr_timestamp','heart_rate_bpm','','','','','']);s.hrTrace.forEach(h=>rows.push([new Date(h.t).toISOString(),h.hr,'','','','','']));}
-  const csv=rows.map(r=>r.join(',')).join('\n');
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  if(s.strokes)s.strokes.forEach(r=>rows.push([new Date(r.t).toISOString(),r.catchPeak,r.char,r.rate,r.pace>0?r.pace.toFixed(1):'',r.dist.toFixed(1),(r.dps||0).toFixed(1)]));
+  if(s.hrTrace&&s.hrTrace.length){rows.push([]);rows.push(['hr_timestamp','heart_rate_bpm']);s.hrTrace.forEach(h=>rows.push([new Date(h.t).toISOString(),h.hr]));}
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'}));
   a.download=`scull_${new Date(s.startTime).toISOString().slice(0,10)}.csv`;a.click();
-  showToast('CSV exported');
+  toast('CSV exported');
 }
 
-/* ══════════════════════════════════════════════════
-   SERVICE WORKER (PWA offline)
-══════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════
+   SERVICE WORKER (offline PWA)
+═══════════════════════════════════════════════ */
 if('serviceWorker' in navigator){
-  const sw=`const C='scull-v2';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
+  const sw=`const C='scull-v3';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
   navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw],{type:'application/javascript'}))).catch(()=>{});
 }
 </script>
