@@ -352,7 +352,7 @@ opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:no
       Real-time GPS pace &amp; distance<br/>
       Accelerometer catch slope [m/s³]<br/>
       Session recording · Garmin HR import<br/><br/>
-      Mount phone <strong style="color:#fff">athwartships</strong> (Landscape mode).<br/>
+      Mount phone <strong style="color:#fff">athwartships</strong> (screen up).<br/>
       X-axis faces bow.
     </div>
     <button class="perm-btn" id="perm-btn">ENABLE SENSORS</button>
@@ -524,7 +524,7 @@ opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:no
 </div>
 
 <div class="toast" id="toast"></div>
-<input type="file" id="fit-input" accept=".fit" style="display:none"/>
+<input type="file" id="fit-input" accept=".tcx,.gpx" style="display:none"/>
 
 <script>
 'use strict';
@@ -716,10 +716,12 @@ function updateUI(){
   tel.textContent=fmtH(elapsed);
   tel.className='tval';
 
-  // Pace
+  // Pace — cap at 10:00/500m (600s). Values > 600 mean nearly stationary.
+  const PACE_CAP=600;
   const pel=document.getElementById('t-pace');
-  if(running&&pace>0){pel.textContent=fmt(pace);pel.className='tval';}
-  else{pel.textContent='--:--';pel.className='tval dim';}
+  if(running&&pace>0&&pace<=PACE_CAP){pel.textContent=fmt(pace);pel.className='tval tval-primary';}
+  else if(running&&pace>PACE_CAP){pel.textContent='--:--';pel.className='tval tval-primary dim';}
+  else{pel.textContent='--:--';pel.className='tval tval-primary dim';}
 
   // Rate
   const rel=document.getElementById('t-rate');
@@ -960,7 +962,11 @@ function showDetail(id){
     <div class="chart-card r"><div class="chart-lbl"><span>Heart Rate</span><span>bpm</span></div><canvas id="a-hr" class="acanvas"></canvas></div>`;
   } else {
     hrHTML=`<div class="fit-zone" id="fit-zone">
-      <div class="fit-txt">🫀 Import HR from Garmin<br/><span style="color:#ccc">Tap to select .FIT file</span><br/><span style="font-size:10px;color:#ccc">Garmin Connect → Sessions → ⋮ → Export FIT</span></div>
+      <div class="fit-txt">🫀 Import from Garmin Connect<br/>
+        <span style="color:#aaa;font-size:11px">Tap to select .TCX or .GPX file</span><br/>
+        <span style="color:#ccc;font-size:10px">Activity → ⋯ → Export to TCX (preferred) or GPX</span><br/>
+        <span style="color:#ccc;font-size:10px">TCX includes HR · Speed · Lap splits</span>
+      </div>
     </div><div class="fit-st" id="fit-st"></div>`;
   }
 
@@ -983,7 +989,14 @@ function showDetail(id){
       <div class="sbox"><span class="sbox-v">${s.laps?s.laps.length:0}</span><span class="sbox-l">Laps</span><span class="sbox-u">SPLITS</span></div>
     </div>
     ${hrHTML}
-    ${s.paceTrace&&s.paceTrace.length>2?`<div class="chart-card g"><div class="chart-lbl"><span>Pace</span><span>min/500m</span></div><canvas id="a-pace" class="acanvas"></canvas></div>`:''}
+    ${s.garminSpeedTrace&&s.garminSpeedTrace.length>2?`<div class="chart-card" style="border-color:#8e44ad"><div class="chart-lbl"><span style="color:#8e44ad">Garmin Pace</span><span>min/500m (from TCX speed)</span></div><canvas id="a-gspeed" class="acanvas"></canvas></div>`:''}
+    ${s.garminLaps&&s.garminLaps.length>0?`<div class="chart-card" style="border-color:#8e44ad">
+      <div class="chart-lbl"><span style="color:#8e44ad">Garmin Laps</span></div>
+      <table class="lap-tbl">
+        <tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>Avg HR</th><th>Cal</th></tr>
+        ${s.garminLaps.map(l=>`<tr><td>${l.n}</td><td>${l.dist}m</td><td>${fmt(l.time)}</td><td>${l.pace>0?fmt(l.pace):'—'}</td><td>${l.avgHr||'—'}</td><td>${l.cal||'—'}</td></tr>`).join('')}
+      </table></div>`:''}
+    ${s.paceTrace&&s.paceTrace.length>2?`<div class="chart-card g"><div class="chart-lbl"><span>Phone GPS Pace</span><span>min/500m</span></div><canvas id="a-pace" class="acanvas"></canvas></div>`:''}
     ${s.strokes&&s.strokes.length>2?`
       <div class="chart-card b"><div class="chart-lbl"><span>Catch Slope</span><span>m/s³</span></div><canvas id="a-catch" class="acanvas"></canvas></div>
       <div class="chart-card a"><div class="chart-lbl"><span>Stroke Rate</span><span>str/min</span></div><canvas id="a-rate" class="acanvas"></canvas></div>`:''}
@@ -1003,8 +1016,13 @@ function showDetail(id){
       drawChart('a-rate', s.strokes.map(x=>x.rate),'#f39c12',false);
     }
     if(s.hrTrace&&s.hrTrace.length>2)drawChart('a-hr',s.hrTrace.map(x=>x.hr),'#c0392b',false);
+    if(s.garminSpeedTrace&&s.garminSpeedTrace.length>2){
+      // Convert m/s → sec/500m for pace chart
+      const paceFromGarmin=s.garminSpeedTrace.filter(x=>x.spd>0.3).map(x=>500/x.spd);
+      drawChart('a-gspeed',paceFromGarmin,'#8e44ad',true);
+    }
     const fz=document.getElementById('fit-zone');
-    if(fz)fz.onclick=()=>{const inp=document.getElementById('fit-input');inp.onchange=ev=>handleFIT(ev,s.id);inp.click();};
+    if(fz)fz.onclick=()=>{const inp=document.getElementById('fit-input');inp.onchange=ev=>handleGPX(ev,s.id);inp.click()};
     document.getElementById('exp-btn').onclick=()=>exportCSV(s);
     document.getElementById('del-btn').onclick=()=>{
       if(confirm('Delete this session?')){delSess(s.id);
@@ -1039,51 +1057,103 @@ function drawChart(id,data,color,invertY){
 }
 
 /* ═══════════════════════════════════════════════
-   FIT FILE PARSER
+   TCX PARSER — Garmin Connect TCX export
+   Extracts per-trackpoint: time, HR, speed (m/s),
+   cumulative distance. Also extracts lap summaries.
+   TCX is preferred over GPX: has native Speed field
+   (Garmin-smoothed, more reliable than raw GPS),
+   native HR, cumulative distance, and lap structure.
 ═══════════════════════════════════════════════ */
-async function handleFIT(e,sessionId){
+async function handleGPX(e,sessionId){
   const file=e.target.files[0];if(!file)return;
   const st=document.getElementById('fit-st');
-  if(st){st.textContent='Parsing…';st.style.color='#f39c12';}
+  const isTCX=file.name.toLowerCase().endsWith('.tcx');
+  if(st){st.textContent=`Parsing ${isTCX?'TCX':'GPX'}…`;st.style.color='#f39c12';}
   try{
-    const hr=parseFIT(await file.arrayBuffer());
-    if(!hr||!hr.length){if(st){st.textContent='No HR data found.';st.style.color='#c0392b';}return;}
+    const text=await file.text();
+    const result=isTCX?parseTCX(text):parseGPX(text);
+    if(!result||!result.hr||!result.hr.length){
+      if(st){st.textContent='No HR data found.';st.style.color='#c0392b';}return;
+    }
     const sessions=loadSess();
     const idx=sessions.findIndex(s=>s.id===sessionId);
-    if(idx>=0){sessions[idx].hrTrace=hr;saveSess(sessions);
-      if(st){st.textContent=`✓ ${hr.length} samples imported`;st.style.color='#27ae60';}
-      setTimeout(()=>showDetail(sessionId),700);}
+    if(idx>=0){
+      sessions[idx].hrTrace=result.hr;
+      // Also store Garmin speed trace and laps if available
+      if(result.speedTrace)sessions[idx].garminSpeedTrace=result.speedTrace;
+      if(result.laps)sessions[idx].garminLaps=result.laps;
+      saveSess(sessions);
+      if(st){
+        st.textContent=`✓ ${result.hr.length} HR samples${result.laps?` · ${result.laps.length} laps`:''}`;
+        st.style.color='#27ae60';
+      }
+      setTimeout(()=>showDetail(sessionId),700);
+    }
   }catch(err){if(st){st.textContent='Parse error: '+err.message;st.style.color='#c0392b';}}
   e.target.value='';
 }
 
-function parseFIT(buf){
-  const v=new DataView(buf),FIT_EPOCH=631065600000;
-  if(v.getUint32(8,true)!==0x2E464954)throw new Error('Not a valid FIT file');
-  const hSz=v.getUint8(0),dSz=v.getUint32(4,true),end=hSz+dSz;
-  const defs=new Array(16).fill(null);const recs=[];let pos=hSz;
-  while(pos<end-1&&pos<buf.byteLength-1){
-    const rec=v.getUint8(pos);pos++;
-    if(rec&0x40){
-      const lmt=rec&0x0F;pos++;
-      const arch=v.getUint8(pos);pos++;
-      const gmn=arch===0?v.getUint16(pos,true):v.getUint16(pos,false);pos+=2;
-      const nf=v.getUint8(pos);pos++;const fields=[];
-      for(let i=0;i<nf;i++){const fn=v.getUint8(pos),sz=v.getUint8(pos+1);pos+=3;fields.push({fn,sz});}
-      if(rec&0x20){const nd=v.getUint8(pos);pos++;for(let i=0;i<nd;i++)pos+=3;}
-      defs[lmt]={gmn,arch,fields};
-    }else if(!(rec&0x80)){
-      const lmt=rec&0x0F,def=defs[lmt];if(!def)break;
-      const le=def.arch===0;let ts=null,hr=null;
-      for(const f of def.fields){
-        if(pos+f.sz>buf.byteLength){pos=end;break;}
-        if(def.gmn===20){if(f.fn===253&&f.sz===4)ts=v.getUint32(pos,le);if(f.fn===3&&f.sz===1)hr=v.getUint8(pos);}
-        pos+=f.sz;
+function parseTCX(text){
+  const doc=new DOMParser().parseFromString(text,'application/xml');
+  if(doc.querySelector('parsererror'))throw new Error('Invalid XML');
+
+  const hr=[], speedTrace=[];
+
+  // Parse trackpoints
+  doc.querySelectorAll('Trackpoint').forEach(tp=>{
+    const timeEl=tp.querySelector('Time');
+    if(!timeEl)return;
+    const t=new Date(timeEl.textContent.trim()).getTime();
+    if(isNaN(t))return;
+
+    const hrEl=tp.querySelector('HeartRateBpm Value');
+    if(hrEl){
+      const v=parseInt(hrEl.textContent.trim());
+      if(v>0&&v<250)hr.push({t,hr:v});
+    }
+
+    // Speed from ns3:TPX/ns3:Speed (m/s)
+    const speedEls=[...tp.querySelectorAll('*')].filter(el=>el.localName==='Speed');
+    if(speedEls.length){
+      const spd=parseFloat(speedEls[0].textContent.trim());
+      if(!isNaN(spd)&&spd>=0)speedTrace.push({t,spd});
+    }
+  });
+
+  // Parse lap summaries
+  const laps=[];
+  doc.querySelectorAll('Lap').forEach((lap,i)=>{
+    const startTime=lap.getAttribute('StartTime')||lap.getAttribute('starttime')||'';
+    const get=tag=>{const el=lap.querySelector(tag);return el?parseFloat(el.textContent.trim()):null;};
+    const getInt=tag=>{const el=lap.querySelector(tag);return el?parseInt(el.textContent.trim()):null;};
+    const t=get('TotalTimeSeconds'), d=get('DistanceMeters');
+    const avgHr=getInt('AverageHeartRateBpm Value'), maxHr=getInt('MaximumHeartRateBpm Value');
+    const cal=getInt('Calories');
+    if(t&&d)laps.push({n:i+1,startTime,time:Math.round(t),dist:Math.round(d),
+      pace:t>0&&d>0?(t/d)*500:0,avgHr,maxHr,cal});
+  });
+
+  return {hr, speedTrace:speedTrace.length?speedTrace:null, laps:laps.length?laps:null};
+}
+
+function parseGPX(text){
+  const doc=new DOMParser().parseFromString(text,'application/xml');
+  if(doc.querySelector('parsererror'))throw new Error('Invalid XML');
+  const hr=[];
+  doc.querySelectorAll('trkpt').forEach(pt=>{
+    const timeEl=pt.querySelector('time');
+    if(!timeEl)return;
+    const t=new Date(timeEl.textContent.trim()).getTime();
+    if(isNaN(t))return;
+    const children=[...pt.querySelectorAll('*')];
+    for(const el of children){
+      if(el.localName==='hr'){
+        const v=parseInt(el.textContent.trim());
+        if(v>0&&v<250){hr.push({t,hr:v});break;}
       }
-      if(def.gmn===20&&hr!=null&&hr>0&&hr<250&&ts!=null)recs.push({t:FIT_EPOCH+ts*1000,hr});
-    }else{const lmt=(rec>>5)&0x03,def=defs[lmt];if(def)for(const f of def.fields)pos+=f.sz;else break;}
-  }
-  return recs;
+    }
+  });
+  return {hr, speedTrace:null, laps:null};
 }
 
 /* ═══════════════════════════════════════════════
