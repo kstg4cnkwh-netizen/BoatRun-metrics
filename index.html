@@ -351,14 +351,15 @@ opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:no
     <div class="perm-body">
       Real-time GPS pace &amp; distance<br/>
       Accelerometer catch slope [m/s³]<br/>
-      Session recording · Garmin HR import<br/><br/>
-      Mount phone <strong style="color:#fff">athwartships</strong> (screen up).<br/>
-      X-axis faces bow.
+      Session recording · Garmin TCX import<br/><br/>
+      Mount phone in <strong style="color:#fff">landscape mode</strong>.<br/>
+      Long axis points port to starboard.
     </div>
     <button class="perm-btn" id="perm-btn">ENABLE SENSORS</button>
     <div class="perm-note">
       iOS: Settings → Safari → Motion &amp; Orientation Access<br/>
-      Add to Home Screen for full-screen use · Works offline
+      Add to Home Screen for full-screen use · Works offline<br/>
+      <span style="color:rgba(255,255,255,.18)">v1.3</span>
     </div>
   </div>
 </div>
@@ -572,23 +573,26 @@ let sessStrokes=[], sessPaceTrace=[], sessGpsTrace=[];
 let lastPos=null, gpsWatchId=null;
 // Rolling window for pace: keep last N positions with timestamps
 const gpsWindow=[];  // [{lat,lon,t,dist}]
-const GPS_WINDOW_S=8; // use last 8s for pace calc
 
 /* ── Accelerometer state ── */
-// IIR smoothed acc for differentiation
 let smoothAcc=0, prevSmooth=0, prevSmoothT=0;
-// Catch detection state machine
 let inStroke=false, peakJerk=0, peakJerkT=0, strokeStartT=0;
-// REFRACTORY PERIOD: minimum ms between detected catches
-// At r40 (max realistic) catch period = 1500ms → use 1000ms refractory
-const REFRACTORY_MS=1000;
+
+// ADAPTIVE REFRACTORY PERIOD
+// Problem: finish/release jerk fires ~0.8s after catch, doubling detected rate.
+// Solution: refractory = max(1600ms, 60% of current stroke interval).
+// At r20 (3000ms/stroke) → 1800ms refractory ✓ blocks finish at ~800ms
+// At r32 (1875ms/stroke) → 1600ms refractory ✓ still blocks finish
+// At r38 (1579ms/stroke) → 1600ms refractory (floor)
+const REFRACTORY_MIN_MS=1600;
 let lastCatchT=0;
-// Stroke timestamps for rate calculation
+let adaptiveRefractory=REFRACTORY_MIN_MS; // updates after each stroke
+
 const strokeTs=[];
 let timerInt=null, wakeLock=null;
 
 /* ═══════════════════════════════════════════════
-   ACCELEROMETER — SMOOTHED JERK WITH REFRACTORY
+   ACCELEROMETER — SMOOTHED JERK WITH ADAPTIVE REFRACTORY
 ═══════════════════════════════════════════════ */
 function handleMotion(e){
   const acc=e.acceleration||e.accelerationIncludingGravity;
@@ -596,63 +600,70 @@ function handleMotion(e){
   const raw=acc.x||0;
   const now=performance.now();
 
-  // IIR low-pass filter (α=0.2 → ~5Hz cutoff at 50Hz sample rate)
-  smoothAcc = 0.2*raw + 0.8*smoothAcc;
+  // IIR low-pass (α=0.15 → ~3.5Hz cutoff — smoother, reduces finish jerk amplitude)
+  smoothAcc = 0.15*raw + 0.85*smoothAcc;
 
   // Differentiate smoothed signal → jerk
   let jerk=0;
   if(prevSmoothT>0){
     const dt=(now-prevSmoothT)/1000;
-    if(dt>0.005&&dt<0.15){ // 7Hz–200Hz window
+    if(dt>0.005&&dt<0.15){
       jerk=(smoothAcc-prevSmooth)/dt;
-      jerk=Math.max(-80,Math.min(80,jerk)); // clamp
+      jerk=Math.max(-80,Math.min(80,jerk));
     }
   }
   prevSmooth=smoothAcc; prevSmoothT=now;
 
   if(!running||paused)return;
 
-  // Enforce refractory period — cannot detect catch within REFRACTORY_MS of last one
   const sinceLastCatch=now-lastCatchT;
+  const THRESH=8;
 
-  const THRESH=8; // m/s³ — minimum jerk to start catch detection
-
-  if(!inStroke && jerk>THRESH && sinceLastCatch>REFRACTORY_MS){
-    // Rising edge — begin stroke
+  if(!inStroke && jerk>THRESH && sinceLastCatch>adaptiveRefractory){
     inStroke=true; peakJerk=jerk; peakJerkT=now; strokeStartT=now;
   } else if(inStroke){
     if(jerk>peakJerk){peakJerk=jerk; peakJerkT=now;}
-    // End of catch impulse when jerk falls below 30% of threshold
     if(jerk<THRESH*0.3){
       inStroke=false;
+      const strokeInterval=now-lastCatchT; // ms since last catch
       lastCatchT=now;
 
-      // Stroke characteristic: where in the drive did peak jerk occur?
+      // Update adaptive refractory: 60% of this stroke interval, floored at minimum
+      // This self-tunes to current rowing rate
+      adaptiveRefractory=Math.max(REFRACTORY_MIN_MS, strokeInterval*0.6);
+
+      // Stroke characteristic
       const driveDur=now-strokeStartT;
       const peakOff=peakJerkT-strokeStartT;
       const charPct=driveDur>0?Math.min(100,(peakOff/driveDur)*100):50;
       const peak=Math.round(peakJerk*10)/10;
 
-      // Running stats
       catchVals.push(peak);
       if(catchVals.length>8)catchVals.shift();
       const avg=Math.round(catchVals.reduce((a,b)=>a+b,0)/catchVals.length*10)/10;
       if(catchPeakSess===null||peak>catchPeakSess)catchPeakSess=peak;
       catchLast=peak; catchAvg8=avg; strokeChar=Math.round(charPct);
 
-      // Distance per stroke
       distPerStroke=Math.round((distance-lastStrokeDist)*10)/10;
       lastStrokeDist=distance;
 
-      // Stroke rate from inter-catch timing
+      // Stroke rate — with outlier rejection
+      // Reject intervals < 50% of recent average (double-detection that slipped through)
       strokeTs.push(now);
       if(strokeTs.length>8)strokeTs.shift();
       if(strokeTs.length>=3){
         const ints=[];
         for(let i=1;i<strokeTs.length;i++)ints.push(strokeTs[i]-strokeTs[i-1]);
-        const avgInt=ints.reduce((a,b)=>a+b,0)/ints.length;
-        const r=Math.round(60000/avgInt);
-        if(r>=14&&r<=46)strokeRate=r;
+        // Median filter: sort intervals, use middle value to reject outliers
+        const sorted=[...ints].sort((a,b)=>a-b);
+        const median=sorted[Math.floor(sorted.length/2)];
+        // Only keep intervals within 50–200% of median (reject doubles and pauses)
+        const filtered=ints.filter(x=>x>median*0.5&&x<median*2.0);
+        if(filtered.length>=2){
+          const avgInt=filtered.reduce((a,b)=>a+b,0)/filtered.length;
+          const r=Math.round(60000/avgInt);
+          if(r>=12&&r<=40)strokeRate=r;
+        }
       }
       strokeCount++;
       sessStrokes.push({t:Date.now(),catchPeak:peak,char:Math.round(charPct),rate:strokeRate,pace,dist:distance,dps:distPerStroke});
@@ -663,9 +674,18 @@ function handleMotion(e){
 }
 
 /* ═══════════════════════════════════════════════
-   GPS — ROLLING WINDOW PACE
+   GPS — RESPONSIVE SMOOTHED PACE
+   Short 6s position window for responsiveness.
+   Median filter over last 5 pace readings to
+   kill spikes without adding lag.
+   IIR (α=0.15) smooths the display update.
 ═══════════════════════════════════════════════ */
-let pace=0; // sec/500m, updated by GPS
+let pace=0;
+let rawPace=0;
+const GPS_WINDOW_S=6;
+const PACE_IIR=0.15;
+const PACE_MAX=600;
+const paceReadings=[];  // last N raw pace values for median filter
 
 function handlePos(pos){
   const pill=document.getElementById('p-gps');
@@ -676,23 +696,32 @@ function handlePos(pos){
 
   if(lastPos){
     const d=haversine(lastPos,cur);
-    // Sanity filter: reject jumps > 30m or < 0.3m between GPS fixes
     if(d>=0.3&&d<30){
       distance+=d;
       cur.dist=distance;
       if(running&&!paused){
         gpsWindow.push(cur);
-        // Trim to GPS_WINDOW_S seconds
         const cutoff=cur.t-GPS_WINDOW_S*1000;
         while(gpsWindow.length>1&&gpsWindow[0].t<cutoff)gpsWindow.shift();
-        // Need at least 2 points and 2s of data for a meaningful pace
         if(gpsWindow.length>=2){
           const first=gpsWindow[0], last=gpsWindow[gpsWindow.length-1];
           const dWindow=haversine(first,last);
           const tWindow=(last.t-first.t)/1000;
           if(dWindow>1&&tWindow>1){
-            pace=(tWindow/dWindow)*500; // sec/500m
-            sessPaceTrace.push(pace);
+            const newRaw=(tWindow/dWindow)*500;
+            if(newRaw<PACE_MAX){
+              // Median filter: keep last 5 readings, display median
+              paceReadings.push(newRaw);
+              if(paceReadings.length>5)paceReadings.shift();
+              const sorted=[...paceReadings].sort((a,b)=>a-b);
+              const median=sorted[Math.floor(sorted.length/2)];
+              // IIR smooth the median for display
+              pace=pace===0 ? median : PACE_IIR*median + (1-PACE_IIR)*pace;
+              sessPaceTrace.push(pace);
+            } else {
+              // Stationary — clear readings so we don't contaminate next effort
+              paceReadings.length=0;
+            }
           }
         }
       }
@@ -716,11 +745,9 @@ function updateUI(){
   tel.textContent=fmtH(elapsed);
   tel.className='tval';
 
-  // Pace — cap at 10:00/500m (600s). Values > 600 mean nearly stationary.
-  const PACE_CAP=600;
+  // Pace — capped and smoothed in handlePos
   const pel=document.getElementById('t-pace');
-  if(running&&pace>0&&pace<=PACE_CAP){pel.textContent=fmt(pace);pel.className='tval tval-primary';}
-  else if(running&&pace>PACE_CAP){pel.textContent='--:--';pel.className='tval tval-primary dim';}
+  if(running&&pace>0){pel.textContent=fmt(pace);pel.className='tval tval-primary';}
   else{pel.textContent='--:--';pel.className='tval tval-primary dim';}
 
   // Rate
@@ -829,12 +856,12 @@ function stopSess(){
 }
 function resetSess(){
   running=false;paused=false;clearInterval(timerInt);
-  elapsed=0;distance=0;pace=0;strokeRate=0;strokeCount=0;
+  elapsed=0;distance=0;pace=0;rawPace=0;strokeRate=0;strokeCount=0;
   distPerStroke=0;lastStrokeDist=0;lapStartDist=0;lapStartTime=0;
   catchLast=null;catchPeakSess=null;catchAvg8=null;catchVals=[];
   strokeChar=50;laps=[];sessStrokes=[];sessPaceTrace=[];sessGpsTrace=[];
-  strokeTs.length=0;gpsWindow.length=0;
-  inStroke=false;peakJerk=0;lastCatchT=0;sessStart=null;
+  strokeTs.length=0;gpsWindow.length=0;paceReadings.length=0;
+  inStroke=false;peakJerk=0;lastCatchT=0;adaptiveRefractory=REFRACTORY_MIN_MS;sessStart=null;
   smoothAcc=0;prevSmooth=0;prevSmoothT=0;
   updateUI();renderCtrl();
 }
@@ -991,11 +1018,19 @@ function showDetail(id){
     ${hrHTML}
     ${s.garminSpeedTrace&&s.garminSpeedTrace.length>2?`<div class="chart-card" style="border-color:#8e44ad"><div class="chart-lbl"><span style="color:#8e44ad">Garmin Pace</span><span>min/500m (from TCX speed)</span></div><canvas id="a-gspeed" class="acanvas"></canvas></div>`:''}
     ${s.garminLaps&&s.garminLaps.length>0?`<div class="chart-card" style="border-color:#8e44ad">
-      <div class="chart-lbl"><span style="color:#8e44ad">Garmin Laps</span></div>
+      <div class="chart-lbl"><span style="color:#8e44ad">Garmin Laps (watch data)</span></div>
       <table class="lap-tbl">
-        <tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>Avg HR</th><th>Cal</th></tr>
-        ${s.garminLaps.map(l=>`<tr><td>${l.n}</td><td>${l.dist}m</td><td>${fmt(l.time)}</td><td>${l.pace>0?fmt(l.pace):'—'}</td><td>${l.avgHr||'—'}</td><td>${l.cal||'—'}</td></tr>`).join('')}
-      </table></div>`:''}
+        <tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>Avg HR</th><th>Strokes</th><th>Avg spm</th></tr>
+        ${s.garminLaps.map(l=>`<tr>
+          <td>${l.n}</td><td>${l.dist}m</td><td>${fmt(l.time)}</td>
+          <td>${l.pace>0?fmt(l.pace):'—'}</td><td>${l.avgHr||'—'}</td>
+          <td>${l.garminStrokes||'—'}</td><td>${l.garminAvgSpm||'—'}</td>
+        </tr>`).join('')}
+      </table>
+      ${s.garminLaps.some(l=>l.garminStrokes)?`<div style="font-size:9px;color:#aaa;margin-top:6px;letter-spacing:.06em">
+        Strokes from watch wrist accelerometer · compare with phone count: ${s.strokeCount||'—'}
+      </div>`:''}
+    </div>`:''}
     ${s.paceTrace&&s.paceTrace.length>2?`<div class="chart-card g"><div class="chart-lbl"><span>Phone GPS Pace</span><span>min/500m</span></div><canvas id="a-pace" class="acanvas"></canvas></div>`:''}
     ${s.strokes&&s.strokes.length>2?`
       <div class="chart-card b"><div class="chart-lbl"><span>Catch Slope</span><span>m/s³</span></div><canvas id="a-catch" class="acanvas"></canvas></div>
@@ -1120,17 +1155,22 @@ function parseTCX(text){
     }
   });
 
-  // Parse lap summaries
+  // Parse lap summaries — including ns3:Steps (total stroke count)
   const laps=[];
   doc.querySelectorAll('Lap').forEach((lap,i)=>{
-    const startTime=lap.getAttribute('StartTime')||lap.getAttribute('starttime')||'';
+    const startTime=lap.getAttribute('StartTime')||'';
     const get=tag=>{const el=lap.querySelector(tag);return el?parseFloat(el.textContent.trim()):null;};
     const getInt=tag=>{const el=lap.querySelector(tag);return el?parseInt(el.textContent.trim()):null;};
     const t=get('TotalTimeSeconds'), d=get('DistanceMeters');
     const avgHr=getInt('AverageHeartRateBpm Value'), maxHr=getInt('MaximumHeartRateBpm Value');
     const cal=getInt('Calories');
+    // ns3:Steps = total stroke count recorded by watch wrist accelerometer
+    const stepsEls=[...lap.querySelectorAll('*')].filter(el=>el.localName==='Steps');
+    const steps=stepsEls.length?parseInt(stepsEls[0].textContent.trim()):null;
+    const avgSpm=(steps&&t)?Math.round(steps/t*60):null;
     if(t&&d)laps.push({n:i+1,startTime,time:Math.round(t),dist:Math.round(d),
-      pace:t>0&&d>0?(t/d)*500:0,avgHr,maxHr,cal});
+      pace:t>0&&d>0?(t/d)*500:0,avgHr,maxHr,cal,
+      garminStrokes:steps, garminAvgSpm:avgSpm});
   });
 
   return {hr, speedTrace:speedTrace.length?speedTrace:null, laps:laps.length?laps:null};
