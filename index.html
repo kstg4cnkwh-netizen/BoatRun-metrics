@@ -644,8 +644,31 @@ function handleMotion(e){
       if(catchPeakSess===null||peak>catchPeakSess)catchPeakSess=peak;
       catchLast=peak; catchAvg8=avg; strokeChar=Math.round(charPct);
 
-      distPerStroke=Math.round((distance-lastStrokeDist)*10)/10;
-      lastStrokeDist=distance;
+     // --- INTERPOLATED DISTANCE AT STROKE TIME ---
+      const strokeDist = getInterpolatedDistance(now);
+
+   // --- GPS-based DPS ---
+      let gpsDPS = strokeDist - lastStrokeDist;
+
+   // --- Model-based DPS ---
+      let modelDPS = 0;
+      if(pace > 0 && strokeRate > 0){
+        const speed = 500 / pace; // m/s
+        modelDPS = speed / (strokeRate / 60);
+      }
+
+   // --- Hybrid blend ---
+      let blendedDPS;
+
+      if(gpsDPS > 0 && gpsDPS < 30){
+        blendedDPS = 0.6 * gpsDPS + 0.4 * modelDPS;
+      } else {
+        blendedDPS = modelDPS;
+      }
+
+   // --- Final DPS ---
+      distPerStroke = Math.round(blendedDPS * 10) / 10;
+      lastStrokeDist = strokeDist;
 
       // Stroke rate — with outlier rejection
       // Reject intervals < 50% of recent average (double-detection that slipped through)
@@ -666,8 +689,17 @@ function handleMotion(e){
         }
       }
       strokeCount++;
-      sessStrokes.push({t:Date.now(),catchPeak:peak,char:Math.round(charPct),rate:strokeRate,pace,dist:distance,dps:distPerStroke});
-      peakJerk=0;
+      sessStrokes.push({
+        t: Date.now(),
+        catchPeak: peak,
+        char: Math.round(charPct),
+        rate: strokeRate,
+        pace: pace,           // smoothed
+        rawPace: rawPace,     // NEW
+        dist: strokeDist,     // interpolated distance
+        dps: distPerStroke
+      });
+       peakJerk=0;
       updateUI();
     }
   }
@@ -687,6 +719,24 @@ const PACE_IIR=0.15;
 const PACE_MAX=600;
 const paceReadings=[];  // last N raw pace values for median filter
 
+// Interpolated distance at arbitrary timestamp (stroke timing)
+function getInterpolatedDistance(now){
+  if(gpsWindow.length < 2) return distance;
+
+  const last = gpsWindow[gpsWindow.length - 1];
+  const prev = gpsWindow[gpsWindow.length - 2];
+
+  const dt = last.t - prev.t;
+  if(dt <= 0) return last.dist || distance;
+
+  const frac = (now - prev.t) / dt;
+
+  // Clamp to avoid overshoot
+  const f = Math.max(0, Math.min(1, frac));
+
+  return prev.dist + f * (last.dist - prev.dist);
+}
+   
 function handlePos(pos){
   const pill=document.getElementById('p-gps');
   pill.className='pill pill-on'; pill.textContent='GPS';
@@ -709,6 +759,7 @@ function handlePos(pos){
           const tWindow=(last.t-first.t)/1000;
           if(dWindow>1&&tWindow>1){
             const newRaw=(tWindow/dWindow)*500;
+            rawPace = newRaw;
             if(newRaw<PACE_MAX){
               // Median filter: keep last 5 readings, display median
               paceReadings.push(newRaw);
@@ -1200,8 +1251,26 @@ function parseGPX(text){
    CSV EXPORT
 ═══════════════════════════════════════════════ */
 function exportCSV(s){
-  const rows=[['timestamp','catch_jerk_ms3','stroke_char_pct','stroke_rate','pace_s_per_500m','distance_m','dist_per_stroke_m']];
-  if(s.strokes)s.strokes.forEach(r=>rows.push([new Date(r.t).toISOString(),r.catchPeak,r.char,r.rate,r.pace>0?r.pace.toFixed(1):'',r.dist.toFixed(1),(r.dps||0).toFixed(1)]));
+  const rows=[[
+  'timestamp',
+  'catch_jerk_ms3',
+  'stroke_char_pct',
+  'stroke_rate',
+  'pace_s_per_500m_smoothed',
+  'pace_s_per_500m_raw',
+  'distance_m_interpolated',
+  'dist_per_stroke_m'
+]];
+  if(s.strokes)s.strokes.forEach(r=>rows.push([
+     new Date(r.t).toISOString(),
+     r.catchPeak,
+     r.char,
+     r.rate,
+     r.pace > 0 ? r.pace.toFixed(1) : '',
+     r.rawPace > 0 ? r.rawPace.toFixed(1) : '',
+     r.dist.toFixed(1),
+     (r.dps || 0).toFixed(1)
+   ]);
   if(s.hrTrace&&s.hrTrace.length){rows.push([]);rows.push(['hr_timestamp','heart_rate_bpm']);s.hrTrace.forEach(h=>rows.push([new Date(h.t).toISOString(),h.hr]));}
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'}));
