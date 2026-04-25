@@ -579,15 +579,14 @@ let smoothAcc=0, prevSmooth=0, prevSmoothT=0;
 let inStroke=false, peakJerk=0, peakJerkT=0, strokeStartT=0;
 
 // ADAPTIVE REFRACTORY PERIOD
-// Blocks the finish/release jerk (~0.8s after catch) from double-triggering.
-// Uses 60% of the actual stroke interval, floored at REFRACTORY_MIN_MS.
-// IMPORTANT: only activate adaptive mode after 3 strokes — before that,
-// lastCatchT=0 would make strokeInterval=performance.now() (huge), blowing
-// the refractory out to tens of seconds and blocking all detections.
+// Problem: finish/release jerk fires ~0.8s after catch, doubling detected rate.
+// Solution: refractory = max(1600ms, 60% of current stroke interval).
+// At r20 (3000ms/stroke) → 1800ms refractory ✓ blocks finish at ~800ms
+// At r32 (1875ms/stroke) → 1600ms refractory ✓ still blocks finish
+// At r38 (1579ms/stroke) → 1600ms refractory (floor)
 const REFRACTORY_MIN_MS=1600;
 let lastCatchT=0;
-let strokesDetected=0; // count before adaptive mode activates
-let adaptiveRefractory=REFRACTORY_MIN_MS;
+let adaptiveRefractory=REFRACTORY_MIN_MS; // updates after each stroke
 
 const strokeTs=[];
 let timerInt=null, wakeLock=null;
@@ -626,19 +625,12 @@ function handleMotion(e){
     if(jerk>peakJerk){peakJerk=jerk; peakJerkT=now;}
     if(jerk<THRESH*0.3){
       inStroke=false;
-
-      // Only compute stroke interval if we've already seen at least one real catch
-      // (lastCatchT=0 on first stroke would give a huge spurious interval)
-      if(lastCatchT>0){
-        const strokeInterval=now-lastCatchT;
-        // Only update adaptive refractory after 3 strokes and interval is plausible
-        // Plausible range: r12 (5000ms) to r45 (1333ms)
-        if(strokesDetected>=3 && strokeInterval>1200 && strokeInterval<5500){
-          adaptiveRefractory=Math.max(REFRACTORY_MIN_MS, strokeInterval*0.6);
-        }
-      }
+      const strokeInterval=now-lastCatchT; // ms since last catch
       lastCatchT=now;
-      strokesDetected++;
+
+      // Update adaptive refractory: 60% of this stroke interval, floored at minimum
+      // This self-tunes to current rowing rate
+      adaptiveRefractory=Math.max(REFRACTORY_MIN_MS, strokeInterval*0.6);
 
       // Stroke characteristic
       const driveDur=now-strokeStartT;
@@ -869,7 +861,7 @@ function resetSess(){
   catchLast=null;catchPeakSess=null;catchAvg8=null;catchVals=[];
   strokeChar=50;laps=[];sessStrokes=[];sessPaceTrace=[];sessGpsTrace=[];
   strokeTs.length=0;gpsWindow.length=0;paceReadings.length=0;
-  inStroke=false;peakJerk=0;lastCatchT=0;strokesDetected=0;adaptiveRefractory=REFRACTORY_MIN_MS;sessStart=null;
+  inStroke=false;peakJerk=0;lastCatchT=0;adaptiveRefractory=REFRACTORY_MIN_MS;sessStart=null;
   smoothAcc=0;prevSmooth=0;prevSmoothT=0;
   updateUI();renderCtrl();
 }
