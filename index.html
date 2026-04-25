@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Scull"/>
 <meta name="theme-color" content="#1a5276"/>
+<meta name="screen-orientation" content="landscape"/>
 <title>Scull · Metrics</title>
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet"/>
 <style>
@@ -23,6 +24,23 @@ body{
   overflow:hidden;
   /* Safe areas for notch / home bar */
   padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* ── FORCE LANDSCAPE ──
+When device is portrait, rotate entire app 90°.
+The app always renders in landscape layout regardless of physical orientation.
+Works for both left and right rotation when added to Home Screen as PWA.
+*/
+@media (orientation:portrait){
+body{
+position:fixed;
+top:0;left:0;
+width:100dvh;   /* swap dimensions */
+height:100dvw;
+transform-origin:top left;
+transform:rotate(90deg) translateY(-100dvw);
+overflow:hidden;
+}
 }
 
 /* ═══════════════════════════════════════════════
@@ -83,12 +101,16 @@ min-height:28px;
 /* ── live-body: row container for grid + ctrl-col ── */
 .live-body{flex:1;min-height:0;min-width:0;display:flex;flex-direction:row;}
 
-/* ── TILE GRID — portrait: 2×4, landscape: 4×2 ── */
+/* ── TILE GRID — always 3×3
+Row 1 (40%): Pace, Stroke Rate, DPS  — primary large numbers
+Row 2 (30%): Stroke Char, Catch Slope, Catch Consistency
+Row 3 (30%): Run Loss, Run Efficiency, Lap pace/dist
+── */
 .tile-grid{
 flex:1;min-height:0;min-width:0;
 display:grid;
-grid-template-columns:repeat(2,minmax(0,1fr));
-grid-template-rows:   repeat(4,minmax(0,1fr));
+grid-template-columns:repeat(3,minmax(0,1fr));
+grid-template-rows:40fr 30fr 30fr;
 gap:2px;background:#999;padding:2px;
 }
 .tile{
@@ -99,50 +121,48 @@ overflow:hidden;min-height:0;min-width:0;
 flex:1;min-height:0;min-width:0;overflow:hidden;
 display:flex;flex-direction:column;
 align-items:center;justify-content:center;
-padding:2px 6px;gap:2px;
+padding:2px 5px;gap:1px;
 }
 .tval{
 font-family:‘Roboto Condensed’,sans-serif;font-weight:300;
-font-size:clamp(22px,8dvh,96px);
+font-size:clamp(20px,7dvh,88px);
 line-height:1;color:#111;white-space:nowrap;overflow:hidden;max-width:100%;text-align:center;
 }
 .tval.dim{color:#ccc}
-.tval-primary{font-size:clamp(26px,9.5dvh,110px);font-weight:400;}
-.lap-sub{font-size:clamp(9px,1.4dvh,13px);color:#aaa;font-weight:400;text-align:center;}
+.tval-primary{font-size:clamp(28px,11dvh,120px);font-weight:400;}
+.tval-sm{font-size:clamp(18px,5.5dvh,66px);font-weight:300;}
+.lap-sub{font-size:clamp(8px,1.3dvh,12px);color:#aaa;font-weight:400;text-align:center;}
 
 /* Label bands */
 .tlbl{
 background:#1a5276;color:#fff;
-font-size:clamp(8px,1.4vw,13px);font-weight:400;letter-spacing:.02em;
-text-align:center;padding:3px 4px;flex-shrink:0;
+font-size:clamp(7px,1.2vw,12px);font-weight:400;letter-spacing:.02em;
+text-align:center;padding:3px 3px;flex-shrink:0;
 white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .tlbl-primary{
 background:#154360;font-weight:700;
-font-size:clamp(9px,1.6vw,14px);
-border-top:3px solid #5dade2;padding:4px 4px 3px;
+font-size:clamp(8px,1.4vw,13px);
+border-top:3px solid #5dade2;padding:4px 3px 3px;
 }
 
 /* Char bar */
-.cbar-wrap{width:88%;flex-shrink:0}
-.cbar-track{height:6px;background:#e8e8e8;border-radius:3px;position:relative;overflow:hidden;}
+.cbar-wrap{width:90%;flex-shrink:0}
+.cbar-track{height:5px;background:#e8e8e8;border-radius:3px;position:relative;overflow:hidden;}
 .cbar-zones{position:absolute;inset:0;display:flex;}
-.cz1{background:#e74c3c;flex:1;opacity:.4}
-.cz2{background:#27ae60;flex:2;opacity:.4}
-.cz3{background:#f39c12;flex:1;opacity:.4}
-.cbar-needle{position:absolute;top:-3px;width:3px;height:12px;background:#1a5276;border-radius:2px;transform:translateX(-50%);transition:left .35s cubic-bezier(.34,1.56,.64,1);box-shadow:0 1px 3px rgba(0,0,0,.25);}
-.cbar-sub{display:flex;justify-content:space-between;font-size:7px;color:#bbb;margin-top:1px}
-.char-badge{font-size:clamp(7px,1.4dvh,11px);font-weight:700;color:#fff;padding:1px 8px;border-radius:10px;white-space:nowrap;flex-shrink:0;}
+.cz1{background:#888;flex:1;opacity:.2}
+.cz2{background:#444;flex:2;opacity:.15}
+.cz3{background:#888;flex:1;opacity:.2}
+.cbar-needle{position:absolute;top:-3px;width:3px;height:11px;background:#1a5276;border-radius:2px;transform:translateX(-50%);transition:left .35s cubic-bezier(.34,1.56,.64,1);box-shadow:0 1px 3px rgba(0,0,0,.25);}
+.cbar-sub{display:flex;justify-content:space-between;font-size:6px;color:#bbb;margin-top:1px}
+.char-badge{font-size:clamp(6px,1.2dvh,10px);font-weight:700;color:#fff;background:#1a5276;padding:1px 6px;border-radius:10px;white-space:nowrap;flex-shrink:0;}
 
 /* Catch bar */
-.catch-bar-wrap{width:88%;flex-shrink:0}
-.catch-bar-bg{height:6px;background:#e8e8e8;border-radius:3px;position:relative;overflow:hidden;}
-.catch-bar-fill{position:absolute;top:0;height:100%;border-radius:3px;transition:width .12s,background .12s;}
-.catch-needle{position:absolute;top:-3px;width:3px;height:12px;border-radius:2px;transform:translateX(-50%);transition:left .12s,background .12s;box-shadow:0 1px 3px rgba(0,0,0,.25);}
-.catch-sub{display:flex;justify-content:space-between;font-size:7px;color:#bbb;margin-top:1px}
-.catch-stats{display:flex;gap:14px;flex-shrink:0}
-.cst-v{font-size:clamp(10px,1.8dvh,15px);font-weight:700;color:#111;display:block;line-height:1.1;text-align:center}
-.cst-l{font-size:7px;color:#aaa;letter-spacing:.08em;display:block;text-align:center}
+.catch-bar-wrap{width:90%;flex-shrink:0}
+.catch-bar-bg{height:5px;background:#e8e8e8;border-radius:3px;position:relative;overflow:hidden;}
+.catch-bar-fill{position:absolute;top:0;height:100%;border-radius:3px;transition:width .12s;}
+.catch-needle{position:absolute;top:-3px;width:3px;height:11px;border-radius:2px;transform:translateX(-50%);transition:left .12s;box-shadow:0 1px 3px rgba(0,0,0,.25);}
+.catch-sub{display:flex;justify-content:space-between;font-size:6px;color:#bbb;margin-top:1px}
 
 /* Portrait defaults */
 .ctrl-col{display:none;}
@@ -236,15 +256,13 @@ padding-right:env(safe-area-inset-right);
 #live-tabs .tab-icon{font-size:18px;margin-bottom:0;}
 #live-tabs .tab.active{border-top:none;border-left:2px solid #fff;}
 
-/* Grid: 4 col × 2 row */
-.tile-grid{
-grid-template-columns:repeat(4,minmax(0,1fr));
-grid-template-rows:   repeat(2,minmax(0,1fr));
-}
-.tval        {font-size:clamp(28px,10dvh,110px);}
-.tval-primary{font-size:clamp(32px,12dvh,130px);}
-.tlbl        {font-size:clamp(8px,1.2vw,12px);}
-.tlbl-primary{font-size:clamp(9px,1.4vw,13px);}
+/* Grid is always 3×3 — no override needed in landscape */
+/* Font scaling for landscape (tiles are taller) */
+.tval        {font-size:clamp(24px,9dvh,100px);}
+.tval-primary{font-size:clamp(32px,13dvh,140px);}
+.tval-sm     {font-size:clamp(20px,7dvh,80px);}
+.tlbl        {font-size:clamp(7px,1.2vw,11px);}
+.tlbl-primary{font-size:clamp(8px,1.4vw,12px);}
 }
 
 /* ═══════════════════════════════════════════════
@@ -393,7 +411,9 @@ opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:no
 ```
 <div class="tile-grid">
 
-  <!-- T1: Pace — PRIMARY (highlighted label) -->
+  <!-- ROW 1: PRIMARY PERFORMANCE METRICS -->
+
+  <!-- T1: Pace -->
   <div class="tile">
     <div class="tile-val-wrap">
       <div class="tval tval-primary dim" id="t-pace">--:--</div>
@@ -401,7 +421,7 @@ opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:no
     <div class="tlbl tlbl-primary">Pace / 500m</div>
   </div>
 
-  <!-- T2: Stroke Rate — PRIMARY -->
+  <!-- T2: Stroke Rate -->
   <div class="tile">
     <div class="tile-val-wrap">
       <div class="tval tval-primary dim" id="t-rate">--</div>
@@ -409,18 +429,20 @@ opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:no
     <div class="tlbl tlbl-primary">Stroke rate [str/min]</div>
   </div>
 
-  <!-- T3: Dist/stroke -->
+  <!-- T3: Distance / stroke -->
   <div class="tile">
     <div class="tile-val-wrap">
-      <div class="tval dim" id="t-dps">--</div>
+      <div class="tval tval-primary dim" id="t-dps">--</div>
     </div>
-    <div class="tlbl">Distance / stroke [m]</div>
+    <div class="tlbl tlbl-primary">Dist / stroke [m]</div>
   </div>
+
+  <!-- ROW 2: TECHNIQUE METRICS -->
 
   <!-- T4: Stroke characteristic -->
   <div class="tile">
     <div class="tile-val-wrap">
-      <span class="char-badge" id="char-badge" style="background:#ccc">—</span>
+      <span class="char-badge" id="char-badge">—</span>
       <div class="cbar-wrap">
         <div class="cbar-track">
           <div class="cbar-zones"><div class="cz1"></div><div class="cz2"></div><div class="cz3"></div></div>
@@ -435,42 +457,51 @@ opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:no
   <!-- T5: Catch slope -->
   <div class="tile">
     <div class="tile-val-wrap">
-      <div class="tval dim" id="t-catch">--</div>
+      <div class="tval tval-sm dim" id="t-catch">--</div>
       <div class="catch-bar-wrap">
         <div class="catch-bar-bg">
-          <div class="catch-bar-fill" id="catch-fill" style="left:0;width:0"></div>
-          <div class="catch-needle" id="catch-needle" style="left:0;background:#ccc"></div>
+          <div class="catch-bar-fill" id="catch-fill" style="left:0;width:0;background:rgba(26,82,118,.3)"></div>
+          <div class="catch-needle" id="catch-needle" style="left:0;background:#1a5276"></div>
         </div>
         <div class="catch-sub"><span>0</span><span>+30</span><span>+60</span></div>
-      </div>
-      <div class="catch-stats">
-        <div><span class="cst-v" id="cst-peak">—</span><span class="cst-l">PEAK</span></div>
-        <div><span class="cst-v" id="cst-avg">—</span><span class="cst-l">AVG</span></div>
       </div>
     </div>
     <div class="tlbl">Catch slope [m/s³]</div>
   </div>
 
-  <!-- T6: Total distance -->
+  <!-- T6: Catch consistency (rolling stdev) -->
   <div class="tile">
     <div class="tile-val-wrap">
-      <div class="tval dim" id="t-dist">0.00</div>
+      <div class="tval tval-sm dim" id="t-consistency">--</div>
+      <div class="lap-sub">stdev m/s³ · lower = better</div>
     </div>
-    <div class="tlbl">Distance [km]</div>
+    <div class="tlbl">Catch consistency</div>
   </div>
 
-  <!-- T7: Elapsed time -->
+  <!-- ROW 3: EFFICIENCY + NAVIGATION -->
+
+  <!-- T7: Run loss % -->
   <div class="tile">
     <div class="tile-val-wrap">
-      <div class="tval" id="t-timer">0:00:00</div>
+      <div class="tval tval-sm dim" id="t-runloss">--%</div>
+      <div class="lap-sub" id="t-runloss-ms">-- m/s</div>
     </div>
-    <div class="tlbl">Elapsed time</div>
+    <div class="tlbl">Run loss</div>
   </div>
 
-  <!-- T8: Lap -->
+  <!-- T8: Run efficiency (vmin/vmax) -->
   <div class="tile">
     <div class="tile-val-wrap">
-      <div class="tval dim" id="t-lap">--:--</div>
+      <div class="tval tval-sm dim" id="t-efficiency">--</div>
+      <div class="lap-sub">vmin/vmax · &gt;0.90 excellent</div>
+    </div>
+    <div class="tlbl">Run efficiency</div>
+  </div>
+
+  <!-- T9: Lap pace / dist -->
+  <div class="tile">
+    <div class="tile-val-wrap">
+      <div class="tval tval-sm dim" id="t-lap">--:--</div>
       <div class="lap-sub" id="t-lap-dist">lap --m</div>
     </div>
     <div class="tlbl">Lap pace / dist</div>
@@ -545,9 +576,14 @@ const catchCol =v=>v>15?'#27ae60':v>7?'#f39c12':'#c0392b';
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
 
 /* ═══════════════════════════════════════════════
-   ORIENTATION — pure CSS handles layout now.
-   renderCtrl() writes buttons to BOTH ctrl-row and ctrl-col.
+   ORIENTATION LOCK
+   CSS handles the visual rotation for all cases.
+   Screen Orientation API locks it at OS level when
+   available (works in PWA/standalone mode on iOS 16.4+).
 ═══════════════════════════════════════════════ */
+if(screen.orientation&&screen.orientation.lock){
+  screen.orientation.lock('landscape').catch(()=>{/* silently fail in browser */});
+}
 
 /* ═══════════════════════════════════════════════
    SESSION STORAGE
@@ -565,7 +601,9 @@ let running=false, paused=false, elapsed=0;
 let distance=0, lapStartDist=0, lapStartTime=0;
 let strokeRate=0, strokeCount=0;
 let catchLast=null, catchPeakSess=null, catchVals=[], catchAvg8=null;
-let strokeChar=50, distPerStroke=0, lastStrokeDist=0;
+let catchConsistency=null; // rolling stdev of last 5 catch jerk values
+let strokeChar=50, charVals=[];
+let distPerStroke=0, dpsVals=[], lastStrokeDist=0;
 let laps=[], sessStart=null;
 let sessStrokes=[], sessPaceTrace=[], sessGpsTrace=[];
 
@@ -601,7 +639,7 @@ function handleMotion(e){
   const raw=acc.x||0;
   const now=performance.now();
 
-  // IIR low-pass (α=0.15 → ~3.5Hz cutoff — smoother, reduces finish jerk amplitude)
+  // IIR low-pass (α=0.15)
   smoothAcc = 0.15*raw + 0.85*smoothAcc;
 
   // Differentiate smoothed signal → jerk
@@ -615,6 +653,17 @@ function handleMotion(e){
   }
   prevSmooth=smoothAcc; prevSmoothT=now;
 
+  // GPS-anchored velocity integration (between GPS fixes)
+  // Integrate smoothed acceleration from the last GPS anchor
+  // Clamp to 0–8 m/s (max sprint speed ~7 m/s for a single scull)
+  if(vAnchorT>0 && running && !paused){
+    const dtFromAnchor=(now-vAnchorT)/1000;
+    if(dtFromAnchor<2.0){ // only trust integration for up to 2s between GPS fixes
+      vIntegrated=Math.max(0, Math.min(8, vAnchor + smoothAcc*dtFromAnchor));
+    }
+    pushVelocity(now, vIntegrated);
+  }
+
   if(!running||paused)return;
 
   const sinceLastCatch=now-lastCatchT;
@@ -627,54 +676,87 @@ function handleMotion(e){
     if(jerk<THRESH*0.3){
       inStroke=false;
 
-      // Only compute stroke interval if we've already seen at least one real catch
-      // (lastCatchT=0 on first stroke would give a huge spurious interval)
       if(lastCatchT>0){
         const strokeInterval=now-lastCatchT;
-        // Only update adaptive refractory after 3 strokes and interval is plausible
-        // Plausible range: r12 (5000ms) to r45 (1333ms)
-        if(strokesDetected>=3 && strokeInterval>1200 && strokeInterval<5500){
-          adaptiveRefractory=Math.max(REFRACTORY_MIN_MS, strokeInterval*0.6);
+        if(strokesDetected>=3&&strokeInterval>1200&&strokeInterval<5500){
+          adaptiveRefractory=Math.max(REFRACTORY_MIN_MS,strokeInterval*0.6);
         }
       }
       lastCatchT=now;
       strokesDetected++;
 
-      // Stroke characteristic
+      // ── CATCH JERK: 4-stroke rolling mean ──────────────────
+      // Raw peak jerk varies ±13% stroke-to-stroke even in clean water.
+      // 4-stroke mean reduces display noise by 50% with only 12s lag at r20.
+      const peak=Math.round(peakJerk*10)/10;
+      if(catchPeakSess===null||peak>catchPeakSess)catchPeakSess=peak;
+      catchVals.push(peak);
+      if(catchVals.length>5)catchVals.shift(); // keep 5 for stdev
+      catchLast=Math.round(catchVals.reduce((a,b)=>a+b,0)/catchVals.length*10)/10;
+      catchAvg8=catchLast;
+      // Consistency: population stdev of last 5 catches (lower = more consistent)
+      if(catchVals.length>=3){
+        const m=catchVals.reduce((a,b)=>a+b,0)/catchVals.length;
+        const v=catchVals.reduce((s,x)=>s+(x-m)**2,0)/catchVals.length;
+        catchConsistency=+Math.sqrt(v).toFixed(1);
+      }
+
+      // ── STROKE CHARACTERISTIC: rolling mean of valid strokes only ──
+      // charPct=0 occurs when the drive ends before peak timing resolves —
+      // these are incomplete detections. Only update from strokes where
+      // charPct>0 (complete drive captured). Keep last 4 valid values.
       const driveDur=now-strokeStartT;
       const peakOff=peakJerkT-strokeStartT;
-      const charPct=driveDur>0?Math.min(100,(peakOff/driveDur)*100):50;
-      const peak=Math.round(peakJerk*10)/10;
+      const rawChar=driveDur>100?Math.min(100,(peakOff/driveDur)*100):0;
+      if(rawChar>0){
+        charVals.push(Math.round(rawChar));
+        if(charVals.length>4)charVals.shift();
+        strokeChar=Math.round(charVals.reduce((a,b)=>a+b,0)/charVals.length);
+      }
+      // If rawChar===0, strokeChar retains its last valid value
 
-      catchVals.push(peak);
-      if(catchVals.length>8)catchVals.shift();
-      const avg=Math.round(catchVals.reduce((a,b)=>a+b,0)/catchVals.length*10)/10;
-      if(catchPeakSess===null||peak>catchPeakSess)catchPeakSess=peak;
-      catchLast=peak; catchAvg8=avg; strokeChar=Math.round(charPct);
-
-      distPerStroke=Math.round((distance-lastStrokeDist)*10)/10;
+      // ── DIST/STROKE: blended GPS + speed-derived ───────────
+      // 60% GPS-haversine distance since last stroke
+      // 40% speed-derived: v_gps * stroke_interval_s
+      const rawGpsDps=Math.round((distance-lastStrokeDist)*10)/10;
       lastStrokeDist=distance;
+      const strokeIntervalS=strokeTs.length>=2
+        ?(strokeTs[strokeTs.length-1]-strokeTs[strokeTs.length-2])/1000 : 3.0;
+      const speedDps=vAnchor>0.3 ? vAnchor*strokeIntervalS : 0;
+      let blendedDps=rawGpsDps;
+      if(speedDps>0.5 && rawGpsDps>0.5){
+        blendedDps=0.6*rawGpsDps + 0.4*speedDps;
+      } else if(speedDps>0.5){
+        blendedDps=speedDps;
+      }
+      blendedDps=Math.round(blendedDps*10)/10;
+      if(blendedDps>0.5&&blendedDps<25){
+        dpsVals.push(blendedDps);
+        if(dpsVals.length>4)dpsVals.shift();
+        distPerStroke=Math.round(dpsVals.reduce((a,b)=>a+b,0)/dpsVals.length*10)/10;
+      }
 
-      // Stroke rate — with outlier rejection
-      // Reject intervals < 50% of recent average (double-detection that slipped through)
+      // ── RUN LOSS per stroke ─────────────────────────────────
+      computeRunLoss();
+
+      // ── STROKE RATE ─────────────────────────────────────────
       strokeTs.push(now);
-      if(strokeTs.length>8)strokeTs.shift();
-      if(strokeTs.length>=3){
+      if(strokeTs.length>4)strokeTs.shift();
+      if(strokeTs.length>=2){
         const ints=[];
         for(let i=1;i<strokeTs.length;i++)ints.push(strokeTs[i]-strokeTs[i-1]);
-        // Median filter: sort intervals, use middle value to reject outliers
         const sorted=[...ints].sort((a,b)=>a-b);
         const median=sorted[Math.floor(sorted.length/2)];
-        // Only keep intervals within 50–200% of median (reject doubles and pauses)
         const filtered=ints.filter(x=>x>median*0.5&&x<median*2.0);
-        if(filtered.length>=2){
+        if(filtered.length>=1){
           const avgInt=filtered.reduce((a,b)=>a+b,0)/filtered.length;
           const r=Math.round(60000/avgInt);
           if(r>=12&&r<=40)strokeRate=r;
         }
       }
+
       strokeCount++;
-      sessStrokes.push({t:Date.now(),catchPeak:peak,char:Math.round(charPct),rate:strokeRate,pace,dist:distance,dps:distPerStroke});
+      sessStrokes.push({t:Date.now(),catchPeak:peak,char:strokeChar,rate:strokeRate,pace,dist:distance,dps:distPerStroke});
       peakJerk=0;
       updateUI();
     }
@@ -682,22 +764,82 @@ function handleMotion(e){
 }
 
 /* ═══════════════════════════════════════════════
-   GPS — RESPONSIVE SMOOTHED PACE
-   Short 6s position window for responsiveness.
-   Median filter over last 5 pace readings to
-   kill spikes without adding lag.
-   IIR (α=0.15) smooths the display update.
+   GPS — ANCHORED VELOCITY + INTERPOLATED DISTANCE
+   Strategy:
+   • coords.speed (Kalman-filtered by iPhone) anchors
+     the velocity estimate at each GPS fix (~1Hz)
+   • Between fixes, smoothed accelerometer X integrates
+     velocity at ~50Hz → high-res boat speed signal
+   • Distance accumulates from this integrated velocity
+   • Pace = 500 / v_integrated (IIR smoothed for display)
+   • DPS = blended: 60% GPS-haversine + 40% speed-derived
+   • Run loss = vmax-vmin over last stroke window
+     from the high-res velocity window
 ═══════════════════════════════════════════════ */
 let pace=0;
 let rawPace=0;
-const GPS_WINDOW_S=6;
 const PACE_IIR=0.15;
 const PACE_MAX=600;
-const paceReadings=[];  // last N raw pace values for median filter
+const paceReadings=[];
+
+// GPS-anchored velocity integration
+let vAnchor=0;        // last Kalman-filtered GPS speed (m/s)
+let vAnchorT=0;       // performance.now() when anchor was set
+let vIntegrated=0;    // current integrated velocity estimate
+
+// High-res velocity window for run loss (last 6s)
+const velocityWindow=[];  // [{t:performance.now(), v:m/s}]
+const VEL_WINDOW_MS=6000;
+
+// Run loss state (updated per stroke)
+let runLossPct=null;
+let runLossMs=null;
+let runEfficiency=null;
+
+// Distance: GPS haversine accumulator
+let lastPos=null, gpsWatchId=null;
+const gpsWindow=[];
+const GPS_WINDOW_S=6;
+
+function pushVelocity(t, v){
+  velocityWindow.push({t, v});
+  const cutoff=t-VEL_WINDOW_MS;
+  while(velocityWindow.length>1&&velocityWindow[0].t<cutoff)
+    velocityWindow.shift();
+}
+
+function computeRunLoss(){
+  // Need at least 3 points in a recent stroke-length window
+  const now=performance.now();
+  const windowMs=Math.max(2000, strokeRate>0 ? (60000/strokeRate)*1.2 : 3500);
+  const windowStart=now-windowMs;
+  const rel=velocityWindow.filter(p=>p.t>=windowStart);
+  if(rel.length<3)return;
+  let vmax=0, vmin=Infinity;
+  for(const p of rel){
+    if(p.v>vmax)vmax=p.v;
+    if(p.v<vmin)vmin=p.v;
+  }
+  if(vmax<0.3||vmin===Infinity)return; // not moving
+  runLossMs=+(vmax-vmin).toFixed(2);
+  runLossPct=+((vmax-vmin)/vmax*100).toFixed(1);
+  runEfficiency=+(vmin/vmax).toFixed(3);
+}
 
 function handlePos(pos){
   const pill=document.getElementById('p-gps');
   pill.className='pill pill-on'; pill.textContent='GPS';
+
+  const spd=pos.coords.speed; // Kalman-filtered m/s from iPhone GPS
+  const now=performance.now();
+
+  // Update velocity anchor
+  if(spd!=null&&spd>=0&&spd<10){
+    vAnchor=spd;
+    vAnchorT=now;
+    vIntegrated=spd;
+    pushVelocity(now, spd);
+  }
 
   const cur={lat:pos.coords.latitude, lon:pos.coords.longitude, t:Date.now()};
   sessGpsTrace.push(cur);
@@ -707,30 +849,24 @@ function handlePos(pos){
     if(d>=0.3&&d<30){
       distance+=d;
       cur.dist=distance;
-      if(running&&!paused){
-        gpsWindow.push(cur);
+      if(running&&!paused&&spd!=null&&spd>0.3){
+        // Build pace from GPS speed (more reliable than haversine/dt at 1Hz)
+        // but also keep haversine window for crosscheck
+        gpsWindow.push({...cur, spd});
         const cutoff=cur.t-GPS_WINDOW_S*1000;
         while(gpsWindow.length>1&&gpsWindow[0].t<cutoff)gpsWindow.shift();
-        if(gpsWindow.length>=2){
-          const first=gpsWindow[0], last=gpsWindow[gpsWindow.length-1];
-          const dWindow=haversine(first,last);
-          const tWindow=(last.t-first.t)/1000;
-          if(dWindow>1&&tWindow>1){
-            const newRaw=(tWindow/dWindow)*500;
-            if(newRaw<PACE_MAX){
-              // Median filter: keep last 5 readings, display median
-              paceReadings.push(newRaw);
-              if(paceReadings.length>5)paceReadings.shift();
-              const sorted=[...paceReadings].sort((a,b)=>a-b);
-              const median=sorted[Math.floor(sorted.length/2)];
-              // IIR smooth the median for display
-              pace=pace===0 ? median : PACE_IIR*median + (1-PACE_IIR)*pace;
-              sessPaceTrace.push(pace);
-            } else {
-              // Stationary — clear readings so we don't contaminate next effort
-              paceReadings.length=0;
-            }
-          }
+
+        // Primary pace: from Kalman speed directly
+        const rawFromSpd=500/spd;
+        if(rawFromSpd<PACE_MAX){
+          paceReadings.push(rawFromSpd);
+          if(paceReadings.length>5)paceReadings.shift();
+          const sorted=[...paceReadings].sort((a,b)=>a-b);
+          const median=sorted[Math.floor(sorted.length/2)];
+          pace=pace===0?median:PACE_IIR*median+(1-PACE_IIR)*pace;
+          sessPaceTrace.push(pace);
+        } else {
+          paceReadings.length=0;
         }
       }
     }
@@ -745,73 +881,73 @@ function handleGpsErr(err){
 }
 
 /* ═══════════════════════════════════════════════
-   UI UPDATE
+   UI UPDATE — 3×3 grid
 ═══════════════════════════════════════════════ */
 function updateUI(){
-  // Timer
-  const tel=document.getElementById('t-timer');
-  tel.textContent=fmtH(elapsed);
-  tel.className='tval';
+  const on=running&&!paused;
 
-  // Pace — capped and smoothed in handlePos
+  // ── ROW 1: PACE · RATE · DPS ──────────────────────────────
   const pel=document.getElementById('t-pace');
-  if(running&&pace>0){pel.textContent=fmt(pace);pel.className='tval tval-primary';}
+  if(on&&pace>0){pel.textContent=fmt(pace);pel.className='tval tval-primary';}
   else{pel.textContent='--:--';pel.className='tval tval-primary dim';}
 
-  // Rate
   const rel=document.getElementById('t-rate');
-  if(running&&strokeRate>0){rel.textContent=strokeRate;rel.className='tval';}
-  else{rel.textContent='--';rel.className='tval dim';}
+  if(on&&strokeRate>0){rel.textContent=strokeRate;rel.className='tval tval-primary';}
+  else{rel.textContent='--';rel.className='tval tval-primary dim';}
 
-  // Dist/stroke
-  const dps=document.getElementById('t-dps');
-  if(running&&distPerStroke>0){dps.textContent=distPerStroke.toFixed(1);dps.className='tval';}
-  else{dps.textContent='--';dps.className='tval dim';}
+  const dpsel=document.getElementById('t-dps');
+  if(on&&distPerStroke>0){dpsel.textContent=distPerStroke.toFixed(1);dpsel.className='tval tval-primary';}
+  else{dpsel.textContent='--';dpsel.className='tval tval-primary dim';}
 
-  // Total dist
-  const de=document.getElementById('t-dist');
-  de.textContent=(distance/1000).toFixed(2);
-  de.className=distance>0?'tval':'tval dim';
-
-  // Catch slope
-  const SCALE=60;
-  const ce=document.getElementById('t-catch');
-  if(catchLast!==null){
-    ce.textContent='+'+catchLast.toFixed(1);
-    ce.className='tval';
-    ce.style.color=catchCol(catchLast);
-    const pct=Math.max(0,Math.min(100,(catchLast/SCALE)*100));
-    const col=catchCol(catchLast);
-    document.getElementById('catch-fill').style.left='0';
-    document.getElementById('catch-fill').style.width=pct+'%';
-    document.getElementById('catch-fill').style.background=col+'55';
-    document.getElementById('catch-needle').style.left=pct+'%';
-    document.getElementById('catch-needle').style.background=col;
-  } else{
-    ce.textContent='--';ce.className='tval dim';ce.style.color='';
-  }
-  document.getElementById('cst-peak').textContent=catchPeakSess!==null?'+'+catchPeakSess.toFixed(1):'—';
-  document.getElementById('cst-avg').textContent=catchAvg8!==null?'+'+catchAvg8.toFixed(1):'—';
-
-  // Stroke char
+  // ── ROW 2: STROKE CHAR · CATCH SLOPE · CONSISTENCY ────────
   const needle=document.getElementById('cbar-needle');
   const badge=document.getElementById('char-badge');
   needle.style.left=strokeChar+'%';
-  if(running&&strokeCount>0){
+  if(on&&strokeCount>0){
     badge.textContent=charLabel(strokeChar);
-    badge.style.background=charBg(strokeChar);
-    needle.style.background=charBg(strokeChar);
+    badge.style.background='#1a5276';
+    needle.style.background='#1a5276';
   } else{badge.textContent='—';badge.style.background='#ccc';needle.style.background='#ccc';}
 
-  // Lap tile
+  const CATCH_SCALE=60;
+  const ce=document.getElementById('t-catch');
+  if(catchLast!==null){
+    ce.textContent='+'+catchLast.toFixed(1);
+    ce.className='tval tval-sm';
+    const pct=Math.max(0,Math.min(100,(catchLast/CATCH_SCALE)*100));
+    document.getElementById('catch-fill').style.width=pct+'%';
+    document.getElementById('catch-needle').style.left=pct+'%';
+  } else{ce.textContent='--';ce.className='tval tval-sm dim';}
+
+  const conel=document.getElementById('t-consistency');
+  if(catchConsistency!==null){
+    conel.textContent=catchConsistency.toFixed(1);
+    conel.className='tval tval-sm';
+  } else{conel.textContent='--';conel.className='tval tval-sm dim';}
+
+  // ── ROW 3: RUN LOSS · RUN EFFICIENCY · LAP ────────────────
+  const rle=document.getElementById('t-runloss');
+  const rlm=document.getElementById('t-runloss-ms');
+  if(runLossPct!==null&&on){
+    rle.textContent=runLossPct.toFixed(1)+'%';
+    rle.className='tval tval-sm';
+    rlm.textContent=(runLossMs!==null?runLossMs.toFixed(2)+' m/s':'');
+  } else{rle.textContent='--%';rle.className='tval tval-sm dim';rlm.textContent='';}
+
+  const efe=document.getElementById('t-efficiency');
+  if(runEfficiency!==null&&on){
+    efe.textContent=runEfficiency.toFixed(2);
+    efe.className='tval tval-sm';
+  } else{efe.textContent='--';efe.className='tval tval-sm dim';}
+
   const lapDist=Math.round(distance-lapStartDist);
   const lapTime=elapsed-lapStartTime;
   const lapPace=lapDist>5&&lapTime>0?(lapTime/lapDist)*500:0;
   const lte=document.getElementById('t-lap');
   const lde=document.getElementById('t-lap-dist');
-  if(running&&lapPace>0){lte.textContent=fmt(lapPace);lte.className='tval';}
-  else{lte.textContent='--:--';lte.className='tval dim';}
-  lde.textContent=running?`lap ${lapDist}m`:`lap --m`;
+  if(on&&lapPace>0&&lapPace<PACE_MAX){lte.textContent=fmt(lapPace);lte.className='tval tval-sm';}
+  else{lte.textContent='--:--';lte.className='tval tval-sm dim';}
+  lde.textContent=on?`lap ${lapDist}m`:`lap --m`;
 }
 
 /* ═══════════════════════════════════════════════
@@ -865,10 +1001,14 @@ function stopSess(){
 function resetSess(){
   running=false;paused=false;clearInterval(timerInt);
   elapsed=0;distance=0;pace=0;rawPace=0;strokeRate=0;strokeCount=0;
-  distPerStroke=0;lastStrokeDist=0;lapStartDist=0;lapStartTime=0;
-  catchLast=null;catchPeakSess=null;catchAvg8=null;catchVals=[];
-  strokeChar=50;laps=[];sessStrokes=[];sessPaceTrace=[];sessGpsTrace=[];
+  distPerStroke=0;dpsVals=[];lastStrokeDist=0;
+  lapStartDist=0;lapStartTime=0;
+  catchLast=null;catchPeakSess=null;catchAvg8=null;catchVals=[];catchConsistency=null;
+  strokeChar=50;charVals=[];
+  runLossPct=null;runLossMs=null;runEfficiency=null;
+  laps=[];sessStrokes=[];sessPaceTrace=[];sessGpsTrace=[];
   strokeTs.length=0;gpsWindow.length=0;paceReadings.length=0;
+  velocityWindow.length=0;vAnchor=0;vAnchorT=0;vIntegrated=0;
   inStroke=false;peakJerk=0;lastCatchT=0;strokesDetected=0;adaptiveRefractory=REFRACTORY_MIN_MS;sessStart=null;
   smoothAcc=0;prevSmooth=0;prevSmoothT=0;
   updateUI();renderCtrl();
