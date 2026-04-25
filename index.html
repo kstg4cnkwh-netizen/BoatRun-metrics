@@ -756,7 +756,7 @@ function handleMotion(e){
       }
 
       strokeCount++;
-      sessStrokes.push({t:Date.now(),catchPeak:peak,char:strokeChar,rate:strokeRate,pace,dist:distance,dps:distPerStroke});
+      sessStrokes.push({t:Date.now(),catchPeak:peak,char:strokeChar,rate:strokeRate,pace,dist:distance,dps:distPerStroke,runLossPct,runLossMs,runEfficiency,catchConsistency});
       peakJerk=0;
       updateUI();
     }
@@ -983,19 +983,64 @@ function pauseSess(){paused=true;clearInterval(timerInt);renderCtrl();}
 function resumeSess(){paused=false;timerInt=setInterval(()=>{elapsed++;updateUI();},1000);renderCtrl();}
 function stopSess(){
   running=false;paused=false;clearInterval(timerInt);
-  if(elapsed>10&&sessStrokes.length>0){
-    const avgPace=sessPaceTrace.length>0?Math.round(sessPaceTrace.reduce((a,b)=>a+b,0)/sessPaceTrace.length):0;
-    const avgRate=sessStrokes.length>0?Math.round(sessStrokes.reduce((a,b)=>a+b.rate,0)/sessStrokes.length):0;
+
+  if(elapsed>10 && sessStrokes.length>0){
+
+    const avgPace = sessPaceTrace.length>0
+      ? Math.round(sessPaceTrace.reduce((a,b)=>a+b,0)/sessPaceTrace.length)
+      : 0;
+
+    const avgRate = sessStrokes.length>0
+      ? Math.round(sessStrokes.reduce((a,b)=>a+b.rate,0)/sessStrokes.length)
+      : 0;
+
+    // 🔽 ADD AGGREGATES HERE
+    const avg = (arr, key) => {
+      const vals = arr.map(x => x[key]).filter(v => v != null && !isNaN(v));
+      return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+    };
+
+    const avgRunLoss     = avg(sessStrokes, 'runLossPct');
+    const avgEfficiency  = avg(sessStrokes, 'runEfficiency');
+    const avgDPS         = avg(sessStrokes, 'dps');
+    const avgCatch       = avg(sessStrokes, 'catchPeak');
+    const avgChar        = avg(sessStrokes, 'char');
+    const avgConsistency = avg(sessStrokes, 'catchConsistency');
+
+    // INCLUDE THEM IN SAVED SESSION
     addSess({
-      id:Date.now().toString(), startTime:sessStart, endTime:Date.now(),
-      duration:elapsed, distance:Math.round(distance),
-      avgPace, avgRate, maxRate:Math.max(...sessStrokes.map(s=>s.rate),0),
-      catchPeakSess, catchAvg8, strokeCount,
-      strokes:sessStrokes, paceTrace:sessPaceTrace,
-      gpsTrace:sessGpsTrace, hrTrace:null, laps
+      id:Date.now().toString(),
+      startTime:sessStart,
+      endTime:Date.now(),
+      duration:elapsed,
+      distance:Math.round(distance),
+
+      avgPace,
+      avgRate,
+      maxRate:Math.max(...sessStrokes.map(s=>s.rate),0),
+
+      catchPeakSess,
+      catchAvg8,
+      strokeCount,
+
+      // NEW AGGREGATES
+      avgRunLoss,
+      avgEfficiency,
+      avgDPS,
+      avgCatch,
+      avgChar,
+      avgConsistency,
+
+      strokes:sessStrokes,
+      paceTrace:sessPaceTrace,
+      gpsTrace:sessGpsTrace,
+      hrTrace:null,
+      laps
     });
+
     toast('Session saved');
   }
+
   renderCtrl();
 }
 function resetSess(){
@@ -1163,6 +1208,43 @@ function showDetail(id){
       <div class="sbox"><span class="sbox-v">${avgCatch!=='—'?'+'+avgCatch:avgCatch}</span><span class="sbox-l">Catch Avg</span><span class="sbox-u">M/S³</span></div>
       <div class="sbox"><span class="sbox-v">${s.laps?s.laps.length:0}</span><span class="sbox-l">Laps</span><span class="sbox-u">SPLITS</span></div>
     </div>
+    <div class="sgrid">
+  <div class="sbox">
+    <span class="sbox-v">${s.avgDPS ? s.avgDPS.toFixed(1) : '—'}</span>
+    <span class="sbox-l">Dist / Stroke</span>
+    <span class="sbox-u">m</span>
+  </div>
+
+  <div class="sbox ${s.avgRunLoss<10?'g':s.avgRunLoss<20?'a':'r'}">
+    <span class="sbox-v">${s.avgRunLoss ? s.avgRunLoss.toFixed(1)+'%' : '—'}</span>
+    <span class="sbox-l">Run Loss</span>
+  </div>
+
+  <div class="sbox ${s.avgEfficiency>0.9?'g':s.avgEfficiency>0.85?'a':'r'}">
+    <span class="sbox-v">${s.avgEfficiency ? s.avgEfficiency.toFixed(2) : '—'}</span>
+    <span class="sbox-l">Efficiency</span>
+  </div>
+</div>
+
+<div class="sgrid">
+  <div class="sbox">
+    <span class="sbox-v">${s.avgCatch ? '+'+s.avgCatch.toFixed(1) : '—'}</span>
+    <span class="sbox-l">Catch Avg</span>
+    <span class="sbox-u">m/s³</span>
+  </div>
+
+  <div class="sbox">
+    <span class="sbox-v">${s.avgChar ? Math.round(s.avgChar) : '—'}</span>
+    <span class="sbox-l">Stroke Char</span>
+    <span class="sbox-u">%</span>
+  </div>
+
+  <div class="sbox">
+    <span class="sbox-v">${s.avgConsistency ? s.avgConsistency.toFixed(1) : '—'}</span>
+    <span class="sbox-l">Catch Consistency</span>
+  </div>
+</div>
+
     ${hrHTML}
     ${s.garminSpeedTrace&&s.garminSpeedTrace.length>2?`<div class="chart-card" style="border-color:#8e44ad"><div class="chart-lbl"><span style="color:#8e44ad">Garmin Pace</span><span>min/500m (from TCX speed)</span></div><canvas id="a-gspeed" class="acanvas"></canvas></div>`:''}
     ${s.garminLaps&&s.garminLaps.length>0?`<div class="chart-card" style="border-color:#8e44ad">
@@ -1182,7 +1264,11 @@ function showDetail(id){
     ${s.paceTrace&&s.paceTrace.length>2?`<div class="chart-card g"><div class="chart-lbl"><span>Phone GPS Pace</span><span>min/500m</span></div><canvas id="a-pace" class="acanvas"></canvas></div>`:''}
     ${s.strokes&&s.strokes.length>2?`
       <div class="chart-card b"><div class="chart-lbl"><span>Catch Slope</span><span>m/s³</span></div><canvas id="a-catch" class="acanvas"></canvas></div>
-      <div class="chart-card a"><div class="chart-lbl"><span>Stroke Rate</span><span>str/min</span></div><canvas id="a-rate" class="acanvas"></canvas></div>`:''}
+      <div class="chart-card a"><div class="chart-lbl"><span>Stroke Rate</span><span>str/min</span></div><canvas id="a-rate" class="acanvas"></canvas></div>
+      <div class="chart-card"><div class="chart-lbl"><span>Run Loss</span><span>%</span></div><canvas id="a-runloss" class="acanvas"></canvas></div>
+      <div class="chart-card"><div class="chart-lbl"><span>Efficiency</span><span>vmin/vmax</span></div><canvas id="a-eff" class="acanvas"></canvas></div>
+      <div class="chart-card"><div class="chart-lbl"><span>Dist / Stroke</span><span>m</span></div><canvas id="a-dps" class="acanvas"></canvas></div>
+      <div class="chart-card"><div class="chart-lbl"><span>Stroke Characteristic</span><span>%</span></div><canvas id="a-char" class="acanvas"></canvas></div>`:''}
     ${s.laps&&s.laps.length>0?`<div class="chart-card" style="border-color:#ddd">
       <div class="chart-lbl"><span>Laps</span></div>
       <table class="lap-tbl"><tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>Rate</th></tr>
@@ -1197,6 +1283,10 @@ function showDetail(id){
     if(s.strokes&&s.strokes.length>2){
       drawChart('a-catch',s.strokes.map(x=>x.catchPeak),'#1a5276',false);
       drawChart('a-rate', s.strokes.map(x=>x.rate),'#f39c12',false);
+      drawChart('a-runloss', s.strokes.map(x => x.runLossPct || 0), '#c0392b', false);
+      drawChart('a-eff',     s.strokes.map(x => x.runEfficiency || 0), '#27ae60', false);
+      drawChart('a-dps',     s.strokes.map(x => x.dps || 0), '#1a5276', false);
+      drawChart('a-char',    s.strokes.map(x => x.char || 0), '#f39c12', false);
     }
     if(s.hrTrace&&s.hrTrace.length>2)drawChart('a-hr',s.hrTrace.map(x=>x.hr),'#c0392b',false);
     if(s.garminSpeedTrace&&s.garminSpeedTrace.length>2){
