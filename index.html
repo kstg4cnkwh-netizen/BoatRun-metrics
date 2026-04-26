@@ -634,6 +634,7 @@ let timerInt=null, wakeLock=null;
    ACCELEROMETER — SMOOTHED JERK WITH ADAPTIVE REFRACTORY
 ═══════════════════════════════════════════════ */
 function handleMotion(e){
+  let effScore=0;
   const acc=e.acceleration||e.accelerationIncludingGravity;
   if(!acc)return;
   const raw=acc.x||0;
@@ -739,6 +740,11 @@ function handleMotion(e){
       // ── RUN LOSS per stroke ─────────────────────────────────
       computeRunLoss();
 
+      // ── Efficiency Score  ─────────────────────────────────      
+      const baseEff = distPerStroke * (1 - (runLossPct || 0) / 100);
+      const rateFactor = Math.exp(-Math.pow((strokeRate - 28) / 10, 2));
+      effScore = baseEff * rateFactor;
+
       // ── STROKE RATE ─────────────────────────────────────────
       strokeTs.push(now);
       if(strokeTs.length>4)strokeTs.shift();
@@ -756,7 +762,7 @@ function handleMotion(e){
       }
 
       strokeCount++;
-      sessStrokes.push({t:Date.now(),catchPeak:peak,char:strokeChar,rate:strokeRate,pace,dist:distance,dps:distPerStroke,runLossPct,runLossMs,runEfficiency,catchConsistency});
+      sessStrokes.push({t:Date.now(),catchPeak:peak,char:strokeChar,rate:strokeRate,pace,dist:distance,dps:distPerStroke,runLossPct,runLossMs,runEfficiency,effScore,catchConsistency});
       peakJerk=0;
       updateUI();
     }
@@ -795,6 +801,7 @@ const VEL_WINDOW_MS=6000;
 let runLossPct=null;
 let runLossMs=null;
 let runEfficiency=null;
+let effScore=null;
 
 // Distance: GPS haversine accumulator ===================== ommented out. duplicate
 //let lastPos=null, gpsWatchId=null;
@@ -1284,7 +1291,8 @@ function showDetail(id){
       drawChart('a-catch',s.strokes.map(x=>x.catchPeak),'#1a5276',false);
       drawChart('a-rate', s.strokes.map(x=>x.rate),'#f39c12',false);
       drawChart('a-runloss', s.strokes.map(x => x.runLossPct || 0), '#c0392b', false);
-      drawChart('a-eff',     s.strokes.map(x => x.runEfficiency || 0), '#27ae60', false);
+//      drawChart('a-eff',     s.strokes.map(x => x.runEfficiency || 0), '#27ae60', false);
+      drawChart('a-eff',     s.strokes.map(x => x.effScore || 0), '#27ae60', false);
       drawChart('a-dps',     s.strokes.map(x => x.dps || 0), '#1a5276', false);
       drawChart('a-char',    s.strokes.map(x => x.char || 0), '#f39c12', false);
     }
