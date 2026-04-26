@@ -1428,9 +1428,93 @@ function parseGPX(text){
    CSV EXPORT
 ═══════════════════════════════════════════════ */
 function exportCSV(s){
-  const rows=[['timestamp','catch_jerk_ms3','stroke_char_pct','stroke_rate','pace_s_per_500m','distance_m','dist_per_stroke_m']];
-  if(s.strokes)s.strokes.forEach(r=>rows.push([new Date(r.t).toISOString(),r.catchPeak,r.char,r.rate,r.pace>0?r.pace.toFixed(1):'',r.dist.toFixed(1),(r.dps||0).toFixed(1)]));
-  if(s.hrTrace&&s.hrTrace.length){rows.push([]);rows.push(['hr_timestamp','heart_rate_bpm']);s.hrTrace.forEach(h=>rows.push([new Date(h.t).toISOString(),h.hr]));}
+  const n=v=>(v!=null&&!isNaN(v))?v:'';
+  const f1=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(1):'';
+  const f2=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(2):'';
+  const f3=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(3):'';
+  const rows=[];
+
+  // ── SESSION SUMMARY ──────────────────────────────────────
+  rows.push(['SESSION SUMMARY']);
+  rows.push(['start_time', new Date(s.startTime).toISOString()]);
+  rows.push(['end_time',   new Date(s.endTime||s.startTime+s.duration*1000).toISOString()]);
+  rows.push(['duration_s', n(s.duration)]);
+  rows.push(['distance_m', n(s.distance)]);
+  rows.push(['stroke_count', n(s.strokeCount)]);
+  rows.push(['avg_pace_s_per_500m', n(s.avgPace)]);
+  rows.push(['avg_rate_spm', n(s.avgRate)]);
+  rows.push(['max_rate_spm', n(s.maxRate)]);
+  rows.push(['catch_peak_sess_ms3', n(s.catchPeakSess)]);
+  rows.push(['avg_catch_ms3', f1(s.avgCatch)]);
+  rows.push(['avg_dps_m', f1(s.avgDPS)]);
+  rows.push(['avg_run_loss_pct', f1(s.avgRunLoss)]);
+  rows.push(['avg_efficiency_vmin_vmax', f3(s.avgEfficiency)]);
+  rows.push(['avg_efficiency_score', f1(s.avgEffScore)]);
+  rows.push(['avg_stroke_char_pct', f1(s.avgChar)]);
+  rows.push(['avg_catch_consistency_stdev', f1(s.avgConsistency)]);
+  rows.push([]);
+
+  // ── STROKE-BY-STROKE ─────────────────────────────────────
+  rows.push(['STROKE DATA']);
+  rows.push(['stroke','timestamp','catch_jerk_ms3','stroke_char_pct','catch_consistency_stdev',
+    'stroke_rate_spm','pace_s_per_500m','distance_m','dist_per_stroke_m',
+    'run_loss_pct','run_loss_ms','run_efficiency_vmin_vmax','efficiency_score']);
+  if(s.strokes)s.strokes.forEach((r,i)=>rows.push([
+    i+1,
+    new Date(r.t).toISOString(),
+    f1(r.catchPeak),
+    n(r.char),
+    f1(r.catchConsistency),
+    n(r.rate),
+    r.pace>0?f1(r.pace):'',
+    f1(r.dist),
+    f1(r.dps),
+    f1(r.runLossPct),
+    f2(r.runLossMs),
+    f3(r.runEfficiency),
+    f1(r.effScore)
+  ]));
+  rows.push([]);
+
+  // ── LAPS ─────────────────────────────────────────────────
+  if(s.laps&&s.laps.length){
+    rows.push(['LAPS']);
+    rows.push(['lap','distance_m','time_s','pace_s_per_500m','stroke_rate_spm']);
+    s.laps.forEach(l=>rows.push([l.n,l.dist,l.time,l.pace>0?f1(l.pace):'',n(l.rate)]));
+    rows.push([]);
+  }
+
+  // ── GARMIN LAPS ──────────────────────────────────────────
+  if(s.garminLaps&&s.garminLaps.length){
+    rows.push(['GARMIN LAPS']);
+    rows.push(['lap','distance_m','time_s','pace_s_per_500m','avg_hr_bpm','max_hr_bpm','calories','strokes','avg_spm']);
+    s.garminLaps.forEach(l=>rows.push([l.n,l.dist,l.time,l.pace>0?f1(l.pace):'',n(l.avgHr),n(l.maxHr),n(l.cal),n(l.garminStrokes),n(l.garminAvgSpm)]));
+    rows.push([]);
+  }
+
+  // ── HEART RATE ───────────────────────────────────────────
+  if(s.hrTrace&&s.hrTrace.length){
+    rows.push(['HEART RATE']);
+    rows.push(['timestamp','heart_rate_bpm']);
+    s.hrTrace.forEach(h=>rows.push([new Date(h.t).toISOString(),h.hr]));
+    rows.push([]);
+  }
+
+  // ── GARMIN SPEED TRACE ───────────────────────────────────
+  if(s.garminSpeedTrace&&s.garminSpeedTrace.length){
+    rows.push(['GARMIN SPEED']);
+    rows.push(['timestamp','speed_ms','pace_s_per_500m']);
+    s.garminSpeedTrace.forEach(p=>rows.push([new Date(p.t).toISOString(),f2(p.spd),p.spd>0?f1(500/p.spd):'']));
+    rows.push([]);
+  }
+
+  // ── GPS TRACE ────────────────────────────────────────────
+  if(s.gpsTrace&&s.gpsTrace.length){
+    rows.push(['GPS TRACE']);
+    rows.push(['timestamp','latitude','longitude','cumulative_distance_m']);
+    s.gpsTrace.forEach(p=>rows.push([new Date(p.t).toISOString(),p.lat,p.lon,p.dist!=null?f1(p.dist):'']));
+  }
+
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'}));
   a.download=`scull_${new Date(s.startTime).toISOString().slice(0,10)}.csv`;a.click();
