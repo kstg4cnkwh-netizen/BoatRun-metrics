@@ -104,7 +104,7 @@ min-height:28px;
 /* ── TILE GRID — always 3×3
 Row 1 (40%): Pace, Stroke Rate, DPS  — primary large numbers
 Row 2 (30%): Stroke Char, Catch Slope, Catch Consistency
-Row 3 (30%): Run Loss, Run Efficiency, Lap pace/dist
+Row 3 (30%): Run Loss, Efficiency score, Lap pace/dist
 ── */
 .tile-grid{
 flex:1;min-height:0;min-width:0;
@@ -489,13 +489,13 @@ opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:no
     <div class="tlbl">Run loss</div>
   </div>
 
-  <!-- T8: Run efficiency (vmin/vmax) -->
+  <!-- T8: Efficiency score -->
   <div class="tile">
     <div class="tile-val-wrap">
       <div class="tval tval-sm dim" id="t-efficiency">--</div>
-      <div class="lap-sub">vmin/vmax · &gt;0.90 excellent</div>
+      <div class="lap-sub">higher = better</div>
     </div>
-    <div class="tlbl">Run efficiency</div>
+    <div class="tlbl">Efficiency score</div>
   </div>
 
   <!-- T9: Lap pace / dist -->
@@ -803,10 +803,8 @@ let runLossMs=null;
 let runEfficiency=null;
 let effScore=null;
 
-// Distance: GPS haversine accumulator ===================== ommented out. duplicate
-//let lastPos=null, gpsWatchId=null;
-//const gpsWindow=[];
-//const GPS_WINDOW_S=6;
+// Distance: GPS haversine accumulator
+const GPS_WINDOW_S=6;
 
 function pushVelocity(t, v){
   velocityWindow.push({t, v});
@@ -932,7 +930,7 @@ function updateUI(){
     conel.className='tval tval-sm';
   } else{conel.textContent='--';conel.className='tval tval-sm dim';}
 
-  // ── ROW 3: RUN LOSS · RUN EFFICIENCY · LAP ────────────────
+  // ── ROW 3: RUN LOSS · EFFICIENCY SCORE · LAP ──────────────
   const rle=document.getElementById('t-runloss');
   const rlm=document.getElementById('t-runloss-ms');
   if(runLossPct!==null&&on){
@@ -942,8 +940,8 @@ function updateUI(){
   } else{rle.textContent='--%';rle.className='tval tval-sm dim';rlm.textContent='';}
 
   const efe=document.getElementById('t-efficiency');
-  if(runEfficiency!==null&&on){
-    efe.textContent=runEfficiency.toFixed(2);
+  if(effScore!==null&&effScore>0&&on){
+    efe.textContent=effScore.toFixed(1);
     efe.className='tval tval-sm';
   } else{efe.textContent='--';efe.className='tval tval-sm dim';}
 
@@ -1001,7 +999,6 @@ function stopSess(){
       ? Math.round(sessStrokes.reduce((a,b)=>a+b.rate,0)/sessStrokes.length)
       : 0;
 
-    // 🔽 ADD AGGREGATES HERE
     const avg = (arr, key) => {
       const vals = arr.map(x => x[key]).filter(v => v != null && !isNaN(v));
       return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
@@ -1013,8 +1010,8 @@ function stopSess(){
     const avgCatch       = avg(sessStrokes, 'catchPeak');
     const avgChar        = avg(sessStrokes, 'char');
     const avgConsistency = avg(sessStrokes, 'catchConsistency');
+    const avgEffScore    = avg(sessStrokes, 'effScore');
 
-    // INCLUDE THEM IN SAVED SESSION
     addSess({
       id:Date.now().toString(),
       startTime:sessStart,
@@ -1030,13 +1027,13 @@ function stopSess(){
       catchAvg8,
       strokeCount,
 
-      // NEW AGGREGATES
       avgRunLoss,
       avgEfficiency,
       avgDPS,
       avgCatch,
       avgChar,
       avgConsistency,
+      avgEffScore,
 
       strokes:sessStrokes,
       paceTrace:sessPaceTrace,
@@ -1057,7 +1054,7 @@ function resetSess(){
   lapStartDist=0;lapStartTime=0;
   catchLast=null;catchPeakSess=null;catchAvg8=null;catchVals=[];catchConsistency=null;
   strokeChar=50;charVals=[];
-  runLossPct=null;runLossMs=null;runEfficiency=null;
+  runLossPct=null;runLossMs=null;runEfficiency=null;effScore=null;
   laps=[];sessStrokes=[];sessPaceTrace=[];sessGpsTrace=[];
   strokeTs.length=0;gpsWindow.length=0;paceReadings.length=0;
   velocityWindow.length=0;vAnchor=0;vAnchorT=0;vIntegrated=0;
@@ -1216,42 +1213,36 @@ function showDetail(id){
       <div class="sbox"><span class="sbox-v">${s.laps?s.laps.length:0}</span><span class="sbox-l">Laps</span><span class="sbox-u">SPLITS</span></div>
     </div>
     <div class="sgrid">
-  <div class="sbox">
-    <span class="sbox-v">${s.avgDPS ? s.avgDPS.toFixed(1) : '—'}</span>
-    <span class="sbox-l">Dist / Stroke</span>
-    <span class="sbox-u">m</span>
-  </div>
-
-  <div class="sbox ${s.avgRunLoss<10?'g':s.avgRunLoss<20?'a':'r'}">
-    <span class="sbox-v">${s.avgRunLoss ? s.avgRunLoss.toFixed(1)+'%' : '—'}</span>
-    <span class="sbox-l">Run Loss</span>
-  </div>
-
-  <div class="sbox ${s.avgEfficiency>0.9?'g':s.avgEfficiency>0.85?'a':'r'}">
-    <span class="sbox-v">${s.avgEfficiency ? s.avgEfficiency.toFixed(2) : '—'}</span>
-    <span class="sbox-l">Efficiency</span>
-  </div>
-</div>
-
-<div class="sgrid">
-  <div class="sbox">
-    <span class="sbox-v">${s.avgCatch ? '+'+s.avgCatch.toFixed(1) : '—'}</span>
-    <span class="sbox-l">Catch Avg</span>
-    <span class="sbox-u">m/s³</span>
-  </div>
-
-  <div class="sbox">
-    <span class="sbox-v">${s.avgChar ? Math.round(s.avgChar) : '—'}</span>
-    <span class="sbox-l">Stroke Char</span>
-    <span class="sbox-u">%</span>
-  </div>
-
-  <div class="sbox">
-    <span class="sbox-v">${s.avgConsistency ? s.avgConsistency.toFixed(1) : '—'}</span>
-    <span class="sbox-l">Catch Consistency</span>
-  </div>
-</div>
-
+      <div class="sbox">
+        <span class="sbox-v">${s.avgDPS ? s.avgDPS.toFixed(1) : '—'}</span>
+        <span class="sbox-l">Dist / Stroke</span>
+        <span class="sbox-u">m</span>
+      </div>
+      <div class="sbox ${s.avgRunLoss<10?'g':s.avgRunLoss<20?'a':'r'}">
+        <span class="sbox-v">${s.avgRunLoss ? s.avgRunLoss.toFixed(1)+'%' : '—'}</span>
+        <span class="sbox-l">Run Loss</span>
+      </div>
+      <div class="sbox">
+        <span class="sbox-v">${s.avgEffScore != null ? s.avgEffScore.toFixed(1) : '—'}</span>
+        <span class="sbox-l">Efficiency Score</span>
+      </div>
+    </div>
+    <div class="sgrid">
+      <div class="sbox">
+        <span class="sbox-v">${s.avgCatch ? '+'+s.avgCatch.toFixed(1) : '—'}</span>
+        <span class="sbox-l">Catch Avg</span>
+        <span class="sbox-u">m/s³</span>
+      </div>
+      <div class="sbox">
+        <span class="sbox-v">${s.avgChar ? Math.round(s.avgChar) : '—'}</span>
+        <span class="sbox-l">Stroke Char</span>
+        <span class="sbox-u">%</span>
+      </div>
+      <div class="sbox">
+        <span class="sbox-v">${s.avgConsistency ? s.avgConsistency.toFixed(1) : '—'}</span>
+        <span class="sbox-l">Catch Consistency</span>
+      </div>
+    </div>
     ${hrHTML}
     ${s.garminSpeedTrace&&s.garminSpeedTrace.length>2?`<div class="chart-card" style="border-color:#8e44ad"><div class="chart-lbl"><span style="color:#8e44ad">Garmin Pace</span><span>min/500m (from TCX speed)</span></div><canvas id="a-gspeed" class="acanvas"></canvas></div>`:''}
     ${s.garminLaps&&s.garminLaps.length>0?`<div class="chart-card" style="border-color:#8e44ad">
@@ -1273,7 +1264,7 @@ function showDetail(id){
       <div class="chart-card b"><div class="chart-lbl"><span>Catch Slope</span><span>m/s³</span></div><canvas id="a-catch" class="acanvas"></canvas></div>
       <div class="chart-card a"><div class="chart-lbl"><span>Stroke Rate</span><span>str/min</span></div><canvas id="a-rate" class="acanvas"></canvas></div>
       <div class="chart-card"><div class="chart-lbl"><span>Run Loss</span><span>%</span></div><canvas id="a-runloss" class="acanvas"></canvas></div>
-      <div class="chart-card"><div class="chart-lbl"><span>Efficiency</span><span>vmin/vmax</span></div><canvas id="a-eff" class="acanvas"></canvas></div>
+      <div class="chart-card"><div class="chart-lbl"><span>Efficiency Score</span><span>higher = better</span></div><canvas id="a-eff" class="acanvas"></canvas></div>
       <div class="chart-card"><div class="chart-lbl"><span>Dist / Stroke</span><span>m</span></div><canvas id="a-dps" class="acanvas"></canvas></div>
       <div class="chart-card"><div class="chart-lbl"><span>Stroke Characteristic</span><span>%</span></div><canvas id="a-char" class="acanvas"></canvas></div>`:''}
     ${s.laps&&s.laps.length>0?`<div class="chart-card" style="border-color:#ddd">
@@ -1291,14 +1282,12 @@ function showDetail(id){
       drawChart('a-catch',s.strokes.map(x=>x.catchPeak),'#1a5276',false);
       drawChart('a-rate', s.strokes.map(x=>x.rate),'#f39c12',false);
       drawChart('a-runloss', s.strokes.map(x => x.runLossPct || 0), '#c0392b', false);
-//      drawChart('a-eff',     s.strokes.map(x => x.runEfficiency || 0), '#27ae60', false);
       drawChart('a-eff',     s.strokes.map(x => x.effScore || 0), '#27ae60', false);
       drawChart('a-dps',     s.strokes.map(x => x.dps || 0), '#1a5276', false);
       drawChart('a-char',    s.strokes.map(x => x.char || 0), '#f39c12', false);
     }
     if(s.hrTrace&&s.hrTrace.length>2)drawChart('a-hr',s.hrTrace.map(x=>x.hr),'#c0392b',false);
     if(s.garminSpeedTrace&&s.garminSpeedTrace.length>2){
-      // Convert m/s → sec/500m for pace chart
       const paceFromGarmin=s.garminSpeedTrace.filter(x=>x.spd>0.3).map(x=>500/x.spd);
       drawChart('a-gspeed',paceFromGarmin,'#8e44ad',true);
     }
@@ -1339,11 +1328,6 @@ function drawChart(id,data,color,invertY){
 
 /* ═══════════════════════════════════════════════
    TCX PARSER — Garmin Connect TCX export
-   Extracts per-trackpoint: time, HR, speed (m/s),
-   cumulative distance. Also extracts lap summaries.
-   TCX is preferred over GPX: has native Speed field
-   (Garmin-smoothed, more reliable than raw GPS),
-   native HR, cumulative distance, and lap structure.
 ═══════════════════════════════════════════════ */
 async function handleGPX(e,sessionId){
   const file=e.target.files[0];if(!file)return;
@@ -1360,7 +1344,6 @@ async function handleGPX(e,sessionId){
     const idx=sessions.findIndex(s=>s.id===sessionId);
     if(idx>=0){
       sessions[idx].hrTrace=result.hr;
-      // Also store Garmin speed trace and laps if available
       if(result.speedTrace)sessions[idx].garminSpeedTrace=result.speedTrace;
       if(result.laps)sessions[idx].garminLaps=result.laps;
       saveSess(sessions);
@@ -1380,7 +1363,6 @@ function parseTCX(text){
 
   const hr=[], speedTrace=[];
 
-  // Parse trackpoints
   doc.querySelectorAll('Trackpoint').forEach(tp=>{
     const timeEl=tp.querySelector('Time');
     if(!timeEl)return;
@@ -1393,7 +1375,6 @@ function parseTCX(text){
       if(v>0&&v<250)hr.push({t,hr:v});
     }
 
-    // Speed from ns3:TPX/ns3:Speed (m/s)
     const speedEls=[...tp.querySelectorAll('*')].filter(el=>el.localName==='Speed');
     if(speedEls.length){
       const spd=parseFloat(speedEls[0].textContent.trim());
@@ -1401,7 +1382,6 @@ function parseTCX(text){
     }
   });
 
-  // Parse lap summaries — including ns3:Steps (total stroke count)
   const laps=[];
   doc.querySelectorAll('Lap').forEach((lap,i)=>{
     const startTime=lap.getAttribute('StartTime')||'';
@@ -1410,7 +1390,6 @@ function parseTCX(text){
     const t=get('TotalTimeSeconds'), d=get('DistanceMeters');
     const avgHr=getInt('AverageHeartRateBpm Value'), maxHr=getInt('MaximumHeartRateBpm Value');
     const cal=getInt('Calories');
-    // ns3:Steps = total stroke count recorded by watch wrist accelerometer
     const stepsEls=[...lap.querySelectorAll('*')].filter(el=>el.localName==='Steps');
     const steps=stepsEls.length?parseInt(stepsEls[0].textContent.trim()):null;
     const avgSpm=(steps&&t)?Math.round(steps/t*60):null;
