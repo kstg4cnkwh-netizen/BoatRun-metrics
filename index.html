@@ -286,8 +286,8 @@ box-shadow:0 1px 3px rgba(0,0,0,.07);
 .scard:active{background:#f5f5f5}
 .scard-date{font-size:10px;color:#999;margin-bottom:6px;letter-spacing:.04em}
 .scard-stats{display:flex;gap:14px}
-.scs-v{font-size:19px;font-weight:300;color:#111;display:block}
-.scs-l{font-size:8px;color:#bbb;letter-spacing:.1em;text-transform:uppercase;display:block}
+.scs-v{font-size:19px;font-weight:400;color:#000;display:block}
+.scs-l{font-size:8px;color:#333;letter-spacing:.1em;text-transform:uppercase;display:block}
 .no-sess{text-align:center;padding:60px 24px;color:#ccc;font-size:13px;line-height:2}
 
 /* detail */
@@ -304,9 +304,9 @@ background:#fff;border-radius:3px;padding:9px 8px 7px;
 border-top:3px solid #1a5276;box-shadow:0 1px 2px rgba(0,0,0,.06);
 }
 .sbox.g{border-color:#27ae60}.sbox.a{border-color:#f39c12}.sbox.r{border-color:#c0392b}
-.sbox-v{font-size:20px;font-weight:300;color:#111;display:block}
-.sbox-l{font-size:7px;color:#bbb;letter-spacing:.12em;text-transform:uppercase;display:block;margin-top:2px}
-.sbox-u{font-size:7px;color:#1a5276;letter-spacing:.1em;display:block;margin-top:1px}
+.sbox-v{font-size:20px;font-weight:400;color:#000;display:block}
+.sbox-l{font-size:7px;color:#333;letter-spacing:.12em;text-transform:uppercase;display:block;margin-top:2px}
+.sbox-u{font-size:7px;color:#000;letter-spacing:.1em;display:block;margin-top:1px}
 
 .chart-card{
 background:#fff;border-radius:3px;padding:9px 11px 7px;
@@ -315,7 +315,7 @@ box-shadow:0 1px 2px rgba(0,0,0,.05);
 }
 .chart-card.g{border-color:#27ae60}.chart-card.b{border-color:#1a5276}
 .chart-card.a{border-color:#f39c12}.chart-card.r{border-color:#c0392b}
-.chart-lbl{display:flex;justify-content:space-between;font-size:8px;color:#bbb;letter-spacing:.1em;margin-bottom:5px;text-transform:uppercase}
+.chart-lbl{display:flex;justify-content:space-between;font-size:8px;color:#222;letter-spacing:.1em;margin-bottom:5px;text-transform:uppercase}
 .acanvas{width:100%;height:68px;display:block;border-radius:2px}
 
 .hr-zones{display:flex;gap:3px;margin:6px 0}
@@ -332,8 +332,8 @@ cursor:pointer;margin:4px 0;background:#fff;
 .fit-st{font-size:10px;text-align:center;padding:5px 0;letter-spacing:.08em}
 
 .lap-tbl{width:100%;border-collapse:collapse;font-size:11px}
-.lap-tbl th{font-size:8px;color:#bbb;letter-spacing:.1em;text-align:left;padding:3px 5px;font-weight:400;text-transform:uppercase}
-.lap-tbl td{padding:5px 5px;border-top:1px solid #f0f0f0;color:#444}
+.lap-tbl th{font-size:8px;color:#333;letter-spacing:.1em;text-align:left;padding:3px 5px;font-weight:700;text-transform:uppercase}
+.lap-tbl td{padding:5px 5px;border-top:1px solid #f0f0f0;color:#000}
 .lap-tbl tr.best td{color:#27ae60;font-weight:700}
 
 .exp-btn{
@@ -603,7 +603,7 @@ let strokeRate=0, strokeCount=0;
 let catchLast=null, catchPeakSess=null, catchVals=[], catchAvg8=null;
 let catchConsistency=null; // rolling stdev of last 5 catch jerk values
 let strokeChar=50, charVals=[];
-let distPerStroke=0, dpsVals=[], lastStrokeDist=0;
+let distPerStroke=0, dpsVals=[], lastStrokeDist=0, maxDPS=0;
 let laps=[], sessStart=null;
 let sessStrokes=[], sessPaceTrace=[], sessGpsTrace=[];
 
@@ -735,6 +735,7 @@ function handleMotion(e){
         dpsVals.push(blendedDps);
         if(dpsVals.length>4)dpsVals.shift();
         distPerStroke=Math.round(dpsVals.reduce((a,b)=>a+b,0)/dpsVals.length*10)/10;
+        if(distPerStroke>maxDPS)maxDPS=distPerStroke;
       }
 
       // ── RUN LOSS per stroke ─────────────────────────────────
@@ -1283,7 +1284,7 @@ function showDetail(id){
       drawChart('a-rate', s.strokes.map(x=>x.rate),'#f39c12',false);
       drawChart('a-runloss', s.strokes.map(x => x.runLossPct || 0), '#c0392b', false);
       drawChart('a-eff',     s.strokes.map(x => x.effScore || 0), '#27ae60', false);
-      drawChart('a-dps',     s.strokes.map(x => x.dps || 0), '#1a5276', false);
+      drawChart('a-dps',     s.strokes.map(x => x.dps || 0), '#1a5276', false, 20);
       drawChart('a-char',    s.strokes.map(x => x.char || 0), '#f39c12', false);
     }
     if(s.hrTrace&&s.hrTrace.length>2)drawChart('a-hr',s.hrTrace.map(x=>x.hr),'#c0392b',false);
@@ -1306,13 +1307,15 @@ function showDetail(id){
 /* ═══════════════════════════════════════════════
    ANALYSIS CHARTS
 ═══════════════════════════════════════════════ */
-function drawChart(id,data,color,invertY){
+function drawChart(id,data,color,invertY,yMax){
   const c=document.getElementById(id);if(!c||data.length<2)return;
   const dpr=window.devicePixelRatio||1;
   const W=c.offsetWidth*dpr,H=c.offsetHeight*dpr;
   c.width=W;c.height=H;
   const ctx=c.getContext('2d');ctx.clearRect(0,0,W,H);
-  const mn=Math.min(...data),mx=Math.max(...data),range=mx-mn||1,pad=4;
+  const mn=Math.min(...data);
+  const mx=yMax!=null?yMax:Math.max(...data);
+  const range=mx-mn||1,pad=4;
   const sy=v=>invertY?pad+(((v-mn)/range)*(H-pad*2)):(H-pad)-(((v-mn)/range)*(H-pad*2));
   ctx.strokeStyle='#f0f0f0';ctx.lineWidth=1;
   for(let i=0;i<=3;i++){const y=pad+i*(H-pad*2)/3;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
