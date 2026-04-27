@@ -12,9 +12,6 @@
 <title>Scull · Metrics</title>
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet"/>
 <style>
-/* ═══════════════════════════════════════════════
-   BASE
-═══════════════════════════════════════════════ */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html{height:100%;-webkit-text-size-adjust:none}
 body{
@@ -24,61 +21,1094 @@ body{
   overflow:hidden;
   padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
-
 @media (orientation:portrait){
 body{
-position:fixed;
-top:0;left:0;
-width:100dvh;
-height:100dvw;
-transform-origin:top left;
-transform:rotate(90deg) translateY(-100dvw);
-overflow:hidden;
+  position:fixed;top:0;left:0;
+  width:100dvh;height:100dvw;
+  transform-origin:top left;
+  transform:rotate(90deg) translateY(-100dvw);
+  overflow:hidden;
 }
 }
-
-/* ═══════════════════════════════════════════════
-SCREENS
-═══════════════════════════════════════════════ */
 .screen{display:none;width:100%;height:100%}
 .screen.active{display:flex;flex-direction:column}
-
-/* ═══════════════════════════════════════════════
-PERMISSION SCREEN
-═══════════════════════════════════════════════ */
-#screen-perm{
-background:#1a5276;
-align-items:center;justify-content:center;
-overflow-y:auto;
-}
-.perm-inner{
-display:flex;flex-direction:column;align-items:center;
-gap:16px;padding:28px 28px;text-align:center;
-max-width:400px;width:100%;
-}
+#screen-perm{background:#1a5276;align-items:center;justify-content:center;overflow-y:auto;}
+.perm-inner{display:flex;flex-direction:column;align-items:center;gap:16px;padding:28px 28px;text-align:center;max-width:400px;width:100%;}
 .perm-icon{font-size:44px;line-height:1}
 .perm-title{font-size:22px;font-weight:700;color:#fff;letter-spacing:.06em}
 .perm-body{font-size:13px;color:rgba(255,255,255,.72);line-height:1.7}
-.perm-btn{
-background:#fff;color:#1a5276;border:none;
-font-family:'Roboto',sans-serif;font-size:15px;font-weight:700;
-letter-spacing:.1em;padding:14px 0;border-radius:4px;cursor:pointer;
-text-transform:uppercase;width:100%;
-}
+.perm-btn{background:#fff;color:#1a5276;border:none;font-family:'Roboto',sans-serif;font-size:15px;font-weight:700;letter-spacing:.1em;padding:14px 0;border-radius:4px;cursor:pointer;text-transform:uppercase;width:100%;}
 .perm-note{font-size:10px;color:rgba(255,255,255,.28);line-height:1.7}
+#screen-live{flex-direction:column}
+.sbar{background:#1a5276;display:flex;align-items:center;justify-content:space-between;padding:3px 10px;flex-shrink:0;min-height:28px;}
+.sbar-l{display:flex;align-items:center;gap:6px}
+.sbar-title{color:#fff;font-size:10px;font-weight:700;letter-spacing:.1em}
+.pill{font-size:8px;font-weight:700;letter-spacing:.1em;padding:2px 6px;border-radius:2px}
+.pill-on{background:#27ae60;color:#fff}
+.pill-off{background:rgba(255,255,255,.18);color:rgba(255,255,255,.4)}
+.pill-err{background:#c0392b;color:#fff}
+.rec{display:flex;align-items:center;gap:4px;color:#fff;font-size:9px;font-weight:700}
+.recdot{width:7px;height:7px;border-radius:50%;background:#e74c3c;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
+.live-body{flex:1;min-height:0;min-width:0;display:flex;flex-direction:row;}
+.tile-grid{
+  flex:1;min-height:0;min-width:0;
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  grid-template-rows:40fr 30fr 30fr;
+  gap:2px;background:#999;padding:2px;
+}
+.tile{background:#fff;display:flex;flex-direction:column;overflow:hidden;min-height:0;min-width:0;}
+.tile-val-wrap{flex:1;min-height:0;min-width:0;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2px 4px;gap:1px;}
+.tval{font-family:'Roboto Condensed',sans-serif;font-weight:500;font-size:clamp(20px,7dvh,88px);line-height:1;color:#111;white-space:nowrap;overflow:hidden;max-width:100%;text-align:center;}
+.tval.dim{color:#888}
+.tval-primary{font-size:clamp(40px,16dvh,180px);font-weight:700;}
+.tval-r23{font-family:'Roboto Condensed',sans-serif;font-weight:700;font-size:clamp(28px,11dvh,130px);line-height:1;color:#111;white-space:nowrap;overflow:hidden;max-width:100%;text-align:center;}
+.tval-r23.dim{color:#888}
+.sub-micro{font-size:clamp(7px,1.1dvh,11px);color:#aaa;font-weight:400;text-align:center;line-height:1;white-space:nowrap;overflow:hidden;max-width:100%;}
+.tlbl{background:#1a5276;color:#fff;font-size:clamp(7px,1.2vw,12px);font-weight:400;letter-spacing:.02em;text-align:center;padding:3px 3px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tlbl-primary{background:#154360;font-weight:700;font-size:clamp(8px,1.4vw,13px);border-top:3px solid #5dade2;padding:4px 3px 3px;}
+.cbar-wrap{width:96%;flex-shrink:0;margin-top:1px;overflow:visible;}
+.cbar-track{position:relative;height:10px;background:#eee;border-radius:5px;overflow:visible;}
+.cbar-zones{position:absolute;inset:0;display:flex;z-index:1;}
+.cz1{background:#e74c3c;flex:1;}
+.cz2{background:#27ae60;flex:2;}
+.cz3{background:#e67e22;flex:1;}
+.cbar-needle{position:absolute;width:5px;height:18px;top:-4px;background:#000;border-radius:2px;transform:translateX(-50%);z-index:3;box-shadow:0 2px 6px rgba(0,0,0,.4);}
+.cbar-midline{position:absolute;left:50%;top:0;width:2px;height:100%;background:#000;opacity:.4;transform:translateX(-50%);z-index:2;}
+.char-num{font-family:'Roboto Condensed',sans-serif;font-weight:700;font-size:clamp(28px,11dvh,130px);line-height:1;color:#111;text-align:center;}
+.char-num.dim{color:#888}
+.char-label-sm{font-size:clamp(7px,1.1dvh,11px);color:#aaa;font-weight:400;text-align:center;line-height:1;white-space:nowrap;overflow:hidden;max-width:100%;}
+.catch-bar-wrap{width:88%;flex-shrink:0;margin-top:1px}
+.catch-bar-bg{height:4px;background:#e8e8e8;border-radius:2px;position:relative;overflow:hidden;}
+.catch-bar-fill{position:absolute;top:0;height:100%;border-radius:2px;transition:width .12s;}
+.catch-needle{position:absolute;top:-3px;width:3px;height:10px;border-radius:2px;transform:translateX(-50%);transition:left .12s;box-shadow:0 1px 3px rgba(0,0,0,.25);}
+.ctrl-col{display:none;}
+.ctrl-row{background:#1a5276;display:flex;gap:5px;flex-shrink:0;padding:5px 8px calc(5px + env(safe-area-inset-bottom));}
+#live-tabs-port{display:flex;background:#0f3a54;flex-shrink:0;border-top:1px solid rgba(255,255,255,.1);padding-bottom:env(safe-area-inset-bottom);}
+.tab-bar{display:flex;background:#0f3a54;flex-shrink:0;border-top:1px solid rgba(255,255,255,.1);padding-bottom:env(safe-area-inset-bottom);}
+#live-tabs{display:none;}
+.tab{flex:1;padding:6px 0 5px;text-align:center;border:none;background:none;color:rgba(255,255,255,.38);font-family:'Roboto',sans-serif;font-size:8px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;}
+.tab.active{color:#fff;border-top:2px solid #fff}
+.tab-icon{font-size:14px;display:block;margin-bottom:1px}
+.tab-txt{display:inline}
+.btn{
+  flex:1;border:none;border-radius:3px;
+  font-family:'Roboto',sans-serif;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;cursor:pointer;
+  padding:clamp(8px,1.8dvh,16px) 4px;font-size:clamp(11px,1.5dvh,14px);
+  /* FIX: pointer-events and touch-action to prevent iOS tap swallowing */
+  touch-action:manipulation;
+  -webkit-user-select:none;user-select:none;
+}
+.btn:active{filter:brightness(.82);transform:scale(.96)}
+.btn-start{background:#27ae60;color:#fff}
+.btn-stop{background:#c0392b;color:#fff}
+.btn-pause{background:#f39c12;color:#fff}
+.btn-lap{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3)}
+.btn-reset{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
+@media (orientation:landscape){
+  .ctrl-row{display:none;}
+  #live-tabs-port{display:none;}
+  .live-body{flex-direction:row;}
+  .ctrl-col{display:flex;flex-direction:column;gap:4px;background:#1a5276;flex-shrink:0;width:clamp(68px,9.5vw,100px);padding:5px 5px calc(5px + env(safe-area-inset-bottom));}
+  .ctrl-col .btn{flex:1;width:100%;padding:0 3px;font-size:clamp(9px,1.1vw,13px);letter-spacing:.04em;}
+  #live-tabs{display:flex;flex-direction:column;align-self:stretch;flex-shrink:0;width:clamp(38px,5vw,50px);background:#0f3a54;border-top:none;border-left:1px solid rgba(255,255,255,.1);padding-bottom:env(safe-area-inset-bottom);padding-right:env(safe-area-inset-right);}
+  #live-tabs .tab{flex:1;padding:10px 0;}
+  #live-tabs .tab-txt{display:none;}
+  #live-tabs .tab-icon{font-size:18px;margin-bottom:0;}
+  #live-tabs .tab.active{border-top:none;border-left:2px solid #fff;}
+  .tval{font-size:clamp(28px,11dvh,120px);}
+  .tval-primary{font-size:clamp(48px,18dvh,200px);font-weight:700;}
+  .tval-r23{font-size:clamp(34px,13dvh,160px);}
+  .char-num{font-size:clamp(34px,13dvh,160px);}
+  .tlbl{font-size:clamp(7px,1.2vw,11px);}
+  .tlbl-primary{font-size:clamp(8px,1.4vw,12px);}
+  .sub-micro{font-size:clamp(7px,1.0dvh,10px);}
+  .char-label-sm{font-size:clamp(7px,1.0dvh,10px);}
+}
+.ahdr{background:#1a5276;padding:8px 14px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;}
+.ahdr-title{font-size:10px;letter-spacing:.2em;color:rgba(255,255,255,.6);font-weight:700}
+.scnt{font-size:10px;color:rgba(255,255,255,.35);letter-spacing:.08em}
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#efefef}
+.slist{padding:8px}
+.scard{background:#fff;border-radius:4px;margin-bottom:6px;padding:12px 14px;cursor:pointer;border-left:4px solid #1a5276;box-shadow:0 1px 3px rgba(0,0,0,.07);}
+.scard:active{background:#f5f5f5}
+.scard-date{font-size:10px;color:#999;margin-bottom:6px;letter-spacing:.04em}
+.scard-stats{display:flex;gap:14px}
+.scs-v{font-size:19px;font-weight:400;color:#000;display:block}
+.scs-l{font-size:8px;color:#333;letter-spacing:.1em;text-transform:uppercase;display:block}
+.no-sess{text-align:center;padding:60px 24px;color:#ccc;font-size:13px;line-height:2}
+.dback{background:none;border:none;color:#1a5276;font-family:'Roboto',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;cursor:pointer;padding:4px 0 10px;text-transform:uppercase;display:flex;align-items:center;gap:4px;}
+.detail-wrap{padding:10px 10px 20px}
+.sgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:5px}
+.sbox{background:#fff;border-radius:3px;padding:9px 8px 7px;border-top:3px solid #1a5276;box-shadow:0 1px 2px rgba(0,0,0,.06);}
+.sbox.g{border-color:#27ae60}.sbox.a{border-color:#f39c12}.sbox.r{border-color:#c0392b}
+.sbox-v{font-size:20px;font-weight:400;color:#000;display:block}
+.sbox-l{font-size:7px;color:#333;letter-spacing:.12em;text-transform:uppercase;display:block;margin-top:2px}
+.sbox-u{font-size:7px;color:#000;letter-spacing:.1em;display:block;margin-top:1px}
+.chart-card{background:#fff;border-radius:3px;padding:9px 11px 7px;margin-bottom:5px;border-top:2px solid #ddd;box-shadow:0 1px 2px rgba(0,0,0,.05);}
+.chart-card.g{border-color:#27ae60}.chart-card.b{border-color:#1a5276}.chart-card.a{border-color:#f39c12}.chart-card.r{border-color:#c0392b}
+.chart-lbl{display:flex;justify-content:space-between;font-size:8px;color:#222;letter-spacing:.1em;margin-bottom:5px;text-transform:uppercase}
+.acanvas{width:100%;height:68px;display:block;border-radius:2px}
+.hr-zones{display:flex;gap:3px;margin:6px 0}
+.hrz{flex:1;border-radius:3px;padding:4px 2px;text-align:center}
+.hrz-l{font-size:7px;letter-spacing:.06em;display:block}
+.hrz-p{font-size:11px;font-weight:700;display:block;margin-top:1px}
+.fit-zone{border:2px dashed #ddd;border-radius:4px;padding:16px;text-align:center;cursor:pointer;margin:4px 0;background:#fff;}
+.fit-zone:active{border-color:#1a5276;background:#f0f7ff}
+.fit-txt{font-size:11px;color:#ccc;line-height:1.9}
+.fit-st{font-size:10px;text-align:center;padding:5px 0;letter-spacing:.08em}
+.lap-tbl{width:100%;border-collapse:collapse;font-size:11px}
+.lap-tbl th{font-size:8px;color:#333;letter-spacing:.1em;text-align:left;padding:3px 5px;font-weight:700;text-transform:uppercase}
+.lap-tbl td{padding:5px 5px;border-top:1px solid #f0f0f0;color:#000}
+.lap-tbl tr.best td{color:#27ae60;font-weight:700}
+.exp-btn{width:100%;padding:12px;border-radius:3px;background:#1a5276;color:#fff;border:none;font-family:'Roboto',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;margin-top:4px;}
+.del-btn{width:100%;padding:12px;border-radius:3px;background:#fff;color:#c0392b;border:1px solid #e0e0e0;font-family:'Roboto',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;margin-top:4px;}
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1a5276;color:#fff;padding:7px 18px;border-radius:18px;font-size:11px;letter-spacing:.08em;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:nowrap;}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- PERMISSION -->
+
+<div id="screen-perm" class="screen active">
+  <div class="perm-inner">
+    <div class="perm-icon">🚣</div>
+    <div class="perm-title">SCULL METRICS</div>
+    <div class="perm-body">
+      Real-time GPS pace &amp; distance<br/>
+      Accelerometer catch slope [m/s³]<br/>
+      Session recording · Garmin TCX import<br/><br/>
+      Mount phone in <strong style="color:#fff">landscape mode</strong>.<br/>
+      Long axis points port to starboard.
+    </div>
+    <button class="perm-btn" id="perm-btn">ENABLE SENSORS</button>
+    <div class="perm-note">
+      iOS: Settings → Safari → Motion &amp; Orientation Access<br/>
+      Add to Home Screen for full-screen use · Works offline<br/>
+      <span style="color:rgba(255,255,255,.18)">v1.5</span>
+    </div>
+  </div>
+</div>
+
+<!-- LIVE -->
+
+<div id="screen-live" class="screen">
+  <div class="sbar">
+    <div class="sbar-l">
+      <span class="sbar-title">SCULL</span>
+      <span class="pill pill-off" id="p-gps">GPS</span>
+      <span class="pill pill-off" id="p-acc">ACC</span>
+    </div>
+    <div class="rec" id="rec-ind" style="display:none"><div class="recdot"></div>REC</div>
+  </div>
+  <div class="live-body">
+    <div class="tile-grid">
+      <!-- ROW 1 -->
+      <div class="tile">
+        <div class="tile-val-wrap">
+          <div class="tval tval-primary dim" id="t-pace">--:--</div>
+        </div>
+        <div class="tlbl tlbl-primary">Pace / 500m</div>
+      </div>
+      <div class="tile">
+        <div class="tile-val-wrap">
+          <div class="tval tval-primary dim" id="t-rate">--</div>
+        </div>
+        <div class="tlbl tlbl-primary">Stroke rate [str/min]</div>
+      </div>
+      <div class="tile">
+        <div class="tile-val-wrap">
+          <div class="tval tval-primary dim" id="t-dps">--</div>
+        </div>
+        <div class="tlbl tlbl-primary">Dist / stroke [m]</div>
+      </div>
+      <!-- ROW 2 -->
+      <div class="tile">
+        <div class="tile-val-wrap">
+          <div class="char-num dim" id="t-char-num">--</div>
+          <div class="cbar-wrap">
+            <div class="cbar-track">
+              <div class="cbar-zones"><div class="cz1"></div><div class="cz2"></div><div class="cz3"></div></div>
+              <div class="cbar-midline"></div>
+              <div class="cbar-needle" id="cbar-needle" style="left:50%"></div>
+            </div>
+          </div>
+          <div class="char-label-sm" id="char-badge">—</div>
+        </div>
+        <div class="tlbl">Stroke characteristic</div>
+      </div>
+      <div class="tile">
+        <div class="tile-val-wrap">
+          <div class="tval-r23 dim" id="t-catch">--</div>
+          <div class="catch-bar-wrap">
+            <div class="catch-bar-bg">
+              <div class="catch-bar-fill" id="catch-fill" style="left:0;width:0;background:rgba(26,82,118,.3)"></div>
+              <div class="catch-needle" id="catch-needle" style="left:0;background:#1a5276"></div>
+            </div>
+          </div>
+          <div class="sub-micro">m/s³ · 0 ──── 30 ──── 60</div>
+        </div>
+        <div class="tlbl">Catch slope [m/s³]</div>
+      </div>
+      <div class="tile">
+        <div class="tile-val-wrap">
+          <div class="tval-r23 dim" id="t-consistency">--</div>
+          <div class="sub-micro">stdev m/s³ · lower = better</div>
+        </div>
+        <div class="tlbl">Catch consistency</div>
+      </div>
+      <!-- ROW 3 -->
+      <div class="tile">
+        <div class="tile-val-wrap">
+          <div class="tval-r23 dim" id="t-runloss">--%</div>
+          <div class="sub-micro" id="t-runloss-ms"></div>
+        </div>
+        <div class="tlbl">Run loss</div>
+      </div>
+      <div class="tile">
+        <div class="tile-val-wrap">
+          <div class="tval-r23 dim" id="t-efficiency">--</div>
+          <div class="sub-micro">higher = better</div>
+        </div>
+        <div class="tlbl">Efficiency score</div>
+      </div>
+      <div class="tile">
+        <div class="tile-val-wrap">
+          <div class="tval-r23 dim" id="t-lap">--:--</div>
+          <div class="sub-micro" id="t-lap-dist">lap --m</div>
+        </div>
+        <div class="tlbl">Lap pace / dist</div>
+      </div>
+    </div><!-- /tile-grid -->
+
+```
+<!-- FIX: buttons are persistent DOM elements, never destroyed/recreated mid-tap -->
+<div class="ctrl-col" id="ctrl-col">
+  <button class="btn btn-start"  id="cc-start"  style="display:none">Start</button>
+  <button class="btn btn-start"  id="cc-resume" style="display:none">Resume</button>
+  <button class="btn btn-pause"  id="cc-pause"  style="display:none">Pause</button>
+  <button class="btn btn-lap"    id="cc-lap"    style="display:none">Lap</button>
+  <button class="btn btn-stop"   id="cc-stop"   style="display:none">Stop</button>
+  <button class="btn btn-reset"  id="cc-reset"  style="display:none">Reset</button>
+</div>
+
+<div class="tab-bar" id="live-tabs">
+  <button class="tab active" id="tab-live-ls"><span class="tab-icon">📡</span><span class="tab-txt">LIVE</span></button>
+  <button class="tab" id="tab-anal-ls"><span class="tab-icon">📊</span><span class="tab-txt">ANALYSIS</span></button>
+</div>
+```
+
+  </div><!-- /live-body -->
+
+  <!-- FIX: persistent portrait buttons -->
+
+  <div class="ctrl-row" id="ctrl-row">
+    <button class="btn btn-start"  id="cr-start"  style="display:none">Start</button>
+    <button class="btn btn-start"  id="cr-resume" style="display:none">Resume</button>
+    <button class="btn btn-pause"  id="cr-pause"  style="display:none">Pause</button>
+    <button class="btn btn-lap"    id="cr-lap"    style="display:none">Lap</button>
+    <button class="btn btn-stop"   id="cr-stop"   style="display:none">Stop</button>
+    <button class="btn btn-reset"  id="cr-reset"  style="display:none">Reset</button>
+  </div>
+
+  <div class="tab-bar" id="live-tabs-port">
+    <button class="tab active" id="tab-live-pt"><span class="tab-icon">📡</span><span class="tab-txt">LIVE</span></button>
+    <button class="tab" id="tab-anal-pt"><span class="tab-icon">📊</span><span class="tab-txt">ANALYSIS</span></button>
+  </div>
+</div>
+
+<!-- ANALYSIS -->
+
+<div id="screen-analysis" class="screen">
+  <div class="ahdr">
+    <span class="ahdr-title">SESSION HISTORY</span>
+    <span class="scnt" id="scnt">0 sessions</span>
+  </div>
+  <div id="alist-view" class="scroll">
+    <div class="slist" id="slist">
+      <div class="no-sess" id="no-sess">No sessions yet.<br/>Start rowing to record your first session.</div>
+    </div>
+  </div>
+  <div id="adetail-view" class="scroll" style="display:none">
+    <div class="detail-wrap" id="detail-content"></div>
+  </div>
+  <div class="tab-bar">
+    <button class="tab" id="tab-live-an"><span class="tab-icon">📡</span>LIVE</button>
+    <button class="tab active" id="tab-anal-an"><span class="tab-icon">📊</span>ANALYSIS</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<input type="file" id="fit-input" accept=".tcx,.gpx" style="display:none"/>
+
+<script>
+'use strict';
+
+/* ── utilities ── */
+const fmt=s=>{s=Math.max(0,Math.round(s));return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`};
+const fmtH=s=>{s=Math.max(0,Math.round(s));return`${Math.floor(s/3600)}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`};
+const fmtDate=ts=>{const d=new Date(ts);return d.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})+' '+d.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'})};
+const haversine=(a,b)=>{const R=6371000,dLat=(b.lat-a.lat)*Math.PI/180,dLon=(b.lon-a.lon)*Math.PI/180,x=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))};
+const charLabel=v=>v<22?'EARLY DRIVE':v<40?'FRONT LOADED':v<60?'BALANCED':v<78?'LATE DRIVE':'BACK LOADED';
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
+
+/* ── orientation ── */
+if(screen.orientation&&screen.orientation.lock){screen.orientation.lock('landscape').catch(()=>{});}
+
+/* ── storage ── */
+const DB='scull_v3';
+const loadSess=()=>{try{return JSON.parse(localStorage.getItem(DB)||'[]')}catch{return[]}};
+const saveSess=a=>localStorage.setItem(DB,JSON.stringify(a));
+const addSess=s=>{const a=loadSess();a.unshift(s);saveSess(a)};
+const delSess=id=>saveSess(loadSess().filter(s=>s.id!==id));
 
 /* ═══════════════════════════════════════════════
-LIVE SCREEN WRAPPER
+   LIVE STATE
 ═══════════════════════════════════════════════ */
-#screen-live{flex-direction:column}
+let running=false,paused=false,elapsed=0;
+let distance=0,lapStartDist=0,lapStartTime=0;
+let strokeRate=0,strokeCount=0;
+let catchLast=null,catchPeakSess=null,catchVals=[],catchAvg8=null;
+let catchConsistency=null;
+let strokeChar=50,charVals=[];
+let distPerStroke=0,dpsVals=[],maxDPS=0;
+let laps=[],sessStart=null;
+let sessStrokes=[],sessPaceTrace=[],sessGpsTrace=[];
+let lastPos=null,gpsWatchId=null;
+const gpsWindow=[];
+let smoothAcc=0,prevSmooth=0,prevSmoothT=0;
+let inStroke=false,peakJerk=0,peakJerkT=0,strokeStartT=0;
+const REFRACTORY_MIN_MS=1600;
+let lastCatchT=0,strokesDetected=0,adaptiveRefractory=REFRACTORY_MIN_MS;
 
-/* ── status bar ── */
-.sbar{
-background:#1a5276;
-display:flex;align-items:center;justify-content:space-between;
-padding:3px 10px;flex-shrink:0;
-min-height:28px;
+// FIX: extended stroke timestamp ring — keep 8 for more stable median interval
+const MAX_STROKE_TS=8;
+const strokeTs=[];
+
+let timerInt=null,wakeLock=null;
+let lastVelT=0;
+let pace=0,rawPace=0;
+const PACE_IIR=0.15,PACE_MAX=600;
+const paceReadings=[];   // FIX: rolling window, capped at 6
+
+let vAnchor=0,vAnchorT=0,vIntegrated=0;
+const VEL_CORR_ALPHA=0.18,MAX_V=8;
+const velocityWindow=[];
+const VEL_WINDOW_MS=6000;
+let runLossPct=null,runLossMs=null,runEfficiency=null,effScore=null;
+const GPS_WINDOW_S=6;
+
+/* ═══════════════════════════════════════════════
+   ACCELEROMETER
+═══════════════════════════════════════════════ */
+function handleMotion(e){
+  const acc=e.acceleration||e.accelerationIncludingGravity;
+  if(!acc)return;
+  const raw=acc.x||0;
+  const now=performance.now();
+  smoothAcc=0.15*raw+0.85*smoothAcc;
+  let jerk=0;
+  if(prevSmoothT>0){
+    const dt=(now-prevSmoothT)/1000;
+    if(dt>0.005&&dt<0.15){jerk=(smoothAcc-prevSmooth)/dt;jerk=Math.max(-80,Math.min(80,jerk));}
+  }
+  prevSmooth=smoothAcc;prevSmoothT=now;
+
+  if(running&&!paused){
+    if(lastVelT===0)lastVelT=now;
+    const dt=(now-lastVelT)/1000;
+    lastVelT=now;
+    if(dt>0.005&&dt<0.1){
+      let vPred=vIntegrated+smoothAcc*dt;
+      if(vAnchorT>0)vPred=(1-VEL_CORR_ALPHA)*vPred+VEL_CORR_ALPHA*vAnchor;
+      vIntegrated=Math.max(0,Math.min(MAX_V,vPred));
+      pushVelocity(now,vIntegrated);
+    }
+  }
+
+  if(!running||paused)return;
+
+  const sinceLastCatch=now-lastCatchT;
+  const THRESH=8;
+  if(!inStroke&&jerk>THRESH&&sinceLastCatch>adaptiveRefractory){
+    inStroke=true;peakJerk=jerk;peakJerkT=now;strokeStartT=now;
+  } else if(inStroke){
+    if(jerk>peakJerk){peakJerk=jerk;peakJerkT=now;}
+    if(jerk<THRESH*0.3){
+      inStroke=false;
+      if(lastCatchT>0){
+        const strokeInterval=now-lastCatchT;
+        if(strokesDetected>=3&&strokeInterval>1200&&strokeInterval<5500){
+          adaptiveRefractory=Math.max(REFRACTORY_MIN_MS,strokeInterval*0.6);
+        }
+      }
+      lastCatchT=now;
+      strokesDetected++;
+
+      const peak=Math.round(peakJerk);
+      if(catchPeakSess===null||peak>catchPeakSess)catchPeakSess=peak;
+      catchVals.push(peak);
+      if(catchVals.length>5)catchVals.shift();
+      catchLast=Math.round(catchVals.reduce((a,b)=>a+b,0)/catchVals.length);
+      catchAvg8=catchLast;
+      if(catchVals.length>=3){
+        const m=catchVals.reduce((a,b)=>a+b,0)/catchVals.length;
+        const v=catchVals.reduce((s,x)=>s+(x-m)**2,0)/catchVals.length;
+        catchConsistency=Math.round(Math.sqrt(v||0));
+      }
+
+      const driveDur=now-strokeStartT;
+      const peakOff=peakJerkT-strokeStartT;
+      const rawChar=driveDur>100?Math.min(100,(peakOff/driveDur)*100):0;
+      if(rawChar>0){
+        charVals.push(Math.round(rawChar));
+        if(charVals.length>4)charVals.shift();
+        strokeChar=Math.round(charVals.reduce((a,b)=>a+b,0)/charVals.length);
+      }
+
+      /* ── FIX: stroke rate ──────────────────────────────────────────────
+         Store up to MAX_STROKE_TS timestamps.
+         Compute all consecutive intervals, take median, outlier-filter ±40%
+         of that median, average the survivors.  This eliminates single-miss
+         spikes and stale values from old timestamps. ── */
+      strokeTs.push(now);
+      if(strokeTs.length>MAX_STROKE_TS)strokeTs.shift();
+
+      if(strokeTs.length>=3){
+        const ints=[];
+        for(let i=1;i<strokeTs.length;i++)ints.push(strokeTs[i]-strokeTs[i-1]);
+        const sorted=[...ints].sort((a,b)=>a-b);
+        const median=sorted[Math.floor(sorted.length/2)];
+        // Only accept intervals within 40% of median (was 50/200% — too loose)
+        const filtered=ints.filter(x=>x>median*0.6&&x<median*1.6);
+        if(filtered.length>=2){
+          const avgInt=filtered.reduce((a,b)=>a+b,0)/filtered.length;
+          const r=Math.round(60000/avgInt);
+          if(r>=12&&r<=40)strokeRate=r;
+        }
+      }
+
+      /* ── FIX: DPS uses GPS anchor speed when available, else integrated ── */
+      const strokeIntervalS=strokeTs.length>=2
+        ?(strokeTs[strokeTs.length-1]-strokeTs[strokeTs.length-2])/1000
+        :3.0;
+      const vUse=vAnchor>0?vAnchor:vIntegrated;
+      const dps=vUse*strokeIntervalS;
+      if(dps>0.5&&dps<25){
+        dpsVals.push(dps);
+        if(dpsVals.length>4)dpsVals.shift();
+        distPerStroke=Math.round(dpsVals.reduce((a,b)=>a+b,0)/dpsVals.length*10)/10;
+        if(distPerStroke>maxDPS)maxDPS=distPerStroke;
+      }
+
+      computeRunLoss();
+      if(runLossPct!=null&&distPerStroke>0){
+        const baseEff=distPerStroke*(1-runLossPct/100);
+        const rateFactor=Math.exp(-Math.pow((strokeRate-28)/10,2));
+        effScore=baseEff*rateFactor;
+      } else {effScore=null;}
+
+      strokeCount++;
+      sessStrokes.push({t:Date.now(),catchPeak:peak,char:strokeChar,rate:strokeRate,
+        pace:(pace>0?pace:null),dist:distance,dps:distPerStroke,
+        runLossPct,runLossMs,runEfficiency,effScore,catchConsistency});
+      peakJerk=0;
+      updateUI();
+    }
+  }
 }
+
+/* ═══════════════════════════════════════════════
+   GPS
+═══════════════════════════════════════════════ */
+function pushVelocity(t,v){
+  velocityWindow.push({t,v});
+  const cutoff=t-VEL_WINDOW_MS;
+  while(velocityWindow.length>1&&velocityWindow[0].t<cutoff)velocityWindow.shift();
+}
+
+function computeRunLoss(){
+  const now=performance.now();
+  const windowMs=strokeRate>0?(60000/strokeRate)*1.1:3000;
+  const windowStart=now-windowMs;
+  const rel=velocityWindow.filter(p=>p.t>=windowStart);
+  if(rel.length<3){runLossPct=null;runLossMs=null;return;}
+  let vmax=0,vmin=Infinity;
+  for(const p of rel){if(p.v>vmax)vmax=p.v;if(p.v<vmin)vmin=p.v;}
+  if(vmax<0.3||vmin===Infinity)return;
+  runLossMs=+(vmax-vmin).toFixed(2);
+  runLossPct=Math.round((vmax-vmin)/vmax*100);
+  runEfficiency=+(vmin/vmax).toFixed(3);
+}
+
+function handlePos(pos){
+  const pill=document.getElementById('p-gps');
+  pill.className='pill pill-on';pill.textContent='GPS';
+  const spd=pos.coords.speed;
+  const now=performance.now();
+  if(spd!=null&&spd>=0&&spd<10){vAnchor=spd;vAnchorT=now;vIntegrated=spd;pushVelocity(now,spd);}
+  const cur={lat:pos.coords.latitude,lon:pos.coords.longitude,t:Date.now()};
+  sessGpsTrace.push(cur);
+  if(lastPos){
+    const d=haversine(lastPos,cur);
+    if(d>=0.3&&d<30){
+      distance+=d;
+      cur.dist=distance;
+      if(running&&!paused&&spd!=null&&spd>0.3){
+        gpsWindow.push({...cur,spd});
+        const cutoff=cur.t-GPS_WINDOW_S*1000;
+        while(gpsWindow.length>1&&gpsWindow[0].t<cutoff)gpsWindow.shift();
+
+        /* ── FIX: pace ──────────────────────────────────────────────────
+           Cap paceReadings at 6 (was 5, but more importantly the IIR
+           was never resetting on bad readings so one outlier persisted).
+           Also gate on minimum speed 0.5 m/s (was 0.3) to avoid
+           near-stationary GPS noise inflating pace. ── */
+        if(spd>0.5){
+          const rawFromSpd=500/spd;
+          if(rawFromSpd<PACE_MAX){
+            paceReadings.push(rawFromSpd);
+            if(paceReadings.length>6)paceReadings.shift();
+            const sorted=[...paceReadings].sort((a,b)=>a-b);
+            const median=sorted[Math.floor(sorted.length/2)];
+            pace=(pace===0)?median:(PACE_IIR*median+(1-PACE_IIR)*pace);
+            sessPaceTrace.push(pace);
+          }
+          // if rawFromSpd >= PACE_MAX, don't update — don't reset either (avoids thrash)
+        } else {
+          // truly slow/stopped: flush stale readings so pace goes dim quickly
+          paceReadings.length=0;
+          pace=0;
+        }
+      }
+    }
+  }
+  lastPos=cur;
+  updateUI();
+}
+
+function handleGpsErr(err){
+  const pill=document.getElementById('p-gps');
+  pill.className='pill pill-err';
+  pill.textContent=err.code===1?'GPS DENIED':'GPS ERR';
+}
+
+/* ═══════════════════════════════════════════════
+   UI UPDATE
+═══════════════════════════════════════════════ */
+function updateUI(){
+  const on=running&&!paused;
+
+  const pel=document.getElementById('t-pace');
+  if(on&&pace>0){pel.textContent=fmt(pace);pel.className='tval tval-primary';}
+  else{pel.textContent='--:--';pel.className='tval tval-primary dim';}
+
+  const rel=document.getElementById('t-rate');
+  if(on&&strokeRate>0){rel.textContent=strokeRate;rel.className='tval tval-primary';}
+  else{rel.textContent='--';rel.className='tval tval-primary dim';}
+
+  const dpsel=document.getElementById('t-dps');
+  if(on&&distPerStroke>0){dpsel.textContent=distPerStroke.toFixed(1);dpsel.className='tval tval-primary';}
+  else{dpsel.textContent='--';dpsel.className='tval tval-primary dim';}
+
+  const needle=document.getElementById('cbar-needle');
+  const charNumEl=document.getElementById('t-char-num');
+  const charBadgeEl=document.getElementById('char-badge');
+  needle.style.left=strokeChar+'%';
+  if(on&&strokeCount>0){
+    charNumEl.textContent=strokeChar;charNumEl.className='char-num';
+    charBadgeEl.textContent=charLabel(strokeChar);needle.style.background='#1a5276';
+  } else {charNumEl.textContent='--';charNumEl.className='char-num dim';charBadgeEl.textContent='—';needle.style.background='#ccc';}
+
+  const CATCH_SCALE=60;
+  const ce=document.getElementById('t-catch');
+  if(catchLast!==null){
+    ce.textContent=catchLast;ce.className='tval-r23';
+    const pct=Math.max(0,Math.min(100,(catchLast/CATCH_SCALE)*100));
+    document.getElementById('catch-fill').style.width=pct+'%';
+    document.getElementById('catch-needle').style.left=pct+'%';
+  } else{ce.textContent='--';ce.className='tval-r23 dim';}
+
+  const conel=document.getElementById('t-consistency');
+  if(catchConsistency!==null){conel.textContent=Math.round(catchConsistency);conel.className='tval-r23';}
+  else{conel.textContent='--';conel.className='tval-r23 dim';}
+
+  const rle=document.getElementById('t-runloss');
+  const rlm=document.getElementById('t-runloss-ms');
+  if(runLossPct!==null&&on){rle.textContent=runLossPct+'%';rle.className='tval-r23';rlm.textContent=(runLossMs!==null?runLossMs.toFixed(2)+' m/s':'');}
+  else{rle.textContent='--%';rle.className='tval-r23 dim';rlm.textContent='';}
+
+  const efe=document.getElementById('t-efficiency');
+  if(effScore!==null&&effScore>0&&on){efe.textContent=effScore.toFixed(1);efe.className='tval-r23';}
+  else{efe.textContent='--';efe.className='tval-r23 dim';}
+
+  const lapDist=Math.round(distance-lapStartDist);
+  const lapTime=elapsed-lapStartTime;
+  const lapPace=lapDist>5&&lapTime>0?(lapTime/lapDist)*500:0;
+  const lte=document.getElementById('t-lap');
+  const lde=document.getElementById('t-lap-dist');
+  if(on&&lapPace>0&&lapPace<PACE_MAX){lte.textContent=fmt(lapPace);lte.className='tval-r23';}
+  else{lte.textContent='--:--';lte.className='tval-r23 dim';}
+  lde.textContent=on?`lap ${lapDist}m`:`lap --m`;
+}
+
+/* ═══════════════════════════════════════════════
+   CONTROLS — FIX: persistent buttons, show/hide only
+   Never innerHTML-replace during a touch sequence.
+═══════════════════════════════════════════════ */
+function renderCtrl(){
+  const rec=document.getElementById('rec-ind');
+  // Determine which buttons are visible for each state
+  // States: idle (not started), running, paused, idle-with-data (elapsed>0)
+  const showStart  = !running;
+  const showResume = !running && paused && elapsed>0;
+  const showPause  = running && !paused;
+  const showLap    = running && !paused;
+  const showStop   = running && !paused;
+  const showReset  = !running && elapsed>0;
+
+  // For portrait (cr-) and landscape (cc-) button pairs
+  ['cr','cc'].forEach(p=>{
+    const s=id=>document.getElementById(`${p}-${id}`);
+    // Start: visible when not running and not paused-with-data
+    s('start').style.display =(showStart&&!showResume)?'':'none';
+    s('resume').style.display=showResume?'':'none';
+    s('pause').style.display =showPause?'':'none';
+    s('lap').style.display   =showLap?'':'none';
+    s('stop').style.display  =showStop?'':'none';
+    s('reset').style.display =showReset?'':'none';
+  });
+  rec.style.display=(running&&!paused)?'flex':'none';
+}
+
+/* ═══════════════════════════════════════════════
+   SESSION CONTROLS
+═══════════════════════════════════════════════ */
+function startSess(){
+  if(!sessStart)sessStart=Date.now();
+  lapStartDist=distance;lapStartTime=elapsed;
+  running=true;paused=false;
+  timerInt=setInterval(()=>{elapsed++;updateUI();},1000);
+  // FIX: defer renderCtrl to next tick so the button tap completes first
+  requestAnimationFrame(renderCtrl);
+}
+function pauseSess(){
+  paused=true;clearInterval(timerInt);
+  requestAnimationFrame(renderCtrl);
+}
+function resumeSess(){
+  paused=false;
+  timerInt=setInterval(()=>{elapsed++;updateUI();},1000);
+  requestAnimationFrame(renderCtrl);
+}
+function stopSess(){
+  running=false;paused=false;clearInterval(timerInt);
+  if(elapsed>10&&sessStrokes.length>0){
+    const avgPace=sessPaceTrace.length>0?Math.round(sessPaceTrace.reduce((a,b)=>a+b,0)/sessPaceTrace.length):0;
+    const avgRate=sessStrokes.length>0?Math.round(sessStrokes.reduce((a,b)=>a+b.rate,0)/sessStrokes.length):0;
+    const avg=(arr,key)=>{const vals=arr.map(x=>x[key]).filter(v=>v!=null&&!isNaN(v));return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;};
+    const avgRunLoss=avg(sessStrokes,'runLossPct');
+    const avgEfficiency=avg(sessStrokes,'runEfficiency');
+    const avgDPS=avg(sessStrokes,'dps');
+    const avgCatch=avg(sessStrokes,'catchPeak');
+    const avgChar=avg(sessStrokes,'char');
+    const avgConsistency=(()=>{const vals=sessStrokes.map(x=>x.catchConsistency).filter(v=>v!=null&&!isNaN(v));if(!vals.length)return null;return Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);})();
+    const avgEffScore=avg(sessStrokes,'effScore');
+    addSess({id:Date.now().toString(),startTime:sessStart,endTime:Date.now(),duration:elapsed,
+      distance:Math.round(distance),avgPace,avgRate,maxRate:Math.max(...sessStrokes.map(s=>s.rate),0),
+      catchPeakSess,catchAvg8,strokeCount,avgRunLoss,avgEfficiency,avgDPS,avgCatch,avgChar,
+      avgConsistency,avgEffScore,strokes:sessStrokes,paceTrace:sessPaceTrace,gpsTrace:sessGpsTrace,hrTrace:null,laps});
+    toast('Session saved');
+  }
+  requestAnimationFrame(renderCtrl);
+}
+function resetSess(){
+  running=false;paused=false;clearInterval(timerInt);
+  elapsed=0;distance=0;pace=0;rawPace=0;strokeRate=0;strokeCount=0;
+  distPerStroke=0;dpsVals=[];
+  lapStartDist=0;lapStartTime=0;
+  catchLast=null;catchPeakSess=null;catchAvg8=null;catchVals=[];catchConsistency=null;
+  strokeChar=50;charVals=[];
+  runLossPct=null;runLossMs=null;runEfficiency=null;effScore=null;
+  laps=[];sessStrokes=[];sessPaceTrace=[];sessGpsTrace=[];
+  strokeTs.length=0;gpsWindow.length=0;paceReadings.length=0;
+  velocityWindow.length=0;vAnchor=0;vAnchorT=0;vIntegrated=0;
+  inStroke=false;peakJerk=0;lastCatchT=0;strokesDetected=0;adaptiveRefractory=REFRACTORY_MIN_MS;sessStart=null;
+  smoothAcc=0;prevSmooth=0;prevSmoothT=0;lastVelT=0;
+  updateUI();
+  requestAnimationFrame(renderCtrl);
+}
+function recordLap(){
+  if(!running||paused)return;
+  const d=Math.round(distance-lapStartDist),t=elapsed-lapStartTime;
+  const p=d>5&&t>0?(t/d)*500:0;
+  laps.push({n:laps.length+1,dist:d,time:t,pace:p,rate:strokeRate});
+  lapStartDist=distance;lapStartTime=elapsed;
+  toast(`Lap ${laps.length} · ${d}m`);
+}
+
+/* ── wire up persistent buttons ── */
+function wireButtons(){
+  ['cr','cc'].forEach(p=>{
+    document.getElementById(`${p}-start`).addEventListener('click',startSess);
+    document.getElementById(`${p}-resume`).addEventListener('click',resumeSess);
+    document.getElementById(`${p}-pause`).addEventListener('click',pauseSess);
+    document.getElementById(`${p}-lap`).addEventListener('click',recordLap);
+    document.getElementById(`${p}-stop`).addEventListener('click',stopSess);
+    document.getElementById(`${p}-reset`).addEventListener('click',resetSess);
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   TAB NAVIGATION
+═══════════════════════════════════════════════ */
+function showTab(tab){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+tab).classList.add('active');
+  // update all tab buttons
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  if(tab==='live'){
+    ['tab-live-ls','tab-live-pt','tab-live-an'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('active');});
+  } else {
+    ['tab-anal-ls','tab-anal-pt','tab-anal-an'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('active');});
+  }
+  if(tab==='analysis')renderAnalysisList();
+}
+function wireTabButtons(){
+  ['tab-live-ls','tab-live-pt','tab-live-an'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.addEventListener('click',()=>showTab('live'));
+  });
+  ['tab-anal-ls','tab-anal-pt','tab-anal-an'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.addEventListener('click',()=>showTab('analysis'));
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   SENSOR INIT
+═══════════════════════════════════════════════ */
+document.getElementById('perm-btn').addEventListener('click',async()=>{
+  if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
+    try{const r=await DeviceMotionEvent.requestPermission();if(r!=='granted'){alert('Motion permission denied.\nEnable in Settings → Safari → Motion & Orientation Access.');return;}}
+    catch(e){alert('Permission error: '+e.message);return;}
+  }
+  window.addEventListener('devicemotion',handleMotion,{passive:true});
+  document.getElementById('p-acc').className='pill pill-on';
+  document.getElementById('p-acc').textContent='ACC';
+
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(pos=>{
+      handlePos(pos);
+      gpsWatchId=navigator.geolocation.watchPosition(handlePos,handleGpsErr,{enableHighAccuracy:true,maximumAge:500,timeout:20000});
+    },handleGpsErr,{enableHighAccuracy:true,timeout:20000});
+  } else {
+    document.getElementById('p-gps').className='pill pill-err';
+    document.getElementById('p-gps').textContent='NO GPS';
+  }
+
+  if('wakeLock' in navigator){
+    try{wakeLock=await navigator.wakeLock.request('screen');}catch{}
+    document.addEventListener('visibilitychange',async()=>{
+      if(document.visibilityState==='visible'&&wakeLock){try{wakeLock=await navigator.wakeLock.request('screen');}catch{}}
+    });
+  }
+
+  document.getElementById('screen-perm').classList.remove('active');
+  document.getElementById('screen-live').classList.add('active');
+  wireButtons();
+  wireTabButtons();
+  renderCtrl();
+  updateUI();
+});
+
+/* ═══════════════════════════════════════════════
+   ANALYSIS LIST
+═══════════════════════════════════════════════ */
+function renderAnalysisList(){
+  const sessions=loadSess();
+  document.getElementById('scnt').textContent=`${sessions.length} session${sessions.length!==1?'s':''}`;
+  const list=document.getElementById('slist');
+  list.querySelectorAll('.scard').forEach(e=>e.remove());
+  document.getElementById('no-sess').style.display=sessions.length?'none':'block';
+  sessions.forEach(s=>{
+    const el=document.createElement('div');el.className='scard';
+    el.innerHTML=`<div class="scard-date">${fmtDate(s.startTime)}${s.hrTrace?' 🫀':''}</div>
+      <div class="scard-stats">
+        <div><span class="scs-v">${(s.distance/1000).toFixed(2)}</span><span class="scs-l">km</span></div>
+        <div><span class="scs-v">${fmtH(s.duration)}</span><span class="scs-l">time</span></div>
+        <div><span class="scs-v">${s.avgPace>0?fmt(s.avgPace):'—'}</span><span class="scs-l">avg pace</span></div>
+        <div><span class="scs-v">${s.strokeCount||0}</span><span class="scs-l">strokes</span></div>
+      </div>`;
+    el.addEventListener('click',()=>showDetail(s.id));
+    list.appendChild(el);
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   ANALYSIS DETAIL
+═══════════════════════════════════════════════ */
+function showDetail(id){
+  const s=loadSess().find(x=>x.id===id);if(!s)return;
+  document.getElementById('alist-view').style.display='none';
+  document.getElementById('adetail-view').style.display='block';
+
+  const avgCatch=s.strokes&&s.strokes.length>0
+    ?(s.strokes.reduce((a,b)=>a+b.catchPeak,0)/s.strokes.length).toFixed(1):'—';
+
+  let hrHTML='';
+  if(s.hrTrace&&s.hrTrace.length>0){
+    const hrs=s.hrTrace.map(h=>h.hr);
+    const avgHr=Math.round(hrs.reduce((a,b)=>a+b,0)/hrs.length);
+    const maxHr=Math.max(...hrs),minHr=Math.min(...hrs);
+    const MHR=185,zones=[0,0,0,0,0];
+    hrs.forEach(h=>{const p=h/MHR;if(p<.6)zones[0]++;else if(p<.7)zones[1]++;else if(p<.8)zones[2]++;else if(p<.9)zones[3]++;else zones[4]++;});
+    const tot=hrs.length,zc=['#3498db','#27ae60','#f39c12','#e67e22','#c0392b'],zn=['Z1','Z2','Z3','Z4','Z5'];
+    hrHTML=`<div class="sgrid">
+      <div class="sbox r"><span class="sbox-v">${avgHr}</span><span class="sbox-l">Avg HR</span><span class="sbox-u">BPM</span></div>
+      <div class="sbox r"><span class="sbox-v">${maxHr}</span><span class="sbox-l">Max HR</span><span class="sbox-u">BPM</span></div>
+      <div class="sbox r"><span class="sbox-v">${minHr}</span><span class="sbox-l">Min HR</span><span class="sbox-u">BPM</span></div>
+    </div>
+    <div class="hr-zones">${zn.map((z,i)=>`<div class="hrz" style="background:${zc[i]}18;border:1px solid ${zc[i]}33"><span class="hrz-l" style="color:${zc[i]}">${z}</span><span class="hrz-p" style="color:${zc[i]}">${Math.round(zones[i]/tot*100)}%</span></div>`).join('')}</div>
+    <div class="chart-card r"><div class="chart-lbl"><span>Heart Rate</span><span>bpm</span></div><canvas id="a-hr" class="acanvas"></canvas></div>`;
+  } else {
+    hrHTML=`<div class="fit-zone" id="fit-zone">
+      <div class="fit-txt">🫀 Import from Garmin Connect<br/>
+        <span style="color:#aaa;font-size:11px">Tap to select .TCX or .GPX file</span><br/>
+        <span style="color:#ccc;font-size:10px">Activity → ⋯ → Export to TCX (preferred) or GPX</span><br/>
+        <span style="color:#ccc;font-size:10px">TCX includes HR · Speed · Lap splits</span>
+      </div>
+    </div><div class="fit-st" id="fit-st"></div>`;
+  }
+
+  document.getElementById('detail-content').innerHTML=`
+    <button class="dback" id="dback-btn">← All Sessions</button>
+    <div style="font-size:10px;color:#aaa;margin-bottom:10px;letter-spacing:.04em">${fmtDate(s.startTime)}</div>
+    <div class="sgrid">
+      <div class="sbox"><span class="sbox-v">${(s.distance/1000).toFixed(2)}</span><span class="sbox-l">Distance</span><span class="sbox-u">KM</span></div>
+      <div class="sbox g"><span class="sbox-v">${s.avgPace>0?fmt(s.avgPace):'—'}</span><span class="sbox-l">Avg Pace</span><span class="sbox-u">/500M</span></div>
+      <div class="sbox a"><span class="sbox-v">${fmtH(s.duration)}</span><span class="sbox-l">Duration</span><span class="sbox-u">H:MM:SS</span></div>
+    </div>
+    <div class="sgrid">
+      <div class="sbox a"><span class="sbox-v">${s.avgRate||'—'}</span><span class="sbox-l">Avg Rate</span><span class="sbox-u">S/MIN</span></div>
+      <div class="sbox a"><span class="sbox-v">${s.maxRate||'—'}</span><span class="sbox-l">Max Rate</span><span class="sbox-u">S/MIN</span></div>
+      <div class="sbox"><span class="sbox-v">${s.strokeCount||0}</span><span class="sbox-l">Strokes</span><span class="sbox-u">TOTAL</span></div>
+    </div>
+    <div class="sgrid">
+      <div class="sbox"><span class="sbox-v">${s.catchPeakSess!=null?'+'+s.catchPeakSess.toFixed(1):'—'}</span><span class="sbox-l">Catch Peak</span><span class="sbox-u">M/S³</span></div>
+      <div class="sbox"><span class="sbox-v">${avgCatch!=='—'?'+'+avgCatch:avgCatch}</span><span class="sbox-l">Catch Avg</span><span class="sbox-u">M/S³</span></div>
+      <div class="sbox"><span class="sbox-v">${s.laps?s.laps.length:0}</span><span class="sbox-l">Laps</span><span class="sbox-u">SPLITS</span></div>
+    </div>
+    <div class="sgrid">
+      <div class="sbox"><span class="sbox-v">${s.avgDPS?s.avgDPS.toFixed(1):'—'}</span><span class="sbox-l">Dist / Stroke</span><span class="sbox-u">m</span></div>
+      <div class="sbox ${s.avgRunLoss<10?'g':s.avgRunLoss<20?'a':'r'}"><span class="sbox-v">${s.avgRunLoss!=null?Math.round(s.avgRunLoss)+'%':'—'}</span><span class="sbox-l">Run Loss</span></div>
+      <div class="sbox"><span class="sbox-v">${s.avgEffScore!=null?s.avgEffScore.toFixed(1):'—'}</span><span class="sbox-l">Efficiency Score</span></div>
+    </div>
+    <div class="sgrid">
+      <div class="sbox"><span class="sbox-v">${s.avgCatch?'+'+s.avgCatch.toFixed(1):'—'}</span><span class="sbox-l">Catch Avg</span><span class="sbox-u">m/s³</span></div>
+      <div class="sbox"><span class="sbox-v">${s.avgChar?Math.round(s.avgChar):'—'}</span><span class="sbox-l">Stroke Char</span><span class="sbox-u">%</span></div>
+      <div class="sbox"><span class="sbox-v">${s.avgConsistency?s.avgConsistency.toFixed(1):'—'}</span><span class="sbox-l">Catch Consistency</span></div>
+    </div>
+    ${hrHTML}
+    ${s.garminSpeedTrace&&s.garminSpeedTrace.length>2?`<div class="chart-card" style="border-color:#8e44ad"><div class="chart-lbl"><span style="color:#8e44ad">Garmin Pace</span><span>min/500m</span></div><canvas id="a-gspeed" class="acanvas"></canvas></div>`:''}
+    ${s.garminLaps&&s.garminLaps.length>0?`<div class="chart-card" style="border-color:#8e44ad">
+      <div class="chart-lbl"><span style="color:#8e44ad">Garmin Laps</span></div>
+      <table class="lap-tbl"><tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>Avg HR</th><th>Strokes</th><th>Avg spm</th></tr>
+      ${s.garminLaps.map(l=>`<tr><td>${l.n}</td><td>${l.dist}m</td><td>${fmt(l.time)}</td><td>${l.pace>0?fmt(l.pace):'—'}</td><td>${l.avgHr||'—'}</td><td>${l.garminStrokes||'—'}</td><td>${l.garminAvgSpm||'—'}</td></tr>`).join('')}
+      </table></div>`:''}
+    ${s.paceTrace&&s.paceTrace.length>2?`<div class="chart-card g"><div class="chart-lbl"><span>Phone GPS Pace</span><span>min/500m</span></div><canvas id="a-pace" class="acanvas"></canvas></div>`:''}
+    ${s.strokes&&s.strokes.length>2?`
+      <div class="chart-card b"><div class="chart-lbl"><span>Catch Slope</span><span>m/s³</span></div><canvas id="a-catch" class="acanvas"></canvas></div>
+      <div class="chart-card a"><div class="chart-lbl"><span>Stroke Rate</span><span>str/min</span></div><canvas id="a-rate" class="acanvas"></canvas></div>
+      <div class="chart-card"><div class="chart-lbl"><span>Run Loss</span><span>%</span></div><canvas id="a-runloss" class="acanvas"></canvas></div>
+      <div class="chart-card"><div class="chart-lbl"><span>Efficiency Score</span></div><canvas id="a-eff" class="acanvas"></canvas></div>
+      <div class="chart-card"><div class="chart-lbl"><span>Dist / Stroke</span><span>m</span></div><canvas id="a-dps" class="acanvas"></canvas></div>
+      <div class="chart-card"><div class="chart-lbl"><span>Stroke Characteristic</span><span>%</span></div><canvas id="a-char" class="acanvas"></canvas></div>`:''}
+    ${s.laps&&s.laps.length>0?`<div class="chart-card" style="border-color:#ddd">
+      <div class="chart-lbl"><span>Laps</span></div>
+      <table class="lap-tbl"><tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>Rate</th></tr>
+      ${(()=>{const best=s.laps.length>1?s.laps.reduce((b,l)=>l.pace<b.pace?l:b,s.laps[0]):null;return s.laps.map(l=>`<tr class="${best&&l.n===best.n?'best':''}"><td>${l.n}</td><td>${l.dist}m</td><td>${fmt(l.time)}</td><td>${l.pace>0?fmt(l.pace):'—'}</td><td>${l.rate}</td></tr>`).join('')})()}
+      </table></div>`:''}
+    <button class="exp-btn" id="exp-btn">⬇ Export CSV</button>
+    <button class="del-btn" id="del-btn">Delete Session</button>
+    <div style="height:20px"></div>`;
+
+  requestAnimationFrame(()=>{
+    document.getElementById('dback-btn').addEventListener('click',()=>{
+      document.getElementById('adetail-view').style.display='none';
+      document.getElementById('alist-view').style.display='block';
+      renderAnalysisList();
+    });
+    if(s.paceTrace&&s.paceTrace.length>2)drawChart('a-pace',s.paceTrace,'#27ae60',true);
+    if(s.strokes&&s.strokes.length>2){
+      drawChart('a-catch',s.strokes.map(x=>x.catchPeak),'#1a5276',false);
+      drawChart('a-rate',s.strokes.map(x=>x.rate),'#f39c12',false);
+      drawChart('a-runloss',s.strokes.map(x=>x.runLossPct||0),'#c0392b',false);
+      drawChart('a-eff',s.strokes.map(x=>x.effScore||0),'#27ae60',false);
+      drawChart('a-dps',s.strokes.map(x=>x.dps||0),'#1a5276',false,20);
+      drawChart('a-char',s.strokes.map(x=>x.char||0),'#f39c12',false);
+    }
+    if(s.hrTrace&&s.hrTrace.length>2)drawChart('a-hr',s.hrTrace.map(x=>x.hr),'#c0392b',false);
+    if(s.garminSpeedTrace&&s.garminSpeedTrace.length>2){
+      const paceFromGarmin=s.garminSpeedTrace.filter(x=>x.spd>0.3).map(x=>500/x.spd);
+      drawChart('a-gspeed',paceFromGarmin,'#8e44ad',true);
+    }
+    const fz=document.getElementById('fit-zone');
+    if(fz)fz.addEventListener('click',()=>{const inp=document.getElementById('fit-input');inp.onchange=ev=>handleGPX(ev,s.id);inp.click();});
+    document.getElementById('exp-btn').addEventListener('click',()=>exportCSV(s));
+    document.getElementById('del-btn').addEventListener('click',()=>{
+      if(confirm('Delete this session?')){delSess(s.id);
+        document.getElementById('adetail-view').style.display='none';
+        document.getElementById('alist-view').style.display='block';
+        renderAnalysisList();toast('Deleted');}
+    });
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   CHARTS
+═══════════════════════════════════════════════ */
+function drawChart(id,data,color,invertY,yMax){
+  const c=document.getElementById(id);if(!c||data.length<2)return;
+  const dpr=window.devicePixelRatio||1;
+  const W=c.offsetWidth*dpr,H=c.offsetHeight*dpr;
+  c.width=W;c.height=H;
+  const ctx=c.getContext('2d');ctx.clearRect(0,0,W,H);
+  const mn=Math.min(...data),mx=yMax!=null?yMax:Math.max(...data);
+  const range=mx-mn||1,pad=4;
+  const sy=v=>invertY?pad+(((v-mn)/range)*(H-pad*2)):(H-pad)-(((v-mn)/range)*(H-pad*2));
+  ctx.strokeStyle='#f0f0f0';ctx.lineWidth=1;
+  for(let i=0;i<=3;i++){const y=pad+i*(H-pad*2)/3;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,color+'33');g.addColorStop(1,color+'05');
+  ctx.beginPath();data.forEach((v,i)=>i===0?ctx.moveTo(0,sy(v)):ctx.lineTo((i/(data.length-1))*W,sy(v)));
+  ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fillStyle=g;ctx.fill();
+  ctx.beginPath();data.forEach((v,i)=>i===0?ctx.moveTo(0,sy(v)):ctx.lineTo((i/(data.length-1))*W,sy(v)));
+  ctx.strokeStyle=color;ctx.lineWidth=1.5*dpr;ctx.lineJoin='round';ctx.stroke();
+  ctx.fillStyle='#aaa';ctx.font=`${8*dpr}px Roboto`;ctx.textAlign='left';
+  ctx.fillText(mx.toFixed(1),4,11*dpr);ctx.fillText(mn.toFixed(1),4,H-3);
+}
+
+/* ═══════════════════════════════════════════════
+   TCX / GPX
+═══════════════════════════════════════════════ */
+async function handleGPX(e,sessionId){
+  const file=e.target.files[0];if(!file)return;
+  const st=document.getElementById('fit-st');
+  const isTCX=file.name.toLowerCase().endsWith('.tcx');
+  if(st){st.textContent=`Parsing ${isTCX?'TCX':'GPX'}…`;st.style.color='#f39c12';}
+  try{
+    const text=await file.text();
+    const result=isTCX?parseTCX(text):parseGPX(text);
+    if(!result||!result.hr||!result.hr.length){if(st){st.textContent='No HR data found.';st.style.color='#c0392b';}return;}
+    const sessions=loadSess();
+    const idx=sessions.findIndex(s=>s.id===sessionId);
+    if(idx>=0){
+      sessions[idx].hrTrace=result.hr;
+      if(result.speedTrace)sessions[idx].garminSpeedTrace=result.speedTrace;
+      if(result.laps)sessions[idx].garminLaps=result.laps;
+      saveSess(sessions);
+      if(st){st.textContent=`✓ ${result.hr.length} HR samples${result.laps?` · ${result.laps.length} laps`:''}`;st.style.color='#27ae60';}
+      setTimeout(()=>showDetail(sessionId),700);
+    }
+  }catch(err){if(st){st.textContent='Parse error: '+err.message;st.style.color='#c0392b';}}
+  e.target.value='';
+}
+
+function parseTCX(text){
+  const doc=new DOMParser().parseFromString(text,'application/xml');
+  if(doc.querySelector('parseerror'))throw new Error('Invalid XML');
+  const hr=[],speedTrace=[];
+  doc.querySelectorAll('Trackpoint').forEach(tp=>{
+    const timeEl=tp.querySelector('Time');if(!timeEl)return;
+    const t=new Date(timeEl.textContent.trim()).getTime();if(isNaN(t))return;
+    const hrEl=tp.querySelector('HeartRateBpm Value');
+    if(hrEl){const v=parseInt(hrEl.textContent.trim());if(v>0&&v<250)hr.push({t,hr:v});}
+    const speedEls=[...tp.querySelectorAll('*')].filter(el=>el.localName==='Speed');
+    if(speedEls.length){const spd=parseFloat(speedEls[0].textContent.trim());if(!isNaN(spd)&&spd>=0)speedTrace.push({t,spd});}
+  });
+  const laps=[];
+  doc.querySelectorAll('Lap').forEach((lap,i)=>{
+    const get=tag=>{const el=lap.querySelector(tag);return el?parseFloat(el.textContent.trim()):null;};
+    const getInt=tag=>{const el=lap.querySelector(tag);return el?parseInt(el.textContent.trim()):null;};
+    const t=get('TotalTimeSeconds'),d=get('DistanceMeters');
+    const avgHr=getInt('AverageHeartRateBpm Value'),maxHr=getInt('MaximumHeartRateBpm Value');
+    const cal=getInt('Calories');
+    const stepsEls=[...lap.querySelectorAll('*')].filter(el=>el.localName==='Steps');
+    const steps=stepsEls.length?parseInt(stepsEls[0].textContent.trim()):null;
+    const avgSpm=(steps&&t)?Math.round(steps/t*60):null;
+    if(t&&d)laps.push({n:i+1,time:Math.round(t),dist:Math.round(d),pace:t>0&&d>0?(t/d)*500:0,avgHr,maxHr,cal,garminStrokes:steps,garminAvgSpm:avgSpm});
+  });
+  return{hr,speedTrace:speedTrace.length?speedTrace:null,laps:laps.length?laps:null};
+}
+
+function parseGPX(text){
+  const doc=new DOMParser().parseFromString(text,'application/xml');
+  if(doc.querySelector('parseerror'))throw new Error('Invalid XML');
+  const hr=[];
+  doc.querySelectorAll('trkpt').forEach(pt=>{
+    const timeEl=pt.querySelector('time');if(!timeEl)return;
+    const t=new Date(timeEl.textContent.trim()).getTime();if(isNaN(t))return;
+    for(const el of[...pt.querySelectorAll('*')]){if(el.localName==='hr'){const v=parseInt(el.textContent.trim());if(v>0&&v<250){hr.push({t,hr:v});break;}}}
+  });
+  return{hr,speedTrace:null,laps:null};
+}
+
+/* ═══════════════════════════════════════════════
+   CSV EXPORT
+═══════════════════════════════════════════════ */
+function exportCSV(s){
+  const n=v=>(v!=null&&!isNaN(v))?v:'';
+  const f1=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(1):'';
+  const f2=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(2):'';
+  const f3=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(3):'';
+  const rows=[];
+  rows.push(['SESSION SUMMARY']);
+  rows.push(['start_time',new Date(s.startTime).toISOString()]);
+  rows.push(['end_time',new Date(s.endTime||s.startTime+s.duration*1000).toISOString()]);
+  rows.push(['duration_s',n(s.duration)]);
+  rows.push(['distance_m',n(s.distance)]);
+  rows.push(['stroke_count',n(s.strokeCount)]);
+  rows.push(['avg_pace_s_per_500m',n(s.avgPace)]);
+  rows.push(['avg_rate_spm',n(s.avgRate)]);
+  rows.push(['max_rate_spm',n(s.maxRate)]);
+  rows.push(['catch_peak_sess_ms3',n(s.catchPeakSess)]);
+  rows.push(['avg_catch_ms3',f1(s.avgCatch)]);
+  rows.push(['avg_dps_m',f1(s.avgDPS)]);
+  rows.push(['avg_run_loss_pct',f1(s.avgRunLoss)]);
+  rows.push(['avg_efficiency_vmin_vmax',f3(s.avgEfficiency)]);
+  rows.push(['avg_efficiency_score',f1(s.avgEffScore)]);
+  rows.push(['avg_stroke_char_pct',f1(s.avgChar)]);
+  rows.push(['avg_catch_consistency_stdev',f1(s.avgConsistency)]);
+  rows.push([]);
+  rows.push(['STROKE DATA']);
+  rows.push(['stroke','timestamp','catch_jerk_ms3','stroke_char_pct','catch_consistency_stdev','stroke_rate_spm','pace_s_per_500m','distance_m','dist_per_stroke_m','run_loss_pct','run_loss_ms','run_efficiency_vmin_vmax','efficiency_score']);
+  if(s.strokes)s.strokes.forEach((r,i)=>rows.push([i+1,new Date(r.t).toISOString(),f1(r.catchPeak),n(r.char),f1(r.catchConsistency),n(r.rate),r.pace>0?f1(r.pace):'',f1(r.dist),f1(r.dps),f1(r.runLossPct),f2(r.runLossMs),f3(r.runEfficiency),f1(r.effScore)]));
+  rows.push([]);
+  if(s.laps&&s.laps.length){rows.push(['LAPS']);rows.push(['lap','distance_m','time_s','pace_s_per_500m','stroke_rate_spm']);s.laps.forEach(l=>rows.push([l.n,l.dist,l.time,l.pace>0?f1(l.pace):'',n(l.rate)]));rows.push([]);}
+  if(s.garminLaps&&s.garminLaps.length){rows.push(['GARMIN LAPS']);rows.push(['lap','distance_m','time_s','pace_s_per_500m','avg_hr_bpm','max_hr_bpm','calories','strokes','avg_spm']);s.garminLaps.forEach(l=>rows.push([l.n,l.dist,l.time,l.pace>0?f1(l.pace):'',n(l.avgHr),n(l.maxHr),n(l.cal),n(l.garminStrokes),n(l.garminAvgSpm)]));rows.push([]);}
+  if(s.hrTrace&&s.hrTrace.length){rows.push(['HEART RATE']);rows.push(['timestamp','heart_rate_bpm']);s.hrTrace.forEach(h=>rows.push([new Date(h.t).toISOString(),h.hr]));rows.push([]);}
+  if(s.garminSpeedTrace&&s.garminSpeedTrace.length){rows.push(['GARMIN SPEED']);rows.push(['timestamp','speed_ms','pace_s_per_500m']);s.garminSpeedTrace.forEach(p=>rows.push([new Date(p.t).toISOString(),f2(p.spd),p.spd>0?f1(500/p.spd):'']));rows.push([]);}
+  if(s.gpsTrace&&s.gpsTrace.length){rows.push(['GPS TRACE']);rows.push(['timestamp','latitude','longitude','cumulative_distance_m']);s.gpsTrace.forEach(p=>rows.push([new Date(p.t).toISOString(),p.lat,p.lon,p.dist!=null?f1(p.dist):'']));}
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'}));
+  a.download=`scull_${new Date(s.startTime).toISOString().slice(0,10)}.csv`;a.click();
+  toast('CSV exported');
+}
+
+/* ── service worker ── */
+if('serviceWorker' in navigator){
+  const sw=`const C='scull-v5';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
+  navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw],{type:'application/javascript'}))).catch(()=>{});
+}
+
+/* ── also wire tab buttons on analysis screen (rendered at load) ── */
+wireTabButtons();
+</script>
+
+</body>
+</html>}
 .sbar-l{display:flex;align-items:center;gap:6px}
 .sbar-title{color:#fff;font-size:10px;font-weight:700;letter-spacing:.1em}
 .pill{font-size:8px;font-weight:700;letter-spacing:.1em;padding:2px 6px;border-radius:2px}
