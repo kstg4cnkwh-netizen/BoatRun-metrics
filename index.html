@@ -167,21 +167,21 @@ border-top:3px solid #5dade2;padding:4px 3px 3px;
 /* ── Stroke Char bar (row 2, tile 1) ──
 Collapsed to a single 4px track + inline badge in sub-micro
 ── */
-.cbar-wrap{width:96%;flex-shrink:0;margin-top:1px}
-.cbar-track{position:relative;height:10px;background:#eee;border-radius:5px;position:relative;overflow:hidden;}
+.cbar-wrap{width:96%;flex-shrink:0;margin-top:1px;overflow:visible;}
+.cbar-track{position:relative;height:10px;background:#eee;border-radius:5px;position:relative;overflow:visible;}
 .cbar-zones{position:absolute;inset:0;display:flex;z-index:1;}
 .cz1 { background:#e74c3c; flex:1; }   /* early */
 .cz2 { background:#27ae60; flex:2; }   /* ideal */
 .cz3 { background:#e67e22; flex:1; }   /* late */
 .cbar-needle{
   position:absolute;
-  z-index:3;
   width:5px;
   height:18px;
   top:-4px;
   background:#000;
   border-radius:2px;
   transform:translateX(-50%);
+  z-index:3;
   box-shadow:0 2px 6px rgba(0,0,0,.4);
 }
 .cbar-midline{
