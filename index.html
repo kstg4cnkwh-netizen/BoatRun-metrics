@@ -657,13 +657,26 @@ function handleMotion(e){
   // GPS-anchored velocity integration (between GPS fixes)
   // Integrate smoothed acceleration from the last GPS anchor
   // Clamp to 0–8 m/s (max sprint speed ~7 m/s for a single scull)
-  if(vAnchorT>0 && running && !paused){
-    const dtFromAnchor=(now-vAnchorT)/1000;
-    if(dtFromAnchor<2.0){ // only trust integration for up to 2s between GPS fixes
-      vIntegrated=Math.max(0, Math.min(8, vAnchor + smoothAcc*dtFromAnchor));
+  if (running && !paused && prevSmoothT > 0) {
+  const dt = (now - prevSmoothT) / 1000;
+
+  if (dt > 0.005 && dt < 0.1) {
+
+    // 1. Predict velocity from acceleration
+    let vPred = vIntegrated + smoothAcc * dt;
+
+    // 2. Blend toward GPS anchor (prevents drift)
+    if (vAnchorT > 0) {
+      vPred = (1 - VEL_CORR_ALPHA) * vPred + VEL_CORR_ALPHA * vAnchor;
     }
+
+    // 3. Clamp to physical range
+    vIntegrated = Math.max(0, Math.min(MAX_V, vPred));
+
+    // 4. Push to velocity window (for run loss)
     pushVelocity(now, vIntegrated);
   }
+}
 
   if(!running||paused)return;
 
@@ -714,30 +727,30 @@ function handleMotion(e){
         if(charVals.length>4)charVals.shift();
         strokeChar=Math.round(charVals.reduce((a,b)=>a+b,0)/charVals.length);
       }
-      // If rawChar===0, strokeChar retains its last valid value
+      // If rawChar===0, strokeChar retains its last valid value// ── DIST / STROKE: velocity-derived (consistent with pace) ───────────
 
-      // ── DIST/STROKE: blended GPS + speed-derived ───────────
-      // 60% GPS-haversine distance since last stroke
-      // 40% speed-derived: v_gps * stroke_interval_s
-      const rawGpsDps=Math.round((distance-lastStrokeDist)*10)/10;
-      lastStrokeDist=distance;
-      const strokeIntervalS=strokeTs.length>=2
-        ?(strokeTs[strokeTs.length-1]-strokeTs[strokeTs.length-2])/1000 : 3.0;
-      const speedDps=vAnchor>0.3 ? vAnchor*strokeIntervalS : 0;
-      let blendedDps=rawGpsDps;
-      if(speedDps>0.5 && rawGpsDps>0.5){
-        blendedDps=0.6*rawGpsDps + 0.4*speedDps;
-      } else if(speedDps>0.5){
-        blendedDps=speedDps;
-      }
-      blendedDps=Math.round(blendedDps*10)/10;
-      if(blendedDps>0.5&&blendedDps<25){
-        dpsVals.push(blendedDps);
-        if(dpsVals.length>4)dpsVals.shift();
-        distPerStroke=Math.round(dpsVals.reduce((a,b)=>a+b,0)/dpsVals.length*10)/10;
-        if(distPerStroke>maxDPS)maxDPS=distPerStroke;
-      }
+// Time between last two strokes
+const strokeIntervalS = strokeTs.length >= 2
+  ? (strokeTs[strokeTs.length - 1] - strokeTs[strokeTs.length - 2]) / 1000
+  : 3.0;
 
+// Raw DPS from fused velocity
+let dps = vIntegrated * strokeIntervalS;
+
+// Sanity bounds (filters junk strokes / GPS dropouts / startup noise)
+if (dps > 0.5 && dps < 25) {
+
+  // Light smoothing (last 4 strokes)
+  dpsVals.push(dps);
+  if (dpsVals.length > 4) dpsVals.shift();
+
+  distPerStroke = Math.round(
+    dpsVals.reduce((a, b) => a + b, 0) / dpsVals.length * 10
+  ) / 10;
+
+  // Track max
+  if (distPerStroke > maxDPS) maxDPS = distPerStroke;
+}
       // ── RUN LOSS per stroke ─────────────────────────────────
       computeRunLoss();
 
@@ -790,9 +803,13 @@ const PACE_MAX=600;
 const paceReadings=[];
 
 // GPS-anchored velocity integration
-let vAnchor=0;        // last Kalman-filtered GPS speed (m/s)
-let vAnchorT=0;       // performance.now() when anchor was set
-let vIntegrated=0;    // current integrated velocity estimate
+let vAnchor = 0;        // GPS speed (m/s)
+let vAnchorT = 0;       // timestamp of last GPS fix
+let vIntegrated = 0;    // fused velocity (m/s)
+
+// tuning
+const VEL_CORR_ALPHA = 0.18;   // GPS correction strength (0.12–0.25)=================higher if too noisy, lower if too slow===
+const MAX_V = 8;               // sanity clamp (m/s)
 
 // High-res velocity window for run loss (last 6s)
 const velocityWindow=[];  // [{t:performance.now(), v:m/s}]
@@ -817,7 +834,9 @@ function pushVelocity(t, v){
 function computeRunLoss(){
   // Need at least 3 points in a recent stroke-length window
   const now=performance.now();
-  const windowMs=Math.max(2000, strokeRate>0 ? (60000/strokeRate)*1.2 : 3500);
+  const windowMs = strokeRate > 0
+  ? (60000 / strokeRate) * 1.1
+  : 3000;
   const windowStart=now-windowMs;
   const rel=velocityWindow.filter(p=>p.t>=windowStart);
   if(rel.length<3)return;
@@ -862,18 +881,44 @@ function handlePos(pos){
         const cutoff=cur.t-GPS_WINDOW_S*1000;
         while(gpsWindow.length>1&&gpsWindow[0].t<cutoff)gpsWindow.shift();
 
-        // Primary pace: from Kalman speed directly
-        const rawFromSpd=500/spd;
-        if(rawFromSpd<PACE_MAX){
-          paceReadings.push(rawFromSpd);
-          if(paceReadings.length>5)paceReadings.shift();
-          const sorted=[...paceReadings].sort((a,b)=>a-b);
-          const median=sorted[Math.floor(sorted.length/2)];
-          pace=pace===0?median:PACE_IIR*median+(1-PACE_IIR)*pace;
-          sessPaceTrace.push(pace);
-        } else {
-          paceReadings.length=0;
-        }
+     // --- Primary pace: from Kalman speed directly ---
+if (spd > 0) {
+
+  const rawFromSpd = 500 / spd;
+
+  if (rawFromSpd < PACE_MAX) {
+
+    // Accumulate valid readings
+    paceReadings.push(rawFromSpd);
+
+    // Keep rolling window tight (median filter)
+    if (paceReadings.length > 5) paceReadings.shift();
+
+    // Only compute if we actually have data
+    if (paceReadings.length > 0) {
+
+      // Median (robust against spikes)
+      const sorted = [...paceReadings].sort((a, b) => a - b);
+      const median = sorted[(sorted.length / 2) | 0];
+
+      // IIR smoothing
+      pace = (pace === 0)
+        ? median
+        : (PACE_IIR * median + (1 - PACE_IIR) * pace);
+
+      // Store trace AFTER smoothing
+      sessPaceTrace.push(pace);
+    }
+
+  } else {
+    // Hard reset only on clearly invalid pace
+    paceReadings.length = 0;
+  }
+
+} else {
+  // Prevent divide-by-zero + garbage carryover
+  paceReadings.length = 0;
+}
       }
     }
   }
