@@ -929,7 +929,7 @@ function updateUI(){
 
   const conel=document.getElementById('t-consistency');
   if(catchConsistency!==null){
-    conel.textContent=catchConsistency;
+    conel.textContent = catchConsistency != null ? Math.round(catchConsistency) : '--';
     conel.className='tval-r23';
   } else{conel.textContent='--';conel.className='tval-r23 dim';}
 
@@ -1007,7 +1007,13 @@ function stopSess(){
     const avgDPS         = avg(sessStrokes, 'dps');
     const avgCatch       = avg(sessStrokes, 'catchPeak');
     const avgChar        = avg(sessStrokes, 'char');
-    const avgConsistency = avg(sessStrokes, 'catchConsistency')!= null ? Math.round(avg(sessStrokes, 'catchConsistency')) : null;
+    const avgConsistency = (() => {
+        const vals = sessStrokes
+       .map(x => x.catchConsistency)
+       .filter(v => v != null && !isNaN(v));
+      if (!vals.length) return null;
+         return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+      })();
     const avgEffScore    = avg(sessStrokes, 'effScore');
 
     addSess({
