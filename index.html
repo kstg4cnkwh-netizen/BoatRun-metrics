@@ -634,7 +634,8 @@ let timerInt=null, wakeLock=null;
    ACCELEROMETER — SMOOTHED JERK WITH ADAPTIVE REFRACTORY
 ═══════════════════════════════════════════════ */
 function handleMotion(e){
-  let effScore=0;
+  effScore=0;
+  let lastVelT = 0;
   const acc=e.acceleration||e.accelerationIncludingGravity;
   if(!acc)return;
   const raw=acc.x||0;
@@ -657,18 +658,26 @@ function handleMotion(e){
   // GPS-anchored velocity integration (between GPS fixes)
   // Integrate smoothed acceleration from the last GPS anchor
   // Clamp to 0–8 m/s (max sprint speed ~7 m/s for a single scull)
-  if (running && !paused && prevSmoothT > 0) {
-  const dt = (now - prevSmoothT) / 1000;
+  if (running && !paused) {
+
+  if (lastVelT === 0) lastVelT = now;
+
+  const dt = (now - lastVelT) / 1000;
+  lastVelT = now;
 
   if (dt > 0.005 && dt < 0.1) {
 
-    // 1. Predict velocity from acceleration
     let vPred = vIntegrated + smoothAcc * dt;
 
-    // 2. Blend toward GPS anchor (prevents drift)
     if (vAnchorT > 0) {
       vPred = (1 - VEL_CORR_ALPHA) * vPred + VEL_CORR_ALPHA * vAnchor;
     }
+
+    vIntegrated = Math.max(0, Math.min(MAX_V, vPred));
+
+    pushVelocity(now, vIntegrated);
+  }
+}
 
     // 3. Clamp to physical range
     vIntegrated = Math.max(0, Math.min(MAX_V, vPred));
@@ -1098,6 +1107,7 @@ function resetSess(){
   elapsed=0;distance=0;pace=0;rawPace=0;strokeRate=0;strokeCount=0;
   distPerStroke=0;dpsVals=[];lastStrokeDist=0;
   lapStartDist=0;lapStartTime=0;
+  lastVelT = 0;
   catchLast=null;catchPeakSess=null;catchAvg8=null;catchVals=[];catchConsistency=null;
   strokeChar=50;charVals=[];
   runLossPct=null;runLossMs=null;runEfficiency=null;effScore=null;
