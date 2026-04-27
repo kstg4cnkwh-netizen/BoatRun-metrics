@@ -704,16 +704,16 @@ function handleMotion(e){
       lastCatchT=now;
       strokesDetected++;
 
-      const peak=Math.round(peakJerk*10)/10;
+      const peak=Math.round(peakJerk);
       if(catchPeakSess===null||peak>catchPeakSess)catchPeakSess=peak;
       catchVals.push(peak);
       if(catchVals.length>5)catchVals.shift();
-      catchLast=Math.round(catchVals.reduce((a,b)=>a+b,0)/catchVals.length*10)/10;
+      catchLast = Math.round(catchVals.reduce((a,b)=>a+b,0) / catchVals.length);
       catchAvg8=catchLast;
       if(catchVals.length>=3){
         const m=catchVals.reduce((a,b)=>a+b,0)/catchVals.length;
         const v=catchVals.reduce((s,x)=>s+(x-m)**2,0)/catchVals.length;
-        catchConsistency=+Math.sqrt(v).toFixed(1);
+        catchConsistency=Math.sqrt(v);
       }
 
       const driveDur=now-strokeStartT;
@@ -920,7 +920,7 @@ function updateUI(){
   const ce=document.getElementById('t-catch');
   if(catchLast!==null){
     //ce.textContent='+'+catchLast.toFixed(1); ===============================
-    ce.textContent=catchLast.toFixed(1);
+    ce.textContent=catchLast;
     ce.className='tval-r23';
     const pct=Math.max(0,Math.min(100,(catchLast/CATCH_SCALE)*100));
     document.getElementById('catch-fill').style.width=pct+'%';
@@ -929,7 +929,7 @@ function updateUI(){
 
   const conel=document.getElementById('t-consistency');
   if(catchConsistency!==null){
-    conel.textContent=catchConsistency.toFixed(1);
+    conel.textContent=catchConsistency;
     conel.className='tval-r23';
   } else{conel.textContent='--';conel.className='tval-r23 dim';}
 
@@ -1007,7 +1007,7 @@ function stopSess(){
     const avgDPS         = avg(sessStrokes, 'dps');
     const avgCatch       = avg(sessStrokes, 'catchPeak');
     const avgChar        = avg(sessStrokes, 'char');
-    const avgConsistency = avg(sessStrokes, 'catchConsistency');
+    const avgConsistency = avg(sessStrokes, 'catchConsistency')!= null ? Math.round(avg(sessStrokes, 'catchConsistency')) : null;
     const avgEffScore    = avg(sessStrokes, 'effScore');
 
     addSess({
