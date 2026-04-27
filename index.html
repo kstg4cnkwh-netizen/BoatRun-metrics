@@ -796,8 +796,8 @@ function computeRunLoss(){
     if(p.v<vmin)vmin=p.v;
   }
   if(vmax<0.3||vmin===Infinity)return;
-  runLossMs=+(vmax-vmin).toFixed(2);
-  runLossPct=+((vmax-vmin)/vmax*100).toFixed(1);
+  runLossMs=+(vmax-vmin).toFixed(2);             // m/s (integer)
+  runLossPct = Math.round((vmax - vmin) / vmax * 100); // %
   runEfficiency=+(vmin/vmax).toFixed(3);
 }
 
@@ -913,7 +913,7 @@ function updateUI(){
   const rle=document.getElementById('t-runloss');
   const rlm=document.getElementById('t-runloss-ms');
   if(runLossPct!==null&&on){
-    rle.textContent=runLossPct.toFixed(1)+'%';
+    rle.textContent=runLossPct +'%';
     rle.className='tval-r23';
     rlm.textContent=(runLossMs!==null?runLossMs.toFixed(2)+' m/s':'');
   } else{rle.textContent='--%';rle.className='tval-r23 dim';rlm.textContent='';}
@@ -1168,7 +1168,7 @@ function showDetail(id){
         <span class="sbox-l">Dist / Stroke</span><span class="sbox-u">m</span>
       </div>
       <div class="sbox ${s.avgRunLoss<10?'g':s.avgRunLoss<20?'a':'r'}">
-        <span class="sbox-v">${s.avgRunLoss ? s.avgRunLoss.toFixed(1)+'%' : '—'}</span>
+        <span class="sbox-v">${s.avgRunLoss != null ? Math.round(s.avgRunLoss)+'%' : '—'}</span>
         <span class="sbox-l">Run Loss</span>
       </div>
       <div class="sbox">
