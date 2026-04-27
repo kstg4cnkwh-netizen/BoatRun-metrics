@@ -167,13 +167,31 @@ border-top:3px solid #5dade2;padding:4px 3px 3px;
 /* ── Stroke Char bar (row 2, tile 1) ──
 Collapsed to a single 4px track + inline badge in sub-micro
 ── */
-.cbar-wrap{width:88%;flex-shrink:0;margin-top:1px}
-.cbar-track{height:4px;background:#e8e8e8;border-radius:2px;position:relative;overflow:hidden;}
+.cbar-wrap{width:96%;flex-shrink:0;margin-top:1px}
+.cbar-track{height:10px;background:#e8e8e8;border-radius:5px;position:relative;overflow:hidden;}
 .cbar-zones{position:absolute;inset:0;display:flex;}
-.cz1{background:#888;flex:1;opacity:.2}
-.cz2{background:#444;flex:2;opacity:.15}
-.cz3{background:#888;flex:1;opacity:.2}
-.cbar-needle{position:absolute;top:-3px;width:3px;height:10px;background:#1a5276;border-radius:2px;transform:translateX(-50%);transition:left .35s cubic-bezier(.34,1.56,.64,1);box-shadow:0 1px 3px rgba(0,0,0,.25);}
+.cz1 { background:#e74c3c; flex:1; }   /* early */
+.cz2 { background:#27ae60; flex:2; }   /* ideal */
+.cz3 { background:#e67e22; flex:1; }   /* late */
+.cbar-needle{
+  width:5px;
+  height:18px;
+  top:-4px;
+  background:#000;
+  border-radius:2px;
+  box-shadow:0 2px 6px rgba(0,0,0,.4);
+}
+.cbar-midline{
+  position:absolute;
+  left:50%;
+  top:0;
+  width:2px;
+  height:100%;
+  background:#000;
+  opacity:.4;
+  transform:translateX(-50%);
+}
+//.cbar-needle{position:absolute;top:-3px;width:3px;height:10px;background:#1a5276;border-radius:2px;transform:translateX(-50%);transition:left .35s cubic-bezier(.34,1.56,.64,1);box-shadow:0 1px 3px rgba(0,0,0,.25);}
 
 /* badge now lives ABOVE the bar, treated as tval-r23 substitute for char */
 .char-num{
@@ -449,6 +467,7 @@ opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:no
       <div class="cbar-wrap">
         <div class="cbar-track">
           <div class="cbar-zones"><div class="cz1"></div><div class="cz2"></div><div class="cz3"></div></div>
+          <div class="cbar-midline"></div>
           <div class="cbar-needle" id="cbar-needle" style="left:50%"></div>
         </div>
       </div>
