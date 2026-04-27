@@ -22,20 +22,14 @@ body{
   font-family:'Roboto',sans-serif;
   background:#aaa;
   overflow:hidden;
-  /* Safe areas for notch / home bar */
   padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
-/* ── FORCE LANDSCAPE ──
-When device is portrait, rotate entire app 90°.
-The app always renders in landscape layout regardless of physical orientation.
-Works for both left and right rotation when added to Home Screen as PWA.
-*/
 @media (orientation:portrait){
 body{
 position:fixed;
 top:0;left:0;
-width:100dvh;   /* swap dimensions */
+width:100dvh;
 height:100dvw;
 transform-origin:top left;
 transform:rotate(90deg) translateY(-100dvw);
@@ -75,8 +69,6 @@ text-transform:uppercase;width:100%;
 
 /* ═══════════════════════════════════════════════
 LIVE SCREEN WRAPPER
-Portrait:  status-bar / tile-grid(2×4) / ctrl-row / tab-bar
-Landscape: status-bar / [tile-grid(4×2) | ctrl-col] / tab-bar
 ═══════════════════════════════════════════════ */
 #screen-live{flex-direction:column}
 
@@ -98,14 +90,15 @@ min-height:28px;
 .recdot{width:7px;height:7px;border-radius:50%;background:#e74c3c;animation:blink 1s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
 
-/* ── live-body: row container for grid + ctrl-col ── */
+/* ── live-body ── */
 .live-body{flex:1;min-height:0;min-width:0;display:flex;flex-direction:row;}
 
-/* ── TILE GRID — always 3×3
-Row 1 (40%): Pace, Stroke Rate, DPS  — primary large numbers
+/* ═══════════════════════════════════════════════
+TILE GRID — 3×3
+Row 1 (40%): Pace, Stroke Rate, DPS         — primary large
 Row 2 (30%): Stroke Char, Catch Slope, Catch Consistency
-Row 3 (30%): Run Loss, Efficiency score, Lap pace/dist
-── */
+Row 3 (30%): Run Loss, Efficiency, Lap
+═══════════════════════════════════════════════ */
 .tile-grid{
 flex:1;min-height:0;min-width:0;
 display:grid;
@@ -117,12 +110,16 @@ gap:2px;background:#999;padding:2px;
 background:#fff;display:flex;flex-direction:column;
 overflow:hidden;min-height:0;min-width:0;
 }
+
+/* ── Generic tile value wrapper ── */
 .tile-val-wrap{
 flex:1;min-height:0;min-width:0;overflow:hidden;
 display:flex;flex-direction:column;
 align-items:center;justify-content:center;
-padding:4px 6px;gap:2px;
+padding:2px 4px;gap:1px;
 }
+
+/* ── PRIMARY (row 1) numbers ── */
 .tval{
 font-family:‘Roboto Condensed’,sans-serif;font-weight:500;
 font-size:clamp(20px,7dvh,88px);
@@ -130,8 +127,29 @@ line-height:1;color:#111;white-space:nowrap;overflow:hidden;max-width:100%;text-
 }
 .tval.dim{color:#888}
 .tval-primary{font-size:clamp(40px,16dvh,180px);font-weight:700;}
-.tval-sm{font-size:clamp(22px,7dvh,90px);font-weight:500;}
-.lap-sub{font-size:clamp(8px,1.3dvh,12px);color:#aaa;font-weight:400;text-align:center;}
+
+/* ═══════════════════════════════════════════════
+ROWS 2 & 3: MAXIMISED NUMBER SIZES
+Goal: number fills as much vertical space as possible.
+Supporting elements (bars, badges, sub-labels) are
+collapsed to absolute minimum — thin, small, tight.
+═══════════════════════════════════════════════ */
+
+/* Main value in rows 2&3 — much larger than old tval-sm */
+.tval-r23{
+font-family:‘Roboto Condensed’,sans-serif;font-weight:700;
+font-size:clamp(28px,11dvh,130px);
+line-height:1;color:#111;white-space:nowrap;overflow:hidden;
+max-width:100%;text-align:center;
+}
+.tval-r23.dim{color:#888}
+
+/* Tiny sub-line under the number */
+.sub-micro{
+font-size:clamp(7px,1.1dvh,11px);
+color:#aaa;font-weight:400;text-align:center;
+line-height:1;white-space:nowrap;overflow:hidden;max-width:100%;
+}
 
 /* Label bands */
 .tlbl{
@@ -146,23 +164,35 @@ font-size:clamp(8px,1.4vw,13px);
 border-top:3px solid #5dade2;padding:4px 3px 3px;
 }
 
-/* Char bar */
-.cbar-wrap{width:90%;flex-shrink:0}
-.cbar-track{height:5px;background:#e8e8e8;border-radius:3px;position:relative;overflow:hidden;}
+/* ── Stroke Char bar (row 2, tile 1) ──
+Collapsed to a single 4px track + inline badge in sub-micro
+── */
+.cbar-wrap{width:88%;flex-shrink:0;margin-top:1px}
+.cbar-track{height:4px;background:#e8e8e8;border-radius:2px;position:relative;overflow:hidden;}
 .cbar-zones{position:absolute;inset:0;display:flex;}
 .cz1{background:#888;flex:1;opacity:.2}
 .cz2{background:#444;flex:2;opacity:.15}
 .cz3{background:#888;flex:1;opacity:.2}
-.cbar-needle{position:absolute;top:-3px;width:3px;height:11px;background:#1a5276;border-radius:2px;transform:translateX(-50%);transition:left .35s cubic-bezier(.34,1.56,.64,1);box-shadow:0 1px 3px rgba(0,0,0,.25);}
-.cbar-sub{display:flex;justify-content:space-between;font-size:6px;color:#bbb;margin-top:1px}
-.char-badge{font-size:clamp(6px,1.2dvh,10px);font-weight:700;color:#fff;background:#1a5276;padding:1px 6px;border-radius:10px;white-space:nowrap;flex-shrink:0;}
+.cbar-needle{position:absolute;top:-3px;width:3px;height:10px;background:#1a5276;border-radius:2px;transform:translateX(-50%);transition:left .35s cubic-bezier(.34,1.56,.64,1);box-shadow:0 1px 3px rgba(0,0,0,.25);}
 
-/* Catch bar */
-.catch-bar-wrap{width:90%;flex-shrink:0}
-.catch-bar-bg{height:5px;background:#e8e8e8;border-radius:3px;position:relative;overflow:hidden;}
-.catch-bar-fill{position:absolute;top:0;height:100%;border-radius:3px;transition:width .12s;}
-.catch-needle{position:absolute;top:-3px;width:3px;height:11px;border-radius:2px;transform:translateX(-50%);transition:left .12s;box-shadow:0 1px 3px rgba(0,0,0,.25);}
-.catch-sub{display:flex;justify-content:space-between;font-size:6px;color:#bbb;margin-top:1px}
+/* badge now lives ABOVE the bar, treated as tval-r23 substitute for char */
+.char-num{
+font-family:‘Roboto Condensed’,sans-serif;font-weight:700;
+font-size:clamp(28px,11dvh,130px);
+line-height:1;color:#111;text-align:center;
+}
+.char-num.dim{color:#888}
+/* label for char percentage positioning */
+.char-label-sm{
+font-size:clamp(7px,1.1dvh,11px);color:#aaa;font-weight:400;text-align:center;
+line-height:1;white-space:nowrap;overflow:hidden;max-width:100%;
+}
+
+/* ── Catch bar (row 2, tile 2) ── */
+.catch-bar-wrap{width:88%;flex-shrink:0;margin-top:1px}
+.catch-bar-bg{height:4px;background:#e8e8e8;border-radius:2px;position:relative;overflow:hidden;}
+.catch-bar-fill{position:absolute;top:0;height:100%;border-radius:2px;transition:width .12s;}
+.catch-needle{position:absolute;top:-3px;width:3px;height:10px;border-radius:2px;transform:translateX(-50%);transition:left .12s;box-shadow:0 1px 3px rgba(0,0,0,.25);}
 
 /* Portrait defaults */
 .ctrl-col{display:none;}
@@ -170,19 +200,16 @@ border-top:3px solid #5dade2;padding:4px 3px 3px;
 background:#1a5276;display:flex;gap:5px;flex-shrink:0;
 padding:5px 8px calc(5px + env(safe-area-inset-bottom));
 }
-/* Portrait tab bar (outside live-body) */
 #live-tabs-port{
 display:flex;background:#0f3a54;flex-shrink:0;
 border-top:1px solid rgba(255,255,255,.1);
 padding-bottom:env(safe-area-inset-bottom);
 }
-/* Analysis screen tab bar */
 .tab-bar{
 display:flex;background:#0f3a54;flex-shrink:0;
 border-top:1px solid rgba(255,255,255,.1);
 padding-bottom:env(safe-area-inset-bottom);
 }
-/* The tab bar inside live-body (landscape-only) — hidden in portrait */
 #live-tabs{display:none;}
 
 .tab{
@@ -209,24 +236,12 @@ transition:filter .1s,transform .1s;
 .btn-reset{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
 
 /* ═══════════════════════════════════════════════
-LANDSCAPE — pure CSS, both rotation directions
-screen-live stays column:
-sbar        (fixed height)
-live-body   (flex:1) ← this becomes a ROW:
-tile-grid (flex:1)
-ctrl-col  (fixed width)
-live-tabs (fixed width, vertical)
-ctrl-row    (hidden)
+LANDSCAPE
 ═══════════════════════════════════════════════ */
 @media (orientation:landscape){
-/* Hide portrait-only elements */
 .ctrl-row{display:none;}
 #live-tabs-port{display:none;}
-
-/* live-body becomes a row */
 .live-body{flex-direction:row;}
-
-/* ctrl-col visible on right of grid */
 .ctrl-col{
 display:flex;flex-direction:column;gap:4px;
 background:#1a5276;flex-shrink:0;
@@ -237,8 +252,6 @@ padding:5px 5px calc(5px + env(safe-area-inset-bottom));
 flex:1;width:100%;padding:0 3px;
 font-size:clamp(9px,1.1vw,13px);letter-spacing:.04em;
 }
-
-/* Tab bar inside live-body — show as vertical strip */
 #live-tabs{
 display:flex;
 flex-direction:column;
@@ -256,13 +269,16 @@ padding-right:env(safe-area-inset-right);
 #live-tabs .tab-icon{font-size:18px;margin-bottom:0;}
 #live-tabs .tab.active{border-top:none;border-left:2px solid #fff;}
 
-/* Grid is always 3×3 — no override needed in landscape */
-/* Font scaling for landscape (tiles are taller) */
-.tval        {font-size:clamp(28px,11dvh,120px);}
-.tval-primary{font-size:clamp(48px,18dvh,200px);font-weight: 700;}
-.tval-sm     {font-size:clamp(24px,9dvh,100px);}
-.tlbl        {font-size:clamp(7px,1.2vw,11px);}
-.tlbl-primary{font-size:clamp(8px,1.4vw,12px);}
+/* Landscape font scaling */
+.tval          {font-size:clamp(28px,11dvh,120px);}
+.tval-primary  {font-size:clamp(48px,18dvh,200px);font-weight:700;}
+/* Rows 2&3 main number — landscape gets more dvh so push it up */
+.tval-r23      {font-size:clamp(34px,13dvh,160px);}
+.char-num      {font-size:clamp(34px,13dvh,160px);}
+.tlbl          {font-size:clamp(7px,1.2vw,11px);}
+.tlbl-primary  {font-size:clamp(8px,1.4vw,12px);}
+.sub-micro     {font-size:clamp(7px,1.0dvh,10px);}
+.char-label-sm {font-size:clamp(7px,1.0dvh,10px);}
 }
 
 /* ═══════════════════════════════════════════════
@@ -276,7 +292,6 @@ display:flex;align-items:center;justify-content:space-between;
 .scnt{font-size:10px;color:rgba(255,255,255,.35);letter-spacing:.08em}
 .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#efefef}
 
-/* session list */
 .slist{padding:8px}
 .scard{
 background:#fff;border-radius:4px;margin-bottom:6px;
@@ -290,7 +305,6 @@ box-shadow:0 1px 3px rgba(0,0,0,.07);
 .scs-l{font-size:8px;color:#333;letter-spacing:.1em;text-transform:uppercase;display:block}
 .no-sess{text-align:center;padding:60px 24px;color:#ccc;font-size:13px;line-height:2}
 
-/* detail */
 .dback{
 background:none;border:none;color:#1a5276;
 font-family:‘Roboto’,sans-serif;font-size:11px;font-weight:700;
@@ -347,7 +361,6 @@ color:#c0392b;border:1px solid #e0e0e0;font-family:‘Roboto’,sans-serif;
 font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;margin-top:4px;
 }
 
-/* toast */
 .toast{
 position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
 background:#1a5276;color:#fff;padding:7px 18px;border-radius:18px;
@@ -377,7 +390,7 @@ opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:no
     <div class="perm-note">
       iOS: Settings → Safari → Motion &amp; Orientation Access<br/>
       Add to Home Screen for full-screen use · Works offline<br/>
-      <span style="color:rgba(255,255,255,.18)">v1.3</span>
+      <span style="color:rgba(255,255,255,.18)">v1.4</span>
     </div>
   </div>
 </div>
@@ -385,15 +398,6 @@ opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:no
 <!-- LIVE -->
 
 <div id="screen-live" class="screen">
-
-  <!--
-    STRUCTURE (pure CSS controls orientation — NO JS display toggling):
-    Portrait:  [sbar] [tile-grid flex:1] [ctrl-row] [tab-bar]
-    Landscape: [sbar] [live-body: [tile-grid flex:1] [ctrl-col]] [tab-bar]
-
-    The ctrl-row and ctrl-col both exist in DOM.
-    CSS media query shows/hides them. renderCtrl() writes buttons to BOTH.
-  -->
 
   <div class="sbar">
     <div class="sbar-l">
@@ -404,14 +408,12 @@ opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:no
     <div class="rec" id="rec-ind" style="display:none"><div class="recdot"></div>REC</div>
   </div>
 
-  <!-- live-body: in landscape this is a row; ctrl-col sits inside it -->
-
   <div class="live-body">
 
 ```
 <div class="tile-grid">
 
-  <!-- ROW 1: PRIMARY PERFORMANCE METRICS -->
+  <!-- ══ ROW 1: PRIMARY PERFORMANCE ══ -->
 
   <!-- T1: Pace -->
   <div class="tile">
@@ -437,54 +439,55 @@ opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:no
     <div class="tlbl tlbl-primary">Dist / stroke [m]</div>
   </div>
 
-  <!-- ROW 2: TECHNIQUE METRICS -->
+  <!-- ══ ROW 2: TECHNIQUE ══ -->
 
-  <!-- T4: Stroke characteristic -->
+  <!-- T4: Stroke characteristic
+       Shows numeric % as large number + tiny bar + tiny label below -->
   <div class="tile">
     <div class="tile-val-wrap">
-      <span class="char-badge" id="char-badge">—</span>
+      <div class="char-num dim" id="t-char-num">--</div>
       <div class="cbar-wrap">
         <div class="cbar-track">
           <div class="cbar-zones"><div class="cz1"></div><div class="cz2"></div><div class="cz3"></div></div>
           <div class="cbar-needle" id="cbar-needle" style="left:50%"></div>
         </div>
-        <div class="cbar-sub"><span>early</span><span>balanced</span><span>late</span></div>
       </div>
+      <div class="char-label-sm" id="char-badge">—</div>
     </div>
     <div class="tlbl">Stroke characteristic</div>
   </div>
 
-  <!-- T5: Catch slope -->
+  <!-- T5: Catch slope — big number, thin bar -->
   <div class="tile">
     <div class="tile-val-wrap">
-      <div class="tval tval-sm dim" id="t-catch">--</div>
+      <div class="tval-r23 dim" id="t-catch">--</div>
       <div class="catch-bar-wrap">
         <div class="catch-bar-bg">
           <div class="catch-bar-fill" id="catch-fill" style="left:0;width:0;background:rgba(26,82,118,.3)"></div>
           <div class="catch-needle" id="catch-needle" style="left:0;background:#1a5276"></div>
         </div>
-        <div class="catch-sub"><span>0</span><span>+30</span><span>+60</span></div>
       </div>
+      <div class="sub-micro">m/s³ · 0 ──── 30 ──── 60</div>
     </div>
     <div class="tlbl">Catch slope [m/s³]</div>
   </div>
 
-  <!-- T6: Catch consistency (rolling stdev) -->
+  <!-- T6: Catch consistency -->
   <div class="tile">
     <div class="tile-val-wrap">
-      <div class="tval tval-sm dim" id="t-consistency">--</div>
-      <div class="lap-sub">stdev m/s³ · lower = better</div>
+      <div class="tval-r23 dim" id="t-consistency">--</div>
+      <div class="sub-micro">stdev m/s³ · lower = better</div>
     </div>
     <div class="tlbl">Catch consistency</div>
   </div>
 
-  <!-- ROW 3: EFFICIENCY + NAVIGATION -->
+  <!-- ══ ROW 3: EFFICIENCY + NAV ══ -->
 
-  <!-- T7: Run loss % -->
+  <!-- T7: Run loss -->
   <div class="tile">
     <div class="tile-val-wrap">
-      <div class="tval tval-sm dim" id="t-runloss">--%</div>
-      <div class="lap-sub" id="t-runloss-ms">-- m/s</div>
+      <div class="tval-r23 dim" id="t-runloss">--%</div>
+      <div class="sub-micro" id="t-runloss-ms"></div>
     </div>
     <div class="tlbl">Run loss</div>
   </div>
@@ -492,8 +495,8 @@ opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:no
   <!-- T8: Efficiency score -->
   <div class="tile">
     <div class="tile-val-wrap">
-      <div class="tval tval-sm dim" id="t-efficiency">--</div>
-      <div class="lap-sub">higher = better</div>
+      <div class="tval-r23 dim" id="t-efficiency">--</div>
+      <div class="sub-micro">higher = better</div>
     </div>
     <div class="tlbl">Efficiency score</div>
   </div>
@@ -501,8 +504,8 @@ opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:no
   <!-- T9: Lap pace / dist -->
   <div class="tile">
     <div class="tile-val-wrap">
-      <div class="tval tval-sm dim" id="t-lap">--:--</div>
-      <div class="lap-sub" id="t-lap-dist">lap --m</div>
+      <div class="tval-r23 dim" id="t-lap">--:--</div>
+      <div class="sub-micro" id="t-lap-dist">lap --m</div>
     </div>
     <div class="tlbl">Lap pace / dist</div>
   </div>
@@ -512,7 +515,7 @@ opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:no
 <!-- Landscape ctrl column -->
 <div class="ctrl-col" id="ctrl-col"></div>
 
-<!-- Tab bar: portrait=hidden here, landscape=vertical strip here -->
+<!-- Tab bar: landscape vertical strip -->
 <div class="tab-bar" id="live-tabs">
   <button class="tab active" onclick="showTab('live')"><span class="tab-icon">📡</span><span class="tab-txt">LIVE</span></button>
   <button class="tab" onclick="showTab('analysis')"><span class="tab-icon">📊</span><span class="tab-txt">ANALYSIS</span></button>
@@ -570,19 +573,15 @@ const haversine=(a,b)=>{const R=6371000,dLat=(b.lat-a.lat)*Math.PI/180,dLon=(b.l
 
 const charLabel=v=>v<22?'EARLY DRIVE':v<40?'FRONT LOADED':v<60?'BALANCED':v<78?'LATE DRIVE':'BACK LOADED';
 const charBg   =v=>(v<22||v>78)?'#c0392b':(v<35||v>65)?'#f39c12':'#27ae60';
-// Catch colour: good jerk for sculling is ~15-50 m/s³
 const catchCol =v=>v>15?'#27ae60':v>7?'#f39c12':'#c0392b';
 
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
 
 /* ═══════════════════════════════════════════════
    ORIENTATION LOCK
-   CSS handles the visual rotation for all cases.
-   Screen Orientation API locks it at OS level when
-   available (works in PWA/standalone mode on iOS 16.4+).
 ═══════════════════════════════════════════════ */
 if(screen.orientation&&screen.orientation.lock){
-  screen.orientation.lock('landscape').catch(()=>{/* silently fail in browser */});
+  screen.orientation.lock('landscape').catch(()=>{});
 }
 
 /* ═══════════════════════════════════════════════
@@ -601,7 +600,7 @@ let running=false, paused=false, elapsed=0;
 let distance=0, lapStartDist=0, lapStartTime=0;
 let strokeRate=0, strokeCount=0;
 let catchLast=null, catchPeakSess=null, catchVals=[], catchAvg8=null;
-let catchConsistency=null; // rolling stdev of last 5 catch jerk values
+let catchConsistency=null;
 let strokeChar=50, charVals=[];
 let distPerStroke=0, dpsVals=[], lastStrokeDist=0, maxDPS=0;
 let laps=[], sessStart=null;
@@ -609,29 +608,22 @@ let sessStrokes=[], sessPaceTrace=[], sessGpsTrace=[];
 
 /* ── GPS state ── */
 let lastPos=null, gpsWatchId=null;
-// Rolling window for pace: keep last N positions with timestamps
-const gpsWindow=[];  // [{lat,lon,t,dist}]
+const gpsWindow=[];
 
 /* ── Accelerometer state ── */
 let smoothAcc=0, prevSmooth=0, prevSmoothT=0;
 let inStroke=false, peakJerk=0, peakJerkT=0, strokeStartT=0;
 
-// ADAPTIVE REFRACTORY PERIOD
-// Blocks the finish/release jerk (~0.8s after catch) from double-triggering.
-// Uses 60% of the actual stroke interval, floored at REFRACTORY_MIN_MS.
-// IMPORTANT: only activate adaptive mode after 3 strokes — before that,
-// lastCatchT=0 would make strokeInterval=performance.now() (huge), blowing
-// the refractory out to tens of seconds and blocking all detections.
 const REFRACTORY_MIN_MS=1600;
 let lastCatchT=0;
-let strokesDetected=0; // count before adaptive mode activates
+let strokesDetected=0;
 let adaptiveRefractory=REFRACTORY_MIN_MS;
 
 const strokeTs=[];
 let timerInt=null, wakeLock=null;
 
 /* ═══════════════════════════════════════════════
-   ACCELEROMETER — SMOOTHED JERK WITH ADAPTIVE REFRACTORY
+   ACCELEROMETER
 ═══════════════════════════════════════════════ */
 function handleMotion(e){
   effScore=0;
@@ -641,10 +633,8 @@ function handleMotion(e){
   const raw=acc.x||0;
   const now=performance.now();
 
-  // IIR low-pass (α=0.15)
   smoothAcc = 0.15*raw + 0.85*smoothAcc;
 
-  // Differentiate smoothed signal → jerk
   let jerk=0;
   if(prevSmoothT>0){
     const dt=(now-prevSmoothT)/1000;
@@ -655,37 +645,19 @@ function handleMotion(e){
   }
   prevSmooth=smoothAcc; prevSmoothT=now;
 
-  // GPS-anchored velocity integration (between GPS fixes)
-  // Integrate smoothed acceleration from the last GPS anchor
-  // Clamp to 0–8 m/s (max sprint speed ~7 m/s for a single scull)
   if (running && !paused) {
-
-  if (lastVelT === 0) lastVelT = now;
-
-  const dt = (now - lastVelT) / 1000;
-  lastVelT = now;
-
-  if (dt > 0.005 && dt < 0.1) {
-
-    let vPred = vIntegrated + smoothAcc * dt;
-
-    if (vAnchorT > 0) {
-      vPred = (1 - VEL_CORR_ALPHA) * vPred + VEL_CORR_ALPHA * vAnchor;
+    if (lastVelT === 0) lastVelT = now;
+    const dt = (now - lastVelT) / 1000;
+    lastVelT = now;
+    if (dt > 0.005 && dt < 0.1) {
+      let vPred = vIntegrated + smoothAcc * dt;
+      if (vAnchorT > 0) {
+        vPred = (1 - VEL_CORR_ALPHA) * vPred + VEL_CORR_ALPHA * vAnchor;
+      }
+      vIntegrated = Math.max(0, Math.min(MAX_V, vPred));
+      pushVelocity(now, vIntegrated);
     }
-
-    vIntegrated = Math.max(0, Math.min(MAX_V, vPred));
-
-    pushVelocity(now, vIntegrated);
   }
-}
-
-    // 3. Clamp to physical range
-    vIntegrated = Math.max(0, Math.min(MAX_V, vPred));
-
-    // 4. Push to velocity window (for run loss)
-    pushVelocity(now, vIntegrated);
-  }
-}
 
   if(!running||paused)return;
 
@@ -708,26 +680,18 @@ function handleMotion(e){
       lastCatchT=now;
       strokesDetected++;
 
-      // ── CATCH JERK: 4-stroke rolling mean ──────────────────
-      // Raw peak jerk varies ±13% stroke-to-stroke even in clean water.
-      // 4-stroke mean reduces display noise by 50% with only 12s lag at r20.
       const peak=Math.round(peakJerk*10)/10;
       if(catchPeakSess===null||peak>catchPeakSess)catchPeakSess=peak;
       catchVals.push(peak);
-      if(catchVals.length>5)catchVals.shift(); // keep 5 for stdev
+      if(catchVals.length>5)catchVals.shift();
       catchLast=Math.round(catchVals.reduce((a,b)=>a+b,0)/catchVals.length*10)/10;
       catchAvg8=catchLast;
-      // Consistency: population stdev of last 5 catches (lower = more consistent)
       if(catchVals.length>=3){
         const m=catchVals.reduce((a,b)=>a+b,0)/catchVals.length;
         const v=catchVals.reduce((s,x)=>s+(x-m)**2,0)/catchVals.length;
         catchConsistency=+Math.sqrt(v).toFixed(1);
       }
 
-      // ── STROKE CHARACTERISTIC: rolling mean of valid strokes only ──
-      // charPct=0 occurs when the drive ends before peak timing resolves —
-      // these are incomplete detections. Only update from strokes where
-      // charPct>0 (complete drive captured). Keep last 4 valid values.
       const driveDur=now-strokeStartT;
       const peakOff=peakJerkT-strokeStartT;
       const rawChar=driveDur>100?Math.min(100,(peakOff/driveDur)*100):0;
@@ -736,39 +700,24 @@ function handleMotion(e){
         if(charVals.length>4)charVals.shift();
         strokeChar=Math.round(charVals.reduce((a,b)=>a+b,0)/charVals.length);
       }
-      // If rawChar===0, strokeChar retains its last valid value// ── DIST / STROKE: velocity-derived (consistent with pace) ───────────
 
-// Time between last two strokes
-const strokeIntervalS = strokeTs.length >= 2
-  ? (strokeTs[strokeTs.length - 1] - strokeTs[strokeTs.length - 2]) / 1000
-  : 3.0;
+      const strokeIntervalS = strokeTs.length >= 2
+        ? (strokeTs[strokeTs.length - 1] - strokeTs[strokeTs.length - 2]) / 1000
+        : 3.0;
+      let dps = vIntegrated * strokeIntervalS;
+      if (dps > 0.5 && dps < 25) {
+        dpsVals.push(dps);
+        if (dpsVals.length > 4) dpsVals.shift();
+        distPerStroke = Math.round(dpsVals.reduce((a, b) => a + b, 0) / dpsVals.length * 10) / 10;
+        if (distPerStroke > maxDPS) maxDPS = distPerStroke;
+      }
 
-// Raw DPS from fused velocity
-let dps = vIntegrated * strokeIntervalS;
-
-// Sanity bounds (filters junk strokes / GPS dropouts / startup noise)
-if (dps > 0.5 && dps < 25) {
-
-  // Light smoothing (last 4 strokes)
-  dpsVals.push(dps);
-  if (dpsVals.length > 4) dpsVals.shift();
-
-  distPerStroke = Math.round(
-    dpsVals.reduce((a, b) => a + b, 0) / dpsVals.length * 10
-  ) / 10;
-
-  // Track max
-  if (distPerStroke > maxDPS) maxDPS = distPerStroke;
-}
-      // ── RUN LOSS per stroke ─────────────────────────────────
       computeRunLoss();
 
-      // ── Efficiency Score  ─────────────────────────────────      
       const baseEff = distPerStroke * (1 - (runLossPct || 0) / 100);
       const rateFactor = Math.exp(-Math.pow((strokeRate - 28) / 10, 2));
       effScore = baseEff * rateFactor;
 
-      // ── STROKE RATE ─────────────────────────────────────────
       strokeTs.push(now);
       if(strokeTs.length>4)strokeTs.shift();
       if(strokeTs.length>=2){
@@ -793,17 +742,7 @@ if (dps > 0.5 && dps < 25) {
 }
 
 /* ═══════════════════════════════════════════════
-   GPS — ANCHORED VELOCITY + INTERPOLATED DISTANCE
-   Strategy:
-   • coords.speed (Kalman-filtered by iPhone) anchors
-     the velocity estimate at each GPS fix (~1Hz)
-   • Between fixes, smoothed accelerometer X integrates
-     velocity at ~50Hz → high-res boat speed signal
-   • Distance accumulates from this integrated velocity
-   • Pace = 500 / v_integrated (IIR smoothed for display)
-   • DPS = blended: 60% GPS-haversine + 40% speed-derived
-   • Run loss = vmax-vmin over last stroke window
-     from the high-res velocity window
+   GPS
 ═══════════════════════════════════════════════ */
 let pace=0;
 let rawPace=0;
@@ -811,26 +750,21 @@ const PACE_IIR=0.15;
 const PACE_MAX=600;
 const paceReadings=[];
 
-// GPS-anchored velocity integration
-let vAnchor = 0;        // GPS speed (m/s)
-let vAnchorT = 0;       // timestamp of last GPS fix
-let vIntegrated = 0;    // fused velocity (m/s)
+let vAnchor = 0;
+let vAnchorT = 0;
+let vIntegrated = 0;
 
-// tuning
-const VEL_CORR_ALPHA = 0.18;   // GPS correction strength (0.12–0.25)=================higher if too noisy, lower if too slow===
-const MAX_V = 8;               // sanity clamp (m/s)
+const VEL_CORR_ALPHA = 0.18;
+const MAX_V = 8;
 
-// High-res velocity window for run loss (last 6s)
-const velocityWindow=[];  // [{t:performance.now(), v:m/s}]
+const velocityWindow=[];
 const VEL_WINDOW_MS=6000;
 
-// Run loss state (updated per stroke)
 let runLossPct=null;
 let runLossMs=null;
 let runEfficiency=null;
 let effScore=null;
 
-// Distance: GPS haversine accumulator
 const GPS_WINDOW_S=6;
 
 function pushVelocity(t, v){
@@ -841,11 +775,8 @@ function pushVelocity(t, v){
 }
 
 function computeRunLoss(){
-  // Need at least 3 points in a recent stroke-length window
   const now=performance.now();
-  const windowMs = strokeRate > 0
-  ? (60000 / strokeRate) * 1.1
-  : 3000;
+  const windowMs = strokeRate > 0 ? (60000 / strokeRate) * 1.1 : 3000;
   const windowStart=now-windowMs;
   const rel=velocityWindow.filter(p=>p.t>=windowStart);
   if(rel.length<3)return;
@@ -854,7 +785,7 @@ function computeRunLoss(){
     if(p.v>vmax)vmax=p.v;
     if(p.v<vmin)vmin=p.v;
   }
-  if(vmax<0.3||vmin===Infinity)return; // not moving
+  if(vmax<0.3||vmin===Infinity)return;
   runLossMs=+(vmax-vmin).toFixed(2);
   runLossPct=+((vmax-vmin)/vmax*100).toFixed(1);
   runEfficiency=+(vmin/vmax).toFixed(3);
@@ -864,14 +795,11 @@ function handlePos(pos){
   const pill=document.getElementById('p-gps');
   pill.className='pill pill-on'; pill.textContent='GPS';
 
-  const spd=pos.coords.speed; // Kalman-filtered m/s from iPhone GPS
+  const spd=pos.coords.speed;
   const now=performance.now();
 
-  // Update velocity anchor
   if(spd!=null&&spd>=0&&spd<10){
-    vAnchor=spd;
-    vAnchorT=now;
-    vIntegrated=spd;
+    vAnchor=spd; vAnchorT=now; vIntegrated=spd;
     pushVelocity(now, spd);
   }
 
@@ -884,50 +812,27 @@ function handlePos(pos){
       distance+=d;
       cur.dist=distance;
       if(running&&!paused&&spd!=null&&spd>0.3){
-        // Build pace from GPS speed (more reliable than haversine/dt at 1Hz)
-        // but also keep haversine window for crosscheck
         gpsWindow.push({...cur, spd});
         const cutoff=cur.t-GPS_WINDOW_S*1000;
         while(gpsWindow.length>1&&gpsWindow[0].t<cutoff)gpsWindow.shift();
 
-     // --- Primary pace: from Kalman speed directly ---
-if (spd > 0) {
-
-  const rawFromSpd = 500 / spd;
-
-  if (rawFromSpd < PACE_MAX) {
-
-    // Accumulate valid readings
-    paceReadings.push(rawFromSpd);
-
-    // Keep rolling window tight (median filter)
-    if (paceReadings.length > 5) paceReadings.shift();
-
-    // Only compute if we actually have data
-    if (paceReadings.length > 0) {
-
-      // Median (robust against spikes)
-      const sorted = [...paceReadings].sort((a, b) => a - b);
-      const median = sorted[(sorted.length / 2) | 0];
-
-      // IIR smoothing
-      pace = (pace === 0)
-        ? median
-        : (PACE_IIR * median + (1 - PACE_IIR) * pace);
-
-      // Store trace AFTER smoothing
-      sessPaceTrace.push(pace);
-    }
-
-  } else {
-    // Hard reset only on clearly invalid pace
-    paceReadings.length = 0;
-  }
-
-} else {
-  // Prevent divide-by-zero + garbage carryover
-  paceReadings.length = 0;
-}
+        if (spd > 0) {
+          const rawFromSpd = 500 / spd;
+          if (rawFromSpd < PACE_MAX) {
+            paceReadings.push(rawFromSpd);
+            if (paceReadings.length > 5) paceReadings.shift();
+            if (paceReadings.length > 0) {
+              const sorted = [...paceReadings].sort((a, b) => a - b);
+              const median = sorted[(sorted.length / 2) | 0];
+              pace = (pace === 0) ? median : (PACE_IIR * median + (1 - PACE_IIR) * pace);
+              sessPaceTrace.push(pace);
+            }
+          } else {
+            paceReadings.length = 0;
+          }
+        } else {
+          paceReadings.length = 0;
+        }
       }
     }
   }
@@ -946,7 +851,7 @@ function handleGpsErr(err){
 function updateUI(){
   const on=running&&!paused;
 
-  // ── ROW 1: PACE · RATE · DPS ──────────────────────────────
+  // ── ROW 1: PACE · RATE · DPS ──
   const pel=document.getElementById('t-pace');
   if(on&&pace>0){pel.textContent=fmt(pace);pel.className='tval tval-primary';}
   else{pel.textContent='--:--';pel.className='tval tval-primary dim';}
@@ -959,54 +864,63 @@ function updateUI(){
   if(on&&distPerStroke>0){dpsel.textContent=distPerStroke.toFixed(1);dpsel.className='tval tval-primary';}
   else{dpsel.textContent='--';dpsel.className='tval tval-primary dim';}
 
-  // ── ROW 2: STROKE CHAR · CATCH SLOPE · CONSISTENCY ────────
+  // ── ROW 2: STROKE CHAR · CATCH SLOPE · CONSISTENCY ──
+
+  // Char: show numeric % as big number, label + bar below
   const needle=document.getElementById('cbar-needle');
-  const badge=document.getElementById('char-badge');
+  const charNumEl=document.getElementById('t-char-num');
+  const charBadgeEl=document.getElementById('char-badge');
   needle.style.left=strokeChar+'%';
   if(on&&strokeCount>0){
-    badge.textContent=charLabel(strokeChar);
-    badge.style.background='#1a5276';
+    charNumEl.textContent=strokeChar;
+    charNumEl.className='char-num';
+    charBadgeEl.textContent=charLabel(strokeChar);
     needle.style.background='#1a5276';
-  } else{badge.textContent='—';badge.style.background='#ccc';needle.style.background='#ccc';}
+  } else {
+    charNumEl.textContent='--';
+    charNumEl.className='char-num dim';
+    charBadgeEl.textContent='—';
+    needle.style.background='#ccc';
+  }
 
   const CATCH_SCALE=60;
   const ce=document.getElementById('t-catch');
   if(catchLast!==null){
     ce.textContent='+'+catchLast.toFixed(1);
-    ce.className='tval tval-sm';
+    ce.className='tval-r23';
     const pct=Math.max(0,Math.min(100,(catchLast/CATCH_SCALE)*100));
     document.getElementById('catch-fill').style.width=pct+'%';
     document.getElementById('catch-needle').style.left=pct+'%';
-  } else{ce.textContent='--';ce.className='tval tval-sm dim';}
+  } else{ce.textContent='--';ce.className='tval-r23 dim';}
 
   const conel=document.getElementById('t-consistency');
   if(catchConsistency!==null){
     conel.textContent=catchConsistency.toFixed(1);
-    conel.className='tval tval-sm';
-  } else{conel.textContent='--';conel.className='tval tval-sm dim';}
+    conel.className='tval-r23';
+  } else{conel.textContent='--';conel.className='tval-r23 dim';}
 
-  // ── ROW 3: RUN LOSS · EFFICIENCY SCORE · LAP ──────────────
+  // ── ROW 3: RUN LOSS · EFFICIENCY SCORE · LAP ──
   const rle=document.getElementById('t-runloss');
   const rlm=document.getElementById('t-runloss-ms');
   if(runLossPct!==null&&on){
     rle.textContent=runLossPct.toFixed(1)+'%';
-    rle.className='tval tval-sm';
+    rle.className='tval-r23';
     rlm.textContent=(runLossMs!==null?runLossMs.toFixed(2)+' m/s':'');
-  } else{rle.textContent='--%';rle.className='tval tval-sm dim';rlm.textContent='';}
+  } else{rle.textContent='--%';rle.className='tval-r23 dim';rlm.textContent='';}
 
   const efe=document.getElementById('t-efficiency');
   if(effScore!==null&&effScore>0&&on){
     efe.textContent=effScore.toFixed(1);
-    efe.className='tval tval-sm';
-  } else{efe.textContent='--';efe.className='tval tval-sm dim';}
+    efe.className='tval-r23';
+  } else{efe.textContent='--';efe.className='tval-r23 dim';}
 
   const lapDist=Math.round(distance-lapStartDist);
   const lapTime=elapsed-lapStartTime;
   const lapPace=lapDist>5&&lapTime>0?(lapTime/lapDist)*500:0;
   const lte=document.getElementById('t-lap');
   const lde=document.getElementById('t-lap-dist');
-  if(on&&lapPace>0&&lapPace<PACE_MAX){lte.textContent=fmt(lapPace);lte.className='tval tval-sm';}
-  else{lte.textContent='--:--';lte.className='tval tval-sm dim';}
+  if(on&&lapPace>0&&lapPace<PACE_MAX){lte.textContent=fmt(lapPace);lte.className='tval-r23';}
+  else{lte.textContent='--:--';lte.className='tval-r23 dim';}
   lde.textContent=on?`lap ${lapDist}m`:`lap --m`;
 }
 
@@ -1027,7 +941,6 @@ function renderCtrl(){
     html=`<button class="btn btn-pause" onclick="pauseSess()">Pause</button><button class="btn btn-lap" onclick="recordLap()">Lap</button><button class="btn btn-stop" onclick="stopSess()">Stop</button>`;
     rec.style.display='flex';
   }
-  // Write to BOTH — CSS shows/hides the right one per orientation
   document.getElementById('ctrl-row').innerHTML=html;
   document.getElementById('ctrl-col').innerHTML=html;
 }
@@ -1045,20 +958,16 @@ function stopSess(){
   running=false;paused=false;clearInterval(timerInt);
 
   if(elapsed>10 && sessStrokes.length>0){
-
     const avgPace = sessPaceTrace.length>0
       ? Math.round(sessPaceTrace.reduce((a,b)=>a+b,0)/sessPaceTrace.length)
       : 0;
-
     const avgRate = sessStrokes.length>0
       ? Math.round(sessStrokes.reduce((a,b)=>a+b.rate,0)/sessStrokes.length)
       : 0;
-
     const avg = (arr, key) => {
       const vals = arr.map(x => x[key]).filter(v => v != null && !isNaN(v));
       return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
     };
-
     const avgRunLoss     = avg(sessStrokes, 'runLossPct');
     const avgEfficiency  = avg(sessStrokes, 'runEfficiency');
     const avgDPS         = avg(sessStrokes, 'dps');
@@ -1073,33 +982,15 @@ function stopSess(){
       endTime:Date.now(),
       duration:elapsed,
       distance:Math.round(distance),
-
-      avgPace,
-      avgRate,
+      avgPace, avgRate,
       maxRate:Math.max(...sessStrokes.map(s=>s.rate),0),
-
-      catchPeakSess,
-      catchAvg8,
-      strokeCount,
-
-      avgRunLoss,
-      avgEfficiency,
-      avgDPS,
-      avgCatch,
-      avgChar,
-      avgConsistency,
-      avgEffScore,
-
-      strokes:sessStrokes,
-      paceTrace:sessPaceTrace,
-      gpsTrace:sessGpsTrace,
-      hrTrace:null,
-      laps
+      catchPeakSess, catchAvg8, strokeCount,
+      avgRunLoss, avgEfficiency, avgDPS, avgCatch, avgChar, avgConsistency, avgEffScore,
+      strokes:sessStrokes, paceTrace:sessPaceTrace, gpsTrace:sessGpsTrace,
+      hrTrace:null, laps
     });
-
     toast('Session saved');
   }
-
   renderCtrl();
 }
 function resetSess(){
@@ -1107,7 +998,6 @@ function resetSess(){
   elapsed=0;distance=0;pace=0;rawPace=0;strokeRate=0;strokeCount=0;
   distPerStroke=0;dpsVals=[];lastStrokeDist=0;
   lapStartDist=0;lapStartTime=0;
-  lastVelT = 0;
   catchLast=null;catchPeakSess=null;catchAvg8=null;catchVals=[];catchConsistency=null;
   strokeChar=50;charVals=[];
   runLossPct=null;runLossMs=null;runEfficiency=null;effScore=null;
@@ -1131,7 +1021,6 @@ function recordLap(){
    SENSOR INIT
 ═══════════════════════════════════════════════ */
 document.getElementById('perm-btn').onclick=async()=>{
-  // iOS motion permission
   if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
     try{
       const r=await DeviceMotionEvent.requestPermission();
@@ -1143,13 +1032,10 @@ document.getElementById('perm-btn').onclick=async()=>{
   document.getElementById('p-acc').className='pill pill-on';
   document.getElementById('p-acc').textContent='ACC';
 
-  // GPS — request immediately, don't wait
   if(navigator.geolocation){
-    // Single position first to trigger permission dialog
     navigator.geolocation.getCurrentPosition(
       pos=>{
         handlePos(pos);
-        // Then continuous watch
         gpsWatchId=navigator.geolocation.watchPosition(handlePos,handleGpsErr,
           {enableHighAccuracy:true,maximumAge:500,timeout:20000});
       },
@@ -1161,7 +1047,6 @@ document.getElementById('perm-btn').onclick=async()=>{
     document.getElementById('p-gps').textContent='NO GPS';
   }
 
-  // Wake lock
   if('wakeLock' in navigator){
     try{wakeLock=await navigator.wakeLock.request('screen');}catch{}
     document.addEventListener('visibilitychange',async()=>{
@@ -1171,7 +1056,6 @@ document.getElementById('perm-btn').onclick=async()=>{
     });
   }
 
-  // Show live screen
   document.getElementById('screen-perm').classList.remove('active');
   document.getElementById('screen-live').classList.add('active');
   renderCtrl();
@@ -1271,8 +1155,7 @@ function showDetail(id){
     <div class="sgrid">
       <div class="sbox">
         <span class="sbox-v">${s.avgDPS ? s.avgDPS.toFixed(1) : '—'}</span>
-        <span class="sbox-l">Dist / Stroke</span>
-        <span class="sbox-u">m</span>
+        <span class="sbox-l">Dist / Stroke</span><span class="sbox-u">m</span>
       </div>
       <div class="sbox ${s.avgRunLoss<10?'g':s.avgRunLoss<20?'a':'r'}">
         <span class="sbox-v">${s.avgRunLoss ? s.avgRunLoss.toFixed(1)+'%' : '—'}</span>
@@ -1286,13 +1169,11 @@ function showDetail(id){
     <div class="sgrid">
       <div class="sbox">
         <span class="sbox-v">${s.avgCatch ? '+'+s.avgCatch.toFixed(1) : '—'}</span>
-        <span class="sbox-l">Catch Avg</span>
-        <span class="sbox-u">m/s³</span>
+        <span class="sbox-l">Catch Avg</span><span class="sbox-u">m/s³</span>
       </div>
       <div class="sbox">
         <span class="sbox-v">${s.avgChar ? Math.round(s.avgChar) : '—'}</span>
-        <span class="sbox-l">Stroke Char</span>
-        <span class="sbox-u">%</span>
+        <span class="sbox-l">Stroke Char</span><span class="sbox-u">%</span>
       </div>
       <div class="sbox">
         <span class="sbox-v">${s.avgConsistency ? s.avgConsistency.toFixed(1) : '—'}</span>
@@ -1385,7 +1266,7 @@ function drawChart(id,data,color,invertY,yMax){
 }
 
 /* ═══════════════════════════════════════════════
-   TCX PARSER — Garmin Connect TCX export
+   TCX / GPX PARSER
 ═══════════════════════════════════════════════ */
 async function handleGPX(e,sessionId){
   const file=e.target.files[0];if(!file)return;
@@ -1417,32 +1298,20 @@ async function handleGPX(e,sessionId){
 
 function parseTCX(text){
   const doc=new DOMParser().parseFromString(text,'application/xml');
-  if(doc.querySelector('parsererror'))throw new Error('Invalid XML');
-
+  if(doc.querySelector('parseerror'))throw new Error('Invalid XML');
   const hr=[], speedTrace=[];
-
   doc.querySelectorAll('Trackpoint').forEach(tp=>{
     const timeEl=tp.querySelector('Time');
     if(!timeEl)return;
     const t=new Date(timeEl.textContent.trim()).getTime();
     if(isNaN(t))return;
-
     const hrEl=tp.querySelector('HeartRateBpm Value');
-    if(hrEl){
-      const v=parseInt(hrEl.textContent.trim());
-      if(v>0&&v<250)hr.push({t,hr:v});
-    }
-
+    if(hrEl){const v=parseInt(hrEl.textContent.trim());if(v>0&&v<250)hr.push({t,hr:v});}
     const speedEls=[...tp.querySelectorAll('*')].filter(el=>el.localName==='Speed');
-    if(speedEls.length){
-      const spd=parseFloat(speedEls[0].textContent.trim());
-      if(!isNaN(spd)&&spd>=0)speedTrace.push({t,spd});
-    }
+    if(speedEls.length){const spd=parseFloat(speedEls[0].textContent.trim());if(!isNaN(spd)&&spd>=0)speedTrace.push({t,spd});}
   });
-
   const laps=[];
   doc.querySelectorAll('Lap').forEach((lap,i)=>{
-    const startTime=lap.getAttribute('StartTime')||'';
     const get=tag=>{const el=lap.querySelector(tag);return el?parseFloat(el.textContent.trim()):null;};
     const getInt=tag=>{const el=lap.querySelector(tag);return el?parseInt(el.textContent.trim()):null;};
     const t=get('TotalTimeSeconds'), d=get('DistanceMeters');
@@ -1451,29 +1320,22 @@ function parseTCX(text){
     const stepsEls=[...lap.querySelectorAll('*')].filter(el=>el.localName==='Steps');
     const steps=stepsEls.length?parseInt(stepsEls[0].textContent.trim()):null;
     const avgSpm=(steps&&t)?Math.round(steps/t*60):null;
-    if(t&&d)laps.push({n:i+1,startTime,time:Math.round(t),dist:Math.round(d),
-      pace:t>0&&d>0?(t/d)*500:0,avgHr,maxHr,cal,
-      garminStrokes:steps, garminAvgSpm:avgSpm});
+    if(t&&d)laps.push({n:i+1,time:Math.round(t),dist:Math.round(d),pace:t>0&&d>0?(t/d)*500:0,avgHr,maxHr,cal,garminStrokes:steps,garminAvgSpm:avgSpm});
   });
-
   return {hr, speedTrace:speedTrace.length?speedTrace:null, laps:laps.length?laps:null};
 }
 
 function parseGPX(text){
   const doc=new DOMParser().parseFromString(text,'application/xml');
-  if(doc.querySelector('parsererror'))throw new Error('Invalid XML');
+  if(doc.querySelector('parseerror'))throw new Error('Invalid XML');
   const hr=[];
   doc.querySelectorAll('trkpt').forEach(pt=>{
     const timeEl=pt.querySelector('time');
     if(!timeEl)return;
     const t=new Date(timeEl.textContent.trim()).getTime();
     if(isNaN(t))return;
-    const children=[...pt.querySelectorAll('*')];
-    for(const el of children){
-      if(el.localName==='hr'){
-        const v=parseInt(el.textContent.trim());
-        if(v>0&&v<250){hr.push({t,hr:v});break;}
-      }
+    for(const el of [...pt.querySelectorAll('*')]){
+      if(el.localName==='hr'){const v=parseInt(el.textContent.trim());if(v>0&&v<250){hr.push({t,hr:v});break;}}
     }
   });
   return {hr, speedTrace:null, laps:null};
@@ -1488,8 +1350,6 @@ function exportCSV(s){
   const f2=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(2):'';
   const f3=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(3):'';
   const rows=[];
-
-  // ── SESSION SUMMARY ──────────────────────────────────────
   rows.push(['SESSION SUMMARY']);
   rows.push(['start_time', new Date(s.startTime).toISOString()]);
   rows.push(['end_time',   new Date(s.endTime||s.startTime+s.duration*1000).toISOString()]);
@@ -1508,68 +1368,45 @@ function exportCSV(s){
   rows.push(['avg_stroke_char_pct', f1(s.avgChar)]);
   rows.push(['avg_catch_consistency_stdev', f1(s.avgConsistency)]);
   rows.push([]);
-
-  // ── STROKE-BY-STROKE ─────────────────────────────────────
   rows.push(['STROKE DATA']);
   rows.push(['stroke','timestamp','catch_jerk_ms3','stroke_char_pct','catch_consistency_stdev',
     'stroke_rate_spm','pace_s_per_500m','distance_m','dist_per_stroke_m',
     'run_loss_pct','run_loss_ms','run_efficiency_vmin_vmax','efficiency_score']);
   if(s.strokes)s.strokes.forEach((r,i)=>rows.push([
-    i+1,
-    new Date(r.t).toISOString(),
-    f1(r.catchPeak),
-    n(r.char),
-    f1(r.catchConsistency),
-    n(r.rate),
-    r.pace>0?f1(r.pace):'',
-    f1(r.dist),
-    f1(r.dps),
-    f1(r.runLossPct),
-    f2(r.runLossMs),
-    f3(r.runEfficiency),
-    f1(r.effScore)
+    i+1,new Date(r.t).toISOString(),f1(r.catchPeak),n(r.char),f1(r.catchConsistency),
+    n(r.rate),r.pace>0?f1(r.pace):'',f1(r.dist),f1(r.dps),
+    f1(r.runLossPct),f2(r.runLossMs),f3(r.runEfficiency),f1(r.effScore)
   ]));
   rows.push([]);
-
-  // ── LAPS ─────────────────────────────────────────────────
   if(s.laps&&s.laps.length){
     rows.push(['LAPS']);
     rows.push(['lap','distance_m','time_s','pace_s_per_500m','stroke_rate_spm']);
     s.laps.forEach(l=>rows.push([l.n,l.dist,l.time,l.pace>0?f1(l.pace):'',n(l.rate)]));
     rows.push([]);
   }
-
-  // ── GARMIN LAPS ──────────────────────────────────────────
   if(s.garminLaps&&s.garminLaps.length){
     rows.push(['GARMIN LAPS']);
     rows.push(['lap','distance_m','time_s','pace_s_per_500m','avg_hr_bpm','max_hr_bpm','calories','strokes','avg_spm']);
     s.garminLaps.forEach(l=>rows.push([l.n,l.dist,l.time,l.pace>0?f1(l.pace):'',n(l.avgHr),n(l.maxHr),n(l.cal),n(l.garminStrokes),n(l.garminAvgSpm)]));
     rows.push([]);
   }
-
-  // ── HEART RATE ───────────────────────────────────────────
   if(s.hrTrace&&s.hrTrace.length){
     rows.push(['HEART RATE']);
     rows.push(['timestamp','heart_rate_bpm']);
     s.hrTrace.forEach(h=>rows.push([new Date(h.t).toISOString(),h.hr]));
     rows.push([]);
   }
-
-  // ── GARMIN SPEED TRACE ───────────────────────────────────
   if(s.garminSpeedTrace&&s.garminSpeedTrace.length){
     rows.push(['GARMIN SPEED']);
     rows.push(['timestamp','speed_ms','pace_s_per_500m']);
     s.garminSpeedTrace.forEach(p=>rows.push([new Date(p.t).toISOString(),f2(p.spd),p.spd>0?f1(500/p.spd):'']));
     rows.push([]);
   }
-
-  // ── GPS TRACE ────────────────────────────────────────────
   if(s.gpsTrace&&s.gpsTrace.length){
     rows.push(['GPS TRACE']);
     rows.push(['timestamp','latitude','longitude','cumulative_distance_m']);
     s.gpsTrace.forEach(p=>rows.push([new Date(p.t).toISOString(),p.lat,p.lon,p.dist!=null?f1(p.dist):'']));
   }
-
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'}));
   a.download=`scull_${new Date(s.startTime).toISOString().slice(0,10)}.csv`;a.click();
@@ -1577,10 +1414,10 @@ function exportCSV(s){
 }
 
 /* ═══════════════════════════════════════════════
-   SERVICE WORKER (offline PWA)
+   SERVICE WORKER
 ═══════════════════════════════════════════════ */
 if('serviceWorker' in navigator){
-  const sw=`const C='scull-v3';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
+  const sw=`const C='scull-v4';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
   navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw],{type:'application/javascript'}))).catch(()=>{});
 }
 </script>
