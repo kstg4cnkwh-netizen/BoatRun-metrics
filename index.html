@@ -677,10 +677,21 @@ let cfgBot = localStorage.getItem('scull_cfg_bot') || 'total-dist';
 
 function cycleCfg(which){
   const cur = which==='top' ? cfgTop : cfgBot;
-  const idx = CFG_OPTIONS.indexOf(cur);
+  let idx = CFG_OPTIONS.indexOf(cur);
+
+  // ✅ safety fallback
+  if(idx === -1) idx = 0;
+
   const next = CFG_OPTIONS[(idx+1) % CFG_OPTIONS.length];
-  if(which==='top'){cfgTop=next;localStorage.setItem('scull_cfg_top',next);}
-  else{cfgBot=next;localStorage.setItem('scull_cfg_bot',next);}
+
+  if(which==='top'){
+    cfgTop = next;
+    localStorage.setItem('scull_cfg_top', next);
+  } else {
+    cfgBot = next;
+    localStorage.setItem('scull_cfg_bot', next);
+  }
+
   updateCfgTile(which);
 }
 
@@ -732,8 +743,16 @@ function wireCfgTiles(){
     const el=document.getElementById(`cfg-${w}-tile`);
     if(el) el.addEventListener('click',()=>cycleCfg(w));
   });
+
+  // ✅ INITIAL RENDER (this is missing)
+  updateCfgTile('top');
+  updateCfgTile('bot');
+
   // clock tick every 5s so time-of-day stays live
-  setInterval(()=>{updateCfgTile('top');updateCfgTile('bot');},5000);
+  setInterval(()=>{
+    updateCfgTile('top');
+    updateCfgTile('bot');
+  },5000);
 }
 
 /* ═══════════════════════════════════════════════
