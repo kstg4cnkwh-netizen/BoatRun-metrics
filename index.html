@@ -713,7 +713,7 @@ function handleMotion(e){
       if(catchVals.length>=3){
         const m=catchVals.reduce((a,b)=>a+b,0)/catchVals.length;
         const v=catchVals.reduce((s,x)=>s+(x-m)**2,0)/catchVals.length;
-        catchConsistency=Math.sqrt(v);
+        catchConsistency = Math.round(Math.sqrt(v || 0));
       }
 
       const driveDur=now-strokeStartT;
