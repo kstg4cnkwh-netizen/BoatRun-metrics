@@ -696,32 +696,38 @@ function cycleCfg(which){
 }
 
 function cfgValue(key){
-  const on=running&&!paused;
-  const lapDist=Math.round(distance-lapStartDist);
-  const lapTime=elapsed-lapStartTime;
-  const lapPace=lapDist>5&&lapTime>0?(lapTime/lapDist)*500:0;
+  const lapDist = Math.round(distance - lapStartDist);
+  const lapTime = elapsed - lapStartTime;
+  const lapPace = lapDist > 5 && lapTime > 0 ? (lapTime / lapDist) * 500 : 0;
+
   switch(key){
     case 'tod':{
-      const d=new Date();
-      const h=String(d.getHours()).padStart(2,'0');
-      const m=String(d.getMinutes()).padStart(2,'0');
-      return{val:`${h}:${m}`,sub:'',dim:false};
+      const d = new Date();
+      const h = String(d.getHours()).padStart(2,'0');
+      const m = String(d.getMinutes()).padStart(2,'0');
+      return { val:`${h}:${m}`, sub:'', dim:false };
     }
+
     case 'total-time':
-      return{val:fmtH(elapsed),sub:'',dim:!on&&elapsed===0};
+      return { val: fmtH(elapsed), sub:'', dim:false };
+
     case 'lap-time':
-      return{val:fmt(lapTime),sub:'',dim:!on};
+      return { val: fmt(lapTime), sub:'', dim:false };
+
     case 'lap-pace':
-      if(on&&lapPace>0&&lapPace<PACE_MAX)return{val:fmt(lapPace),sub:'min/500m',dim:false};
-      return{val:'--:--',sub:'min/500m',dim:true};
+      if(lapPace > 0 && lapPace < PACE_MAX){
+        return { val: fmt(lapPace), sub:'min/500m', dim:false };
+      }
+      return { val:'--:--', sub:'min/500m', dim:true };
+
     case 'total-dist':
-      if(distance>0)return{val:Math.round(distance),sub:'metres',dim:false};
-      return{val:'--',sub:'metres',dim:true};
+      return { val: Math.round(distance), sub:'metres', dim: distance===0 };
+
     case 'lap-dist':
-      if(on&&lapDist>0)return{val:lapDist,sub:'metres',dim:false};
-      return{val:'--',sub:'metres',dim:true};
+      return { val: lapDist, sub:'metres', dim: lapDist===0 };
+
     default:
-      return{val:'--',sub:'',dim:true};
+      return { val:'--', sub:'', dim:true };
   }
 }
 
