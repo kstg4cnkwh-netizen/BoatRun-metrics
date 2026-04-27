@@ -919,7 +919,8 @@ function updateUI(){
   const CATCH_SCALE=60;
   const ce=document.getElementById('t-catch');
   if(catchLast!==null){
-    ce.textContent='+'+catchLast.toFixed(1);
+    //ce.textContent='+'+catchLast.toFixed(1); ===============================
+    ce.textContent=catchLast.toFixed(1);
     ce.className='tval-r23';
     const pct=Math.max(0,Math.min(100,(catchLast/CATCH_SCALE)*100));
     document.getElementById('catch-fill').style.width=pct+'%';
