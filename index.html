@@ -102,7 +102,6 @@ body{
   font-family:'Roboto',sans-serif;font-weight:700;
   letter-spacing:.06em;text-transform:uppercase;cursor:pointer;
   padding:clamp(8px,1.8dvh,16px) 4px;font-size:clamp(11px,1.5dvh,14px);
-  /* FIX: pointer-events and touch-action to prevent iOS tap swallowing */
   touch-action:manipulation;
   -webkit-user-select:none;user-select:none;
 }
@@ -188,7 +187,7 @@ body{
     <div class="perm-note">
       iOS: Settings → Safari → Motion &amp; Orientation Access<br/>
       Add to Home Screen for full-screen use · Works offline<br/>
-      <span style="color:rgba(255,255,255,.18)">v1.5</span>
+      <span style="color:rgba(255,255,255,.18)">v1.6</span>
     </div>
   </div>
 </div>
@@ -245,8 +244,8 @@ body{
           <div class="tval-r23 dim" id="t-catch">--</div>
           <div class="catch-bar-wrap">
             <div class="catch-bar-bg">
-              <div class="catch-bar-fill" id="catch-fill" style="left:0;width:0;background:rgba(26,82,118,.3)"></div>
-              <div class="catch-needle" id="catch-needle" style="left:0;background:#1a5276"></div> 
+              <div class="catch-bar-fill" id="catch-fill" style="left:0;width:0"></div>
+              <div class="catch-needle" id="catch-needle" style="left:0"></div>
             </div>
           </div>
           <div class="sub-micro">m/s³ · 0 ──── 45 ──── 90</div>
@@ -287,10 +286,10 @@ body{
     </div><!-- /tile-grid -->
 
 ```
-<!-- Single button column — always visible on the right -->
+<!-- Single button column -->
 <div class="ctrl-col" id="ctrl-col">
   <button class="btn btn-start"  id="cc-start"  style="display:none">Start</button>
-  <button class="btn btn-resume"  id="cc-resume" style="display:none">Resume</button>
+  <button class="btn btn-resume" id="cc-resume" style="display:none">Resume</button>
   <button class="btn btn-pause"  id="cc-pause"  style="display:none">Pause</button>
   <button class="btn btn-lap"    id="cc-lap"    style="display:none">Lap</button>
   <button class="btn btn-stop"   id="cc-stop"   style="display:none">Stop</button>
@@ -365,12 +364,14 @@ let laps=[],sessStart=null;
 let sessStrokes=[],sessPaceTrace=[],sessGpsTrace=[];
 let lastPos=null,gpsWatchId=null;
 const gpsWindow=[];
+
+// Catch detection (lateral axis — acc.x)
 let smoothAcc=0,prevSmooth=0,prevSmoothT=0;
 let inStroke=false,peakJerk=0,peakJerkT=0,strokeStartT=0;
 const REFRACTORY_MIN_MS=1200;
 let lastCatchT=0,strokesDetected=0,adaptiveRefractory=REFRACTORY_MIN_MS;
 
-// FIX: extended stroke timestamp ring — keep 8 for more stable median interval
+// Stroke timestamp ring — 4 timestamps = 3 intervals → lock in 3 strokes
 const MAX_STROKE_TS=4;
 const strokeTs=[];
 
@@ -379,11 +380,19 @@ let pace=0;
 const PACE_MAX=600;
 const paceReadings=[];
 
-// GPS anchor speed (used for DPS and run-loss velocity window)
+// GPS anchor (for DPS staleness fallback)
 let vAnchor=0,vAnchorT=0;
 const velocityWindow=[];
 const VEL_WINDOW_MS=6000;
 let runLossPct=null,runLossMs=null,runEfficiency=null,effScore=null;
+
+/* ── Kalman-lite: fore/aft accel integration for inter-GPS velocity ── */
+let vEst=0;         // current velocity estimate m/s (updated at ~60Hz)
+let vEstT=0;        // performance.now() of last vEst update
+let smoothAccY=0;   // IIR-filtered fore/aft acceleration (acc.y)
+let accelBias=0;    // slowly-learned fore/aft bias, corrected at each GPS fix
+let lastGpsT=0;     // performance.now() at last GPS anchor
+let lastGpsV=0;     // GPS speed at last anchor
 
 /* ═══════════════════════════════════════════════
    ACCELEROMETER
@@ -391,10 +400,27 @@ let runLossPct=null,runLossMs=null,runEfficiency=null,effScore=null;
 function handleMotion(e){
   const acc=e.acceleration||e.accelerationIncludingGravity;
   if(!acc)return;
-  // Phone in landscape, long axis port-starboard = acc.x is lateral (not catch direction)
-  // Catch is detected on the lateral jerk (phone rocks at the catch) — keep acc.x for detection
   const raw=acc.x||0;
+  const rawY=acc.y||0;   // fore/aft = propulsion axis
   const now=performance.now();
+
+  // ── Fore/aft integration (Kalman-lite) ──
+  // Tighter IIR (0.25) to preserve dynamics while rejecting high-freq noise
+  smoothAccY=0.25*rawY+0.75*smoothAccY;
+  if(running&&!paused&&vEstT>0){
+    const dt=(now-vEstT)/1000;
+    if(dt>0.004&&dt<0.05){
+      const a=Math.max(-4,Math.min(4,smoothAccY-accelBias));
+      vEst=Math.max(0,vEst+a*dt);
+      // soft drag — prevents unbounded drift between GPS anchors
+      vEst*=Math.pow(0.985,dt*60);
+    }
+    // feed high-frequency vEst into velocity window for run-loss
+    if(vEst>0.1)pushVelocity(now,vEst);
+  }
+  vEstT=now;
+
+  // ── Lateral jerk for catch detection (acc.x, unchanged) ──
   smoothAcc=0.15*raw+0.85*smoothAcc;
   let jerk=0;
   if(prevSmoothT>0){
@@ -402,9 +428,6 @@ function handleMotion(e){
     if(dt>0.005&&dt<0.15){jerk=(smoothAcc-prevSmooth)/dt;jerk=Math.max(-80,Math.min(80,jerk));}
   }
   prevSmooth=smoothAcc;prevSmoothT=now;
-
-  // NOTE: accelerometer integration removed — it introduced fore/aft body-motion
-  // into the velocity estimate, which inflated pace. Pace is GPS-only now.
 
   if(!running||paused)return;
 
@@ -446,13 +469,13 @@ function handleMotion(e){
         strokeChar=Math.round(charVals.reduce((a,b)=>a+b,0)/charVals.length);
       }
 
-      // Stroke rate — ring of 4 timestamps (3 intervals), live within 3 strokes
+      // ── Stroke rate: ring of 4 timestamps (3 intervals), locks in 3 strokes ──
       strokeTs.push(now);
       if(strokeTs.length>MAX_STROKE_TS)strokeTs.shift();
       if(strokeTs.length>=2){
         const ints=[];
         for(let i=1;i<strokeTs.length;i++)ints.push(strokeTs[i]-strokeTs[i-1]);
-        // with only 3 intervals, skip median — just reject anything implausible
+        // 3 intervals max — skip median, just reject implausible values
         const plausible=ints.filter(x=>x>700&&x<6000);
         if(plausible.length>=1){
           const avgInt=plausible.reduce((a,b)=>a+b,0)/plausible.length;
@@ -464,17 +487,17 @@ function handleMotion(e){
         }
       }
 
-
-      // DPS: average GPS velocity over the stroke interval, with staleness guard
+      // ── DPS: average vEst over the stroke interval (high-freq, GPS-anchored) ──
       const strokeIntervalS=strokeTs.length>=2
         ?(strokeTs[strokeTs.length-1]-strokeTs[strokeTs.length-2])/1000
         :0;
       if(strokeIntervalS>0.5&&strokeIntervalS<6){
         const strokeStart=now-strokeIntervalS*1000;
         const rel=velocityWindow.filter(p=>p.t>=strokeStart);
+        // prefer window average; fall back to current vEst if window is sparse
         const avgV=rel.length>=2
           ?rel.reduce((a,b)=>a+b.v,0)/rel.length
-          :(vAnchorT>0&&(now-vAnchorT)<3000?vAnchor:0);
+          :(vEstT>0&&(now-vEstT)<500?vEst:0);
         if(avgV>0.5){
           const dps=avgV*strokeIntervalS;
           if(dps>0.5&&dps<25){
@@ -485,7 +508,6 @@ function handleMotion(e){
           }
         }
       }
-
 
       computeRunLoss();
       if(runLossPct!=null&&distPerStroke>0){
@@ -528,41 +550,48 @@ function computeRunLoss(){
 }
 
 function handlePos(pos){
-  // Always show GPS pill green when we receive a position
   const pill=document.getElementById('p-gps');
   pill.className='pill pill-on';pill.textContent='GPS';
 
   const spd=pos.coords.speed;
   const now=performance.now();
 
-  // Update anchor for run-loss velocity window (only while recording)
-  if(running&&!paused){
-    if(spd!=null&&spd>=0&&spd<12){
-      vAnchor=spd;vAnchorT=now;
-      pushVelocity(now,spd);
+  if(running&&!paused&&spd!=null&&spd>=0&&spd<12){
+    // ── Anchor: correct vEst drift back to GPS truth ──
+    if(lastGpsT>0&&vEstT>0){
+      const dt=(now-lastGpsT)/1000;
+      if(dt>0.3&&dt<3.0){
+        // how far did integration drift?
+        const drift=vEst-spd;
+        // update bias slowly (weight 0.15) so one bad GPS fix doesn't corrupt it
+        accelBias+=0.15*(drift/Math.max(dt,0.5));
+        accelBias=Math.max(-1.5,Math.min(1.5,accelBias));
+      }
     }
+    // Hard-anchor vEst to GPS
+    vEst=spd;
+    lastGpsV=spd;
+    lastGpsT=now;
+
+    vAnchor=spd;vAnchorT=now;
+    pushVelocity(now,spd);
   }
 
   const cur={lat:pos.coords.latitude,lon:pos.coords.longitude,t:Date.now()};
-
-  // FIX: only accumulate distance while actively running (not paused, not pre-start)
   if(running&&!paused&&lastPos){
     const d=haversine(lastPos,cur);
     if(d>=0.3&&d<30){
-      distance+=d;
-      cur.dist=distance;
-      sessGpsTrace.push(cur);
+      distance+=d;cur.dist=distance;sessGpsTrace.push(cur);
     }
   }
-
   lastPos=cur;
 
-  // Pace: median of 6 GPS speed samples — no IIR, median alone is sufficient smoothing
-  if(running&&!paused&&spd!=null){
-    if(spd>0.5){
-      const rawFromSpd=500/spd;
-      if(rawFromSpd<PACE_MAX){
-        paceReadings.push(rawFromSpd);
+  // ── Pace from vEst (60Hz accel-interpolated, GPS-anchored) ──
+  if(running&&!paused){
+    if(vEst>0.5){
+      const rawFromEst=500/vEst;
+      if(rawFromEst<PACE_MAX){
+        paceReadings.push(rawFromEst);
         if(paceReadings.length>6)paceReadings.shift();
         const sorted=[...paceReadings].sort((a,b)=>a-b);
         const mid=Math.floor(sorted.length/2);
@@ -608,7 +637,7 @@ function updateUI(){
   needle.style.left=strokeChar+'%';
   if(on&&strokeCount>0){
     charNumEl.textContent=strokeChar;charNumEl.className='char-num';
-    charBadgeEl.textContent=charLabel(strokeChar);needle.style.background='#1a5276';
+    charBadgeEl.textContent=charLabel(strokeChar);needle.style.background='#000';
   } else {charNumEl.textContent='--';charNumEl.className='char-num dim';charBadgeEl.textContent='—';needle.style.background='#ccc';}
 
   const CATCH_SCALE=90;
@@ -641,9 +670,6 @@ function updateUI(){
 
 /* ═══════════════════════════════════════════════
    CONFIGURABLE TILES
-   All 6 fields available in both tiles, tap to cycle.
-   Persisted in localStorage.
-   top default: total-time  bot default: total-dist
 ═══════════════════════════════════════════════ */
 const CFG_OPTIONS=['total-time','total-dist','tod','lap-pace','lap-time','lap-dist'];
 const CFG_LABELS={
@@ -655,13 +681,13 @@ const CFG_LABELS={
   'lap-dist':   'Lap distance',
 };
 
-let cfgTop = (()=>{const v=localStorage.getItem('scull_cfg_top');return(v&&CFG_OPTIONS.includes(v))?v:'total-time';})();
-let cfgBot = (()=>{const v=localStorage.getItem('scull_cfg_bot');return(v&&CFG_OPTIONS.includes(v))?v:'total-dist';})();
+let cfgTop=(()=>{const v=localStorage.getItem('scull_cfg_top');return(v&&CFG_OPTIONS.includes(v))?v:'total-time';})();
+let cfgBot=(()=>{const v=localStorage.getItem('scull_cfg_bot');return(v&&CFG_OPTIONS.includes(v))?v:'total-dist';})();
 
 function cycleCfg(which){
-  const cur = which==='top' ? cfgTop : cfgBot;
-  const idx = CFG_OPTIONS.indexOf(cur);
-  const next = CFG_OPTIONS[(idx+1) % CFG_OPTIONS.length];
+  const cur=which==='top'?cfgTop:cfgBot;
+  const idx=CFG_OPTIONS.indexOf(cur);
+  const next=CFG_OPTIONS[(idx+1)%CFG_OPTIONS.length];
   if(which==='top'){cfgTop=next;localStorage.setItem('scull_cfg_top',next);}
   else{cfgBot=next;localStorage.setItem('scull_cfg_bot',next);}
   updateCfgTile(which);
@@ -675,9 +701,7 @@ function cfgValue(key){
   switch(key){
     case 'tod':{
       const d=new Date();
-      const h=String(d.getHours()).padStart(2,'0');
-      const m=String(d.getMinutes()).padStart(2,'0');
-      return{val:`${h}:${m}`,sub:'',dim:false};
+      return{val:`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`,sub:'',dim:false};
     }
     case 'total-time':
       return{val:fmtH(elapsed),sub:'',dim:!on&&elapsed===0};
@@ -698,41 +722,39 @@ function cfgValue(key){
 }
 
 function updateCfgTile(which){
-  const key   = which==='top' ? cfgTop : cfgBot;
-  const valEl = document.getElementById(`cfg-${which}-val`);
-  const subEl = document.getElementById(`cfg-${which}-sub`);
-  const lblEl = document.getElementById(`cfg-${which}-lbl`);
+  const key=which==='top'?cfgTop:cfgBot;
+  const valEl=document.getElementById(`cfg-${which}-val`);
+  const subEl=document.getElementById(`cfg-${which}-sub`);
+  const lblEl=document.getElementById(`cfg-${which}-lbl`);
   if(!valEl)return;
-  const {val,sub,dim} = cfgValue(key);
-  valEl.textContent = val;
-  valEl.className   = 'tval-r23'+(dim?' dim':'');
-  subEl.textContent = sub;
-  lblEl.innerHTML   = CFG_LABELS[key]+' <span class="cfg-hint">▸</span>';
+  const {val,sub,dim}=cfgValue(key);
+  valEl.textContent=val;
+  valEl.className='tval-r23'+(dim?' dim':'');
+  subEl.textContent=sub;
+  lblEl.innerHTML=CFG_LABELS[key]+' <span class="cfg-hint">▸</span>';
 }
 
 function wireCfgTiles(){
   ['top','bot'].forEach(w=>{
     const el=document.getElementById(`cfg-${w}-tile`);
-    if(el) el.addEventListener('click',()=>cycleCfg(w));
+    if(el)el.addEventListener('click',()=>cycleCfg(w));
   });
-  // clock tick every 5s so time-of-day stays live
   setInterval(()=>{updateCfgTile('top');updateCfgTile('bot');},5000);
 }
 
 /* ═══════════════════════════════════════════════
-   CONTROLS — FIX: persistent buttons, show/hide only
-   Never innerHTML-replace during a touch sequence.
+   CONTROLS
 ═══════════════════════════════════════════════ */
 function renderCtrl(){
   const rec=document.getElementById('rec-ind');
-  const showStart  = !running && !paused;
-  const showResume = !running && paused && elapsed>0;
-  const showPause  = running && !paused;
-  const showLap    = running && !paused;
-  const showStop   = running && !paused;
-  const showReset  = !running && elapsed>0;
+  const showStart  =!running&&!paused;
+  const showResume =!running&&paused&&elapsed>0;
+  const showPause  =running&&!paused;
+  const showLap    =running&&!paused;
+  const showStop   =running&&!paused;
+  const showReset  =!running&&elapsed>0;
   const show=(id,vis)=>{document.getElementById(`cc-${id}`).style.display=vis?'flex':'none';};
-  show('start',  showStart && !showResume);
+  show('start',  showStart&&!showResume);
   show('resume', showResume);
   show('pause',  showPause);
   show('lap',    showLap);
@@ -749,7 +771,6 @@ function startSess(){
   lapStartDist=distance;lapStartTime=elapsed;
   running=true;paused=false;
   timerInt=setInterval(()=>{elapsed++;updateUI();},1000);
-  // FIX: defer renderCtrl to next tick so the button tap completes first
   requestAnimationFrame(renderCtrl);
 }
 function pauseSess(){
@@ -795,6 +816,8 @@ function resetSess(){
   velocityWindow.length=0;vAnchor=0;vAnchorT=0;
   inStroke=false;peakJerk=0;lastCatchT=0;strokesDetected=0;adaptiveRefractory=REFRACTORY_MIN_MS;sessStart=null;
   smoothAcc=0;prevSmooth=0;prevSmoothT=0;
+  // reset Kalman-lite state
+  vEst=0;vEstT=0;smoothAccY=0;accelBias=0;lastGpsT=0;lastGpsV=0;
   updateUI();
   requestAnimationFrame(renderCtrl);
 }
@@ -807,7 +830,6 @@ function recordLap(){
   toast(`Lap ${laps.length} · ${d}m`);
 }
 
-/* ── wire up persistent buttons ── */
 function wireButtons(){
   const s=id=>document.getElementById(`cc-${id}`);
   s('start').addEventListener('click',startSess);
@@ -1155,11 +1177,11 @@ function exportCSV(s){
 
 /* ── service worker ── */
 if('serviceWorker' in navigator){
-  const sw=`const C='scull-v5';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
+  const sw=`const C='scull-v6';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
   navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw],{type:'application/javascript'}))).catch(()=>{});
 }
 
-/* ── also wire tab buttons on analysis screen (rendered at load) ── */
+/* ── init ── */
 wireTabButtons();
 wireCfgTiles();
 updateCfgTile('top');
