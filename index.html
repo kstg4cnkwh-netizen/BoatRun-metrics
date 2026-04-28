@@ -743,11 +743,11 @@ function startSess(){
   requestAnimationFrame(renderCtrl);
 }
 function pauseSess(){
-  paused=true;clearInterval(timerInt);
+  paused=true;running=false;clearInterval(timerInt);
   requestAnimationFrame(renderCtrl);
 }
 function resumeSess(){
-  paused=false;
+  paused=false;running=true;
   timerInt=setInterval(()=>{elapsed++;updateUI();},1000);
   requestAnimationFrame(renderCtrl);
 }
