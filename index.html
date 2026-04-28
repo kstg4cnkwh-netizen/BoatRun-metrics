@@ -386,7 +386,7 @@ let lastPos=null,gpsWatchId=null;
 const gpsWindow=[];
 let smoothAcc=0,prevSmooth=0,prevSmoothT=0;
 let inStroke=false,peakJerk=0,peakJerkT=0,strokeStartT=0;
-const REFRACTORY_MIN_MS=1600;
+const REFRACTORY_MIN_MS=1200; //===================================== down from 1600 (37.5SPM)
 let lastCatchT=0,strokesDetected=0,adaptiveRefractory=REFRACTORY_MIN_MS;
 
 // FIX: extended stroke timestamp ring — keep 8 for more stable median interval
@@ -396,15 +396,15 @@ const strokeTs=[];
 let timerInt=null,wakeLock=null;
 let lastVelT=0;
 let pace=0,rawPace=0;
-const PACE_IIR=0.15,PACE_MAX=600;
-const paceReadings=[];   // FIX: rolling window, capped at 6
+const PACE_IIR=0.3,PACE_MAX=600; //=====PACE_IIR was 0.15
+const paceReadings=[];   // FIX: rolling window, capped at 6GPS_WINDOW_
 
 let vAnchor=0,vAnchorT=0,vIntegrated=0;
-const VEL_CORR_ALPHA=0.18,MAX_V=8;
+const VEL_CORR_ALPHA=0.45,MAX_V=8; //===================================was 0.18
 const velocityWindow=[];
 const VEL_WINDOW_MS=6000;
 let runLossPct=null,runLossMs=null,runEfficiency=null,effScore=null;
-const GPS_WINDOW_S=6;
+const GPS_WINDOW_S=3; //======was 6
 
 /* ═══════════════════════════════════════════════
    ACCELEROMETER
@@ -572,7 +572,7 @@ function handlePos(pos){
            was never resetting on bad readings so one outlier persisted).
            Also gate on minimum speed 0.5 m/s (was 0.3) to avoid
            near-stationary GPS noise inflating pace. ── */
-        if(spd>0.5){
+        if(spd>0.4){
           const rawFromSpd=500/spd;
           if(rawFromSpd<PACE_MAX){
             paceReadings.push(rawFromSpd);
