@@ -743,8 +743,12 @@ function startSess(){
   requestAnimationFrame(renderCtrl);
 }
 function pauseSess(){
-  paused=true;clearInterval(timerInt);
-  requestAnimationFrame(renderCtrl);
+  paused=true;
+  clearInterval(timerInt);
+  // force next-frame separation from touch event
+  requestAnimationFrame(() => {
+    renderCtrl();
+  });
 }
 function resumeSess(){
   paused=false;
