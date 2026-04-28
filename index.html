@@ -550,56 +550,41 @@ function computeRunLoss(){
 }
 
 function handlePos(pos) {
-    const pill = document.getElementById('p-gps');
-    pill.className = 'pill pill-on'; pill.textContent = 'GPS';
-    
-    // 1. Get the raw "Truth" from GPS
-    const gpsSpd = pos.coords.speed; 
+    const gpsSpd = pos.coords.speed;
     const now = performance.now();
 
-    // 2. Immediate Anchor: If GPS sees speed, force the fused speed to match it
-    if (gpsSpd !== null && gpsSpd >= 0) {
-        vAnchor = gpsSpd;
-        vAnchorT = now;
-        // If we were at 0, jump-start vIntegrated so the display turns on
-        if (vIntegrated < 0.2) vIntegrated = gpsSpd; 
+    // 1. Force vIntegrated to wake up
+    if (gpsSpd !== null && gpsSpd > 0.1) {
+        if (vIntegrated < 0.1) vIntegrated = gpsSpd;
     }
 
-    // 3. Use the higher of the two (Safety Net)
-    // This prevents the "No Speed" issue if one sensor lags
-    let spd = Math.max(gpsSpd || 0, vIntegrated);
+    // 2. Calculate pace BEFORE the distance gate
+    // This ensures the UI updates even if you're moving slowly
+    let currentSpd = Math.max(gpsSpd || 0, vIntegrated);
+    
+    if (currentSpd > 0.2) { // Just enough to filter out sitting still
+        const rawFromSpd = 500 / currentSpd;
+        if (rawFromSpd < PACE_MAX) {
+            paceReadings.push(rawFromSpd);
+            if (paceReadings.length > 5) paceReadings.shift();
+            const sorted = [...paceReadings].sort((a,b) => a-b);
+            const median = sorted[Math.floor(sorted.length/2)];
+            
+            // Your 0.3 IIR
+            pace = (pace === 0) ? median : (0.3 * median + 0.7 * pace);
+        }
+    } else {
+        // If we truly stop, eventually clear it
+        pace = 0;
+    }
 
-    const cur = {lat: pos.coords.latitude, lon: pos.coords.longitude, t: Date.now()};
-    sessGpsTrace.push(cur);
-
+    // 3. Distance logic (Keep this for the odometer)
     if (lastPos && running && !paused) {
         const d = haversine(lastPos, cur);
-        if (d >= 0.2 && d < 30) {
-            distance += d;
-            
-            // 4. Lower the threshold to 0.3 m/s (~1.1 km/h)
-            // This ensures the display turns on even during a slow paddle
-            if (spd > 0.3) {
-                const rawFromSpd = 500 / spd;
-                if (rawFromSpd < PACE_MAX) {
-                    paceReadings.push(rawFromSpd);
-                    if (paceReadings.length > 5) paceReadings.shift();
-                    
-                    const sorted = [...paceReadings].sort((a,b) => a-b);
-                    const median = sorted[Math.floor(sorted.length/2)];
-                    
-                    // PACE_IIR 0.3 as requested
-                    pace = (pace === 0) ? median : (0.3 * median + 0.7 * pace);
-                    sessPaceTrace.push(pace);
-                }
-            } else {
-                // If we stop, clear it out
-                paceReadings.length = 0;
-                pace = 0;
-            }
-        }
+        if (d >= 0.1 && d < 30) distance += d;
     }
-    lastPos = cur;
+    
+    lastPos = {lat: pos.coords.latitude, lon: pos.coords.longitude, t: Date.now()};
     updateUI();
 }
 
