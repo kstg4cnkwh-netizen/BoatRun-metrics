@@ -371,7 +371,7 @@ const REFRACTORY_MIN_MS=1200;
 let lastCatchT=0,strokesDetected=0,adaptiveRefractory=REFRACTORY_MIN_MS;
 
 // FIX: extended stroke timestamp ring — keep 8 for more stable median interval
-const MAX_STROKE_TS=5;
+const MAX_STROKE_TS=4;
 const strokeTs=[];
 
 let timerInt=null,wakeLock=null;
@@ -446,25 +446,24 @@ function handleMotion(e){
         strokeChar=Math.round(charVals.reduce((a,b)=>a+b,0)/charVals.length);
       }
 
-      // Stroke rate — ring of 5 timestamps (4 intervals), true median, light IIR on rate
+      // Stroke rate — ring of 4 timestamps (3 intervals), live within 3 strokes
       strokeTs.push(now);
       if(strokeTs.length>MAX_STROKE_TS)strokeTs.shift();
-      if(strokeTs.length>=3){
+      if(strokeTs.length>=2){
         const ints=[];
         for(let i=1;i<strokeTs.length;i++)ints.push(strokeTs[i]-strokeTs[i-1]);
-        const sorted=[...ints].sort((a,b)=>a-b);
-        const mid=Math.floor(sorted.length/2);
-        const median=sorted.length%2===0?(sorted[mid-1]+sorted[mid])/2:sorted[mid];
-        const filtered=ints.filter(x=>x>median*0.65&&x<median*1.5);
-        if(filtered.length>=2){
-          const avgInt=filtered.reduce((a,b)=>a+b,0)/filtered.length;
+        // with only 3 intervals, skip median — just reject anything implausible
+        const plausible=ints.filter(x=>x>700&&x<6000);
+        if(plausible.length>=1){
+          const avgInt=plausible.reduce((a,b)=>a+b,0)/plausible.length;
           const raw=60000/avgInt;
           if(raw>=10&&raw<=50){
-            // light IIR damps integer boundary bouncing without adding meaningful lag
-            strokeRate=strokeRate===0?Math.round(raw):Math.round(0.3*raw+0.7*strokeRate);
+            // minimal IIR — just enough to stop single-digit display flicker
+            strokeRate=strokeRate===0?Math.round(raw):Math.round(0.2*raw+0.8*strokeRate);
           }
         }
       }
+
 
       // DPS: average GPS velocity over the stroke interval, with staleness guard
       const strokeIntervalS=strokeTs.length>=2
