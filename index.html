@@ -386,7 +386,7 @@ let lastPos=null,gpsWatchId=null;
 const gpsWindow=[];
 let smoothAcc=0,prevSmooth=0,prevSmoothT=0;
 let inStroke=false,peakJerk=0,peakJerkT=0,strokeStartT=0;
-const REFRACTORY_MIN_MS=1200; //===================================== down from 1600 (37.5SPM)
+const REFRACTORY_MIN_MS=1200;
 let lastCatchT=0,strokesDetected=0,adaptiveRefractory=REFRACTORY_MIN_MS;
 
 // FIX: extended stroke timestamp ring — keep 8 for more stable median interval
@@ -394,17 +394,15 @@ const MAX_STROKE_TS=8;
 const strokeTs=[];
 
 let timerInt=null,wakeLock=null;
-let lastVelT=0;
-let pace=0,rawPace=0;
-const PACE_IIR=0.3,PACE_MAX=600; //=====PACE_IIR was 0.15
-const paceReadings=[];   // FIX: rolling window, capped at 6GPS_WINDOW_
+let pace=0;
+const PACE_IIR=0.2,PACE_MAX=600;
+const paceReadings=[];
 
-let vAnchor=0,vAnchorT=0,vIntegrated=0;
-const VEL_CORR_ALPHA=0.45,MAX_V=8; //===================================was 0.18
+// GPS anchor speed (used for DPS and run-loss velocity window)
+let vAnchor=0,vAnchorT=0;
 const velocityWindow=[];
 const VEL_WINDOW_MS=6000;
 let runLossPct=null,runLossMs=null,runEfficiency=null,effScore=null;
-const GPS_WINDOW_S=3; //======was 6
 
 /* ═══════════════════════════════════════════════
    ACCELEROMETER
@@ -412,6 +410,8 @@ const GPS_WINDOW_S=3; //======was 6
 function handleMotion(e){
   const acc=e.acceleration||e.accelerationIncludingGravity;
   if(!acc)return;
+  // Phone in landscape, long axis port-starboard = acc.x is lateral (not catch direction)
+  // Catch is detected on the lateral jerk (phone rocks at the catch) — keep acc.x for detection
   const raw=acc.x||0;
   const now=performance.now();
   smoothAcc=0.15*raw+0.85*smoothAcc;
@@ -422,17 +422,8 @@ function handleMotion(e){
   }
   prevSmooth=smoothAcc;prevSmoothT=now;
 
-  if(running&&!paused){
-    if(lastVelT===0)lastVelT=now;
-    const dt=(now-lastVelT)/1000;
-    lastVelT=now;
-    if(dt>0.005&&dt<0.1){
-      let vPred=vIntegrated+smoothAcc*dt;
-      if(vAnchorT>0)vPred=(1-VEL_CORR_ALPHA)*vPred+VEL_CORR_ALPHA*vAnchor;
-      vIntegrated=Math.max(0,Math.min(MAX_V,vPred));
-      pushVelocity(now,vIntegrated);
-    }
-  }
+  // NOTE: accelerometer integration removed — it introduced fore/aft body-motion
+  // into the velocity estimate, which inflated pace. Pace is GPS-only now.
 
   if(!running||paused)return;
 
@@ -446,8 +437,8 @@ function handleMotion(e){
       inStroke=false;
       if(lastCatchT>0){
         const strokeInterval=now-lastCatchT;
-        if(strokesDetected>=3&&strokeInterval>1200&&strokeInterval<5500){
-          adaptiveRefractory=Math.max(REFRACTORY_MIN_MS,strokeInterval*0.6);
+        if(strokesDetected>=3&&strokeInterval>1000&&strokeInterval<5500){
+          adaptiveRefractory=Math.max(REFRACTORY_MIN_MS,strokeInterval*0.55);
         }
       }
       lastCatchT=now;
@@ -474,39 +465,35 @@ function handleMotion(e){
         strokeChar=Math.round(charVals.reduce((a,b)=>a+b,0)/charVals.length);
       }
 
-      /* ── FIX: stroke rate ──────────────────────────────────────────────
-         Store up to MAX_STROKE_TS timestamps.
-         Compute all consecutive intervals, take median, outlier-filter ±40%
-         of that median, average the survivors.  This eliminates single-miss
-         spikes and stale values from old timestamps. ── */
+      // Stroke rate — median-filtered ring of 8 timestamps
       strokeTs.push(now);
       if(strokeTs.length>MAX_STROKE_TS)strokeTs.shift();
-
       if(strokeTs.length>=3){
         const ints=[];
         for(let i=1;i<strokeTs.length;i++)ints.push(strokeTs[i]-strokeTs[i-1]);
         const sorted=[...ints].sort((a,b)=>a-b);
         const median=sorted[Math.floor(sorted.length/2)];
-        // Only accept intervals within 40% of median (was 50/200% — too loose)
         const filtered=ints.filter(x=>x>median*0.6&&x<median*1.6);
         if(filtered.length>=2){
           const avgInt=filtered.reduce((a,b)=>a+b,0)/filtered.length;
           const r=Math.round(60000/avgInt);
-          if(r>=12&&r<=40)strokeRate=r;
+          // FIX: raised ceiling from 40 to 50 spm to cover sprint rates
+          if(r>=10&&r<=50)strokeRate=r;
         }
       }
 
-      /* ── FIX: DPS uses GPS anchor speed when available, else integrated ── */
+      // DPS: GPS anchor speed × stroke interval (GPS-only, no accel integration)
       const strokeIntervalS=strokeTs.length>=2
         ?(strokeTs[strokeTs.length-1]-strokeTs[strokeTs.length-2])/1000
         :3.0;
-      const vUse=vAnchor>0?vAnchor:vIntegrated;
-      const dps=vUse*strokeIntervalS;
-      if(dps>0.5&&dps<25){
-        dpsVals.push(dps);
-        if(dpsVals.length>4)dpsVals.shift();
-        distPerStroke=Math.round(dpsVals.reduce((a,b)=>a+b,0)/dpsVals.length*10)/10;
-        if(distPerStroke>maxDPS)maxDPS=distPerStroke;
+      if(vAnchor>0.5){
+        const dps=vAnchor*strokeIntervalS;
+        if(dps>0.5&&dps<25){
+          dpsVals.push(dps);
+          if(dpsVals.length>4)dpsVals.shift();
+          distPerStroke=Math.round(dpsVals.reduce((a,b)=>a+b,0)/dpsVals.length*10)/10;
+          if(distPerStroke>maxDPS)maxDPS=distPerStroke;
+        }
       }
 
       computeRunLoss();
@@ -549,48 +536,56 @@ function computeRunLoss(){
   runEfficiency=+(vmin/vmax).toFixed(3);
 }
 
-function handlePos(pos) {
-    // FORCE the icon green - if we are here, GPS is working
-    const pill = document.getElementById('p-gps');
-    if (pill) {
-        pill.className = 'pill pill-on';
-        pill.textContent = 'GPS';
+function handlePos(pos){
+  // Always show GPS pill green when we receive a position
+  const pill=document.getElementById('p-gps');
+  pill.className='pill pill-on';pill.textContent='GPS';
+
+  const spd=pos.coords.speed;
+  const now=performance.now();
+
+  // Update anchor for run-loss velocity window (only while recording)
+  if(running&&!paused){
+    if(spd!=null&&spd>=0&&spd<12){
+      vAnchor=spd;vAnchorT=now;
+      pushVelocity(now,spd);
     }
+  }
 
-    const gpsSpd = pos.coords.speed;
-    const now = performance.now();
+  const cur={lat:pos.coords.latitude,lon:pos.coords.longitude,t:Date.now()};
 
-    // Reset drift: If GPS says we are basically stopped, kill the accelerometer's "ghost speed"
-    if (gpsSpd !== null && gpsSpd < 0.2) {
-        vIntegrated = 0;
-        vAnchor = 0;
-    } else if (gpsSpd !== null) {
-        vAnchor = gpsSpd;
-        vAnchorT = now;
+  // FIX: only accumulate distance while actively running (not paused, not pre-start)
+  if(running&&!paused&&lastPos){
+    const d=haversine(lastPos,cur);
+    if(d>=0.3&&d<30){
+      distance+=d;
+      cur.dist=distance;
+      sessGpsTrace.push(cur);
     }
+  }
 
-    let currentSpd = Math.max(gpsSpd || 0, vIntegrated);
-    
-    // PACING LOGIC
-    if (currentSpd > 0.5) { // Only calculate pace if moving > 0.5m/s
-        let rawFromSpd = 500 / currentSpd;
-        
-        // Safety Cap: Don't allow a pace slower than 10:00/500m
-        // This prevents the "faster and faster" number runaway
-        rawFromSpd = Math.min(rawFromSpd, 600); 
+  lastPos=cur;
 
+  // FIX: pace from GPS speed only — never from accelerometer integration
+  // Only update pace while running and not paused
+  if(running&&!paused&&spd!=null){
+    if(spd>0.5){
+      const rawFromSpd=500/spd;
+      if(rawFromSpd<PACE_MAX){
         paceReadings.push(rawFromSpd);
-        if (paceReadings.length > 10) paceReadings.shift(); //=============================was 5
-        const sorted = [...paceReadings].sort((a,b) => a-b);
-        const median = sorted[Math.floor(sorted.length/2)];
-        
-        pace = (pace === 0) ? median : (0.15 * median + 0.85 * pace);
+        if(paceReadings.length>6)paceReadings.shift();
+        const sorted=[...paceReadings].sort((a,b)=>a-b);
+        const median=sorted[Math.floor(sorted.length/2)];
+        pace=(pace===0)?median:(PACE_IIR*median+(1-PACE_IIR)*pace);
+        sessPaceTrace.push(pace);
+      }
     } else {
-        pace = 0; // Boat is stopped
-        paceReadings.length = 0;
+      paceReadings.length=0;
+      pace=0;
     }
+  }
 
-    updateUI();
+  updateUI();
 }
 
 function handleGpsErr(err){
@@ -670,70 +665,45 @@ const CFG_LABELS={
   'lap-dist':   'Lap distance',
 };
 
-let cfgTop = localStorage.getItem('scull_cfg_top');
-if(!CFG_OPTIONS.includes(cfgTop)){
-  cfgTop = 'total-time';
-  localStorage.setItem('scull_cfg_top','total-time');
-}
-let cfgBot = localStorage.getItem('scull_cfg_bot');
-if(!CFG_OPTIONS.includes(cfgBot)){
-  cfgBot = 'total-dist';
-  localStorage.setItem('scull_cfg_bot','total-dist');
-}
+let cfgTop = (()=>{const v=localStorage.getItem('scull_cfg_top');return(v&&CFG_OPTIONS.includes(v))?v:'total-time';})();
+let cfgBot = (()=>{const v=localStorage.getItem('scull_cfg_bot');return(v&&CFG_OPTIONS.includes(v))?v:'total-dist';})();
 
 function cycleCfg(which){
   const cur = which==='top' ? cfgTop : cfgBot;
-  let idx = CFG_OPTIONS.indexOf(cur);
-
-  // ✅ safety fallback
-  if(idx === -1) idx = 0;
-
+  const idx = CFG_OPTIONS.indexOf(cur);
   const next = CFG_OPTIONS[(idx+1) % CFG_OPTIONS.length];
-
-  if(which==='top'){
-    cfgTop = next;
-    localStorage.setItem('scull_cfg_top', next);
-  } else {
-    cfgBot = next;
-    localStorage.setItem('scull_cfg_bot', next);
-  }
-
+  if(which==='top'){cfgTop=next;localStorage.setItem('scull_cfg_top',next);}
+  else{cfgBot=next;localStorage.setItem('scull_cfg_bot',next);}
   updateCfgTile(which);
 }
 
 function cfgValue(key){
-  const lapDist = Math.round(distance - lapStartDist);
-  const lapTime = elapsed - lapStartTime;
-  const lapPace = lapDist > 5 && lapTime > 0 ? (lapTime / lapDist) * 500 : 0;
-
+  const on=running&&!paused;
+  const lapDist=Math.round(distance-lapStartDist);
+  const lapTime=elapsed-lapStartTime;
+  const lapPace=lapDist>5&&lapTime>0?(lapTime/lapDist)*500:0;
   switch(key){
     case 'tod':{
-      const d = new Date();
-      const h = String(d.getHours()).padStart(2,'0');
-      const m = String(d.getMinutes()).padStart(2,'0');
-      return { val:`${h}:${m}`, sub:'', dim:false };
+      const d=new Date();
+      const h=String(d.getHours()).padStart(2,'0');
+      const m=String(d.getMinutes()).padStart(2,'0');
+      return{val:`${h}:${m}`,sub:'',dim:false};
     }
-
     case 'total-time':
-      return { val: fmtH(elapsed), sub:'', dim:false };
-
+      return{val:fmtH(elapsed),sub:'',dim:!on&&elapsed===0};
     case 'lap-time':
-      return { val: fmt(lapTime), sub:'', dim:false };
-
+      return{val:fmt(lapTime),sub:'',dim:!on};
     case 'lap-pace':
-      if(lapPace > 0 && lapPace < PACE_MAX){
-        return { val: fmt(lapPace), sub:'min/500m', dim:false };
-      }
-      return { val:'--:--', sub:'min/500m', dim:true };
-
+      if(on&&lapPace>0&&lapPace<PACE_MAX)return{val:fmt(lapPace),sub:'min/500m',dim:false};
+      return{val:'--:--',sub:'min/500m',dim:true};
     case 'total-dist':
-      return { val: Math.round(distance), sub:'metres', dim: distance===0 };
-
+      if(running||elapsed>0)return{val:Math.round(distance),sub:'metres',dim:false};
+      return{val:'0',sub:'metres',dim:true};
     case 'lap-dist':
-      return { val: lapDist, sub:'metres', dim: lapDist===0 };
-
+      if(on&&lapDist>0)return{val:lapDist,sub:'metres',dim:false};
+      return{val:'--',sub:'metres',dim:true};
     default:
-      return { val:'--', sub:'', dim:true };
+      return{val:'--',sub:'',dim:true};
   }
 }
 
@@ -755,16 +725,8 @@ function wireCfgTiles(){
     const el=document.getElementById(`cfg-${w}-tile`);
     if(el) el.addEventListener('click',()=>cycleCfg(w));
   });
-
-  // ✅ INITIAL RENDER (this is missing)
-  updateCfgTile('top');
-  updateCfgTile('bot');
-
   // clock tick every 5s so time-of-day stays live
-  setInterval(()=>{
-    updateCfgTile('top');
-    updateCfgTile('bot');
-  },5000);
+  setInterval(()=>{updateCfgTile('top');updateCfgTile('bot');},5000);
 }
 
 /* ═══════════════════════════════════════════════
@@ -839,7 +801,7 @@ function stopSess(){
 }
 function resetSess(){
   running=false;paused=false;clearInterval(timerInt);
-  elapsed=0;distance=0;pace=0;rawPace=0;strokeRate=0;strokeCount=0;
+  elapsed=0;distance=0;pace=0;strokeRate=0;strokeCount=0;
   distPerStroke=0;dpsVals=[];
   lapStartDist=0;lapStartTime=0;
   catchLast=null;catchPeakSess=null;catchAvg8=null;catchVals=[];catchConsistency=null;
@@ -847,9 +809,9 @@ function resetSess(){
   runLossPct=null;runLossMs=null;runEfficiency=null;effScore=null;
   laps=[];sessStrokes=[];sessPaceTrace=[];sessGpsTrace=[];
   strokeTs.length=0;gpsWindow.length=0;paceReadings.length=0;
-  velocityWindow.length=0;vAnchor=0;vAnchorT=0;vIntegrated=0;
+  velocityWindow.length=0;vAnchor=0;vAnchorT=0;
   inStroke=false;peakJerk=0;lastCatchT=0;strokesDetected=0;adaptiveRefractory=REFRACTORY_MIN_MS;sessStart=null;
-  smoothAcc=0;prevSmooth=0;prevSmoothT=0;lastVelT=0;
+  smoothAcc=0;prevSmooth=0;prevSmoothT=0;
   updateUI();
   requestAnimationFrame(renderCtrl);
 }
@@ -931,7 +893,7 @@ document.getElementById('perm-btn').addEventListener('click',async()=>{
   document.getElementById('screen-live').classList.add('active');
   wireButtons();
   wireTabButtons();
-  wireCfgTiles(); //====keep
+  wireCfgTiles();
   renderCtrl();
   updateUI();
 });
@@ -1218,9 +1180,9 @@ if('serviceWorker' in navigator){
 
 /* ── also wire tab buttons on analysis screen (rendered at load) ── */
 wireTabButtons();
-//wireCfgTiles();
-//updateCfgTile('top');
-//updateCfgTile('bot');
+wireCfgTiles();
+updateCfgTile('top');
+updateCfgTile('bot');
 </script>
 
 </body>
