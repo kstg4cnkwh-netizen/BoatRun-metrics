@@ -39,7 +39,7 @@ body{
 .perm-body{font-size:13px;color:rgba(255,255,255,.72);line-height:1.7}
 .perm-btn{background:#fff;color:#1a5276;border:none;font-family:'Roboto',sans-serif;font-size:15px;font-weight:700;letter-spacing:.1em;padding:14px 0;border-radius:4px;cursor:pointer;text-transform:uppercase;width:100%;}
 .perm-note{font-size:10px;color:rgba(255,255,255,.28);line-height:1.7}
-#screen-live{flex-direction:column}
+#screen-live{position:relative;overflow:hidden;flex-direction:column}
 .sbar{background:#1a5276;display:flex;align-items:center;justify-content:space-between;padding:3px 10px;flex-shrink:0;min-height:28px;}
 .sbar-l{display:flex;align-items:center;gap:6px}
 .sbar-title{color:#fff;font-size:10px;font-weight:700;letter-spacing:.1em}
@@ -50,7 +50,7 @@ body{
 .rec{display:flex;align-items:center;gap:4px;color:#fff;font-size:9px;font-weight:700}
 .recdot{width:7px;height:7px;border-radius:50%;background:#e74c3c;animation:blink 1s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
-.live-body{flex:1;min-height:0;min-width:0;display:flex;flex-direction:row;}
+.live-body{position:relative;isolation:isolate;transform:translateZ(0);inset:0;z-index:1;flex:1;min-height:0;min-width:0;display:flex;flex-direction:row;}
 .tile-grid{
   flex:1;min-height:0;min-width:0;
   display:grid;
@@ -83,7 +83,7 @@ body{
 .catch-bar-bg{height:4px;background:#e8e8e8;border-radius:2px;position:relative;overflow:hidden;}
 .catch-bar-fill{position:absolute;top:0;height:100%;border-radius:2px;transition:width .12s;}
 .catch-needle{position:absolute;top:-3px;width:3px;height:10px;border-radius:2px;transform:translateX(-50%);transition:left .12s;box-shadow:0 1px 3px rgba(0,0,0,.25);}
-.ctrl-col{display:flex;flex-direction:column;gap:4px;isolation:isolate;background:#1a5276;flex-shrink:0;width:clamp(68px,9.5vw,100px);padding:5px 5px calc(5px + env(safe-area-inset-bottom));}
+.ctrl-col{position: absolute;right: 0;top: 28px;bottom: 0;width: clamp(68px,9.5vw,100px);background:#1a5276;padding:5px;display:flex;flex-direction:column;gap:4px;transform: translateZ(0);z-index: 1000;}
 .ctrl-col .btn{flex:1;width:100%;padding:0 3px;font-size:clamp(9px,1.1vw,13px);letter-spacing:.04em;}
 .ctrl-row{display:none;}
 #live-tabs-port{display:none;}
@@ -97,6 +97,7 @@ body{
 .tab.active{color:#fff;border-top:2px solid #fff}
 .tab-icon{font-size:14px;display:block;margin-bottom:1px}
 .tab-txt{display:inline}
+.hidden-btn{visibility: hidden;pointer-events: none;}
 .btn{
   flex:1;border:none;border-radius:3px;
   font-family:'Roboto',sans-serif;font-weight:700;
@@ -147,6 +148,7 @@ body{
 .chart-card.g{border-color:#27ae60}.chart-card.b{border-color:#1a5276}.chart-card.a{border-color:#f39c12}.chart-card.r{border-color:#c0392b}
 .chart-lbl{display:flex;justify-content:space-between;font-size:8px;color:#222;letter-spacing:.1em;margin-bottom:5px;text-transform:uppercase}
 .acanvas{width:100%;height:68px;display:block;border-radius:2px}
+  .hud{position:absolute;inset:0;z-index:999;pointer-events:none;}
 .hr-zones{display:flex;gap:3px;margin:6px 0}
 .hrz{flex:1;border-radius:3px;padding:4px 2px;text-align:center}
 .hrz-l{font-size:7px;letter-spacing:.06em;display:block}
@@ -195,14 +197,28 @@ body{
 <!-- LIVE -->
 
 <div id="screen-live" class="screen">
-  <div class="sbar">
-    <div class="sbar-l">
-      <span class="sbar-title">SCULL</span>
-      <span class="pill pill-off" id="p-gps">GPS</span>
-      <span class="pill pill-off" id="p-acc">ACC</span>
+  <!-- HUD LAYER (always on top) -->
+  <div class="hud">
+    <div class="sbar">
+      <div class="sbar-l">
+        <span class="sbar-title">SCULL</span>
+        <span class="pill pill-off" id="p-gps">GPS</span>
+        <span class="pill pill-off" id="p-acc">ACC</span>
+      </div>
+      <div class="rec" id="rec-ind" style="display:none">
+        <div class="recdot"></div>REC
+      </div>
     </div>
-    <div class="rec" id="rec-ind" style="display:none"><div class="recdot"></div>REC</div>
+    <div class="ctrl-col" id="ctrl-col">
+      <button class="btn btn-start hidden-btn" id="cc-start">Start</button>
+      <button class="btn btn-start hidden-btn" id="cc-resume">Resume</button>
+      <button class="btn btn-pause hidden-btn" id="cc-pause">Pause</button>
+      <button class="btn btn-lap hidden-btn" id="cc-lap">Lap</button>
+      <button class="btn btn-stop hidden-btn" id="cc-stop">Stop</button>
+      <button class="btn btn-reset hidden-btn" id="cc-reset">Reset</button>
+    </div>
   </div>
+</div>
   <div class="live-body">
     <div class="tile-grid">
       <!-- ROW 1 -->
@@ -721,7 +737,11 @@ function renderCtrl(){
   const showLap    = running && !paused;
   const showStop   = running && !paused;
   const showReset  = !running && elapsed>0;
-  const show=(id,vis)=>{document.getElementById(`cc-${id}`).style.display=vis?'flex':'none';};
+  const show = (id, vis) => {
+    const el = document.getElementById(`cc-${id}`);
+    if (!el) return;
+    el.classList.toggle('hidden-btn', !vis);
+  };
   show('start',  showStart && !showResume);
   show('resume', showResume);
   show('pause',  showPause);
