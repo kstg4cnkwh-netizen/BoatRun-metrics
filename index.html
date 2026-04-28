@@ -580,11 +580,11 @@ function handlePos(pos) {
         rawFromSpd = Math.min(rawFromSpd, 600); 
 
         paceReadings.push(rawFromSpd);
-        if (paceReadings.length > 5) paceReadings.shift();
+        if (paceReadings.length > 10) paceReadings.shift(); //=============================was 5
         const sorted = [...paceReadings].sort((a,b) => a-b);
         const median = sorted[Math.floor(sorted.length/2)];
         
-        pace = (pace === 0) ? median : (0.3 * median + 0.7 * pace);
+        pace = (pace === 0) ? median : (0.15 * median + 0.85 * pace);
     } else {
         pace = 0; // Boat is stopped
         paceReadings.length = 0;
