@@ -925,7 +925,7 @@ document.getElementById('perm-btn').addEventListener('click',async()=>{
   document.getElementById('screen-live').classList.add('active');
   wireButtons();
   wireTabButtons();
-  wireCfgTiles();
+  wireCfgTiles(); //====keep
   renderCtrl();
   updateUI();
 });
@@ -1212,9 +1212,9 @@ if('serviceWorker' in navigator){
 
 /* ── also wire tab buttons on analysis screen (rendered at load) ── */
 wireTabButtons();
-wireCfgTiles();
-updateCfgTile('top');
-updateCfgTile('bot');
+//wireCfgTiles();
+//updateCfgTile('top');
+//updateCfgTile('bot');
 </script>
 
 </body>
