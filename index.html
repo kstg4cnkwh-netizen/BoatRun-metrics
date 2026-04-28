@@ -549,68 +549,58 @@ function computeRunLoss(){
   runEfficiency=+(vmin/vmax).toFixed(3);
 }
 
-function handlePos(pos){
-  const pill=document.getElementById('p-gps');
-  pill.className='pill pill-on';pill.textContent='GPS';
-  //const spd=pos.coords.speed;
-  const spd = vIntegrated; // This uses the fused Accel + GPS speed
+function handlePos(pos) {
+    const pill = document.getElementById('p-gps');
+    pill.className = 'pill pill-on'; pill.textContent = 'GPS';
+    
+    // 1. Get the raw "Truth" from GPS
+    const gpsSpd = pos.coords.speed; 
+    const now = performance.now();
 
-if (spd > 0.8) { // Gate higher to ignore drifting while stationary
-    const rawFromSpd = 500 / spd;
-    if (rawFromSpd < PACE_MAX) {
-        paceReadings.push(rawFromSpd);
-        if (paceReadings.length > 4) paceReadings.shift(); // Smaller window = more "live" feel
-        
-        const sorted = [...paceReadings].sort((a,b) => a-b);
-        const median = sorted[Math.floor(sorted.length/2)];
-        
-        // Use your 0.3 IIR here
-        pace = (pace === 0) ? median : (0.3 * median + 0.7 * pace);
+    // 2. Immediate Anchor: If GPS sees speed, force the fused speed to match it
+    if (gpsSpd !== null && gpsSpd >= 0) {
+        vAnchor = gpsSpd;
+        vAnchorT = now;
+        // If we were at 0, jump-start vIntegrated so the display turns on
+        if (vIntegrated < 0.2) vIntegrated = gpsSpd; 
     }
-} else {
-    paceReadings.length = 0;
-    pace = 0;
-}
-  const now=performance.now();
-  if(spd!=null&&spd>=0&&spd<10){vAnchor=spd;vAnchorT=now;vIntegrated=spd;pushVelocity(now,spd);}
-  const cur={lat:pos.coords.latitude,lon:pos.coords.longitude,t:Date.now()};
-  sessGpsTrace.push(cur);
-  if(lastPos){
-    const d=haversine(lastPos,cur);
-    if(d>=0.3&&d<30){
-      distance+=d;
-      cur.dist=distance;
-      if(running&&!paused&&spd!=null&&spd>0.3){
-        gpsWindow.push({...cur,spd});
-        const cutoff=cur.t-GPS_WINDOW_S*1000;
-        while(gpsWindow.length>1&&gpsWindow[0].t<cutoff)gpsWindow.shift();
 
-        /* ── FIX: pace ──────────────────────────────────────────────────
-           Cap paceReadings at 6 (was 5, but more importantly the IIR
-           was never resetting on bad readings so one outlier persisted).
-           Also gate on minimum speed 0.5 m/s (was 0.3) to avoid
-           near-stationary GPS noise inflating pace. ── */
-        if(spd>0.4){
-          const rawFromSpd=500/spd;
-          if(rawFromSpd<PACE_MAX){
-            paceReadings.push(rawFromSpd);
-            if(paceReadings.length>6)paceReadings.shift();
-            const sorted=[...paceReadings].sort((a,b)=>a-b);
-            const median=sorted[Math.floor(sorted.length/2)];
-            pace=(pace===0)?median:(PACE_IIR*median+(1-PACE_IIR)*pace);
-            sessPaceTrace.push(pace);
-          }
-          // if rawFromSpd >= PACE_MAX, don't update — don't reset either (avoids thrash)
-        } else {
-          // truly slow/stopped: flush stale readings so pace goes dim quickly
-          paceReadings.length=0;
-          pace=0;
+    // 3. Use the higher of the two (Safety Net)
+    // This prevents the "No Speed" issue if one sensor lags
+    let spd = Math.max(gpsSpd || 0, vIntegrated);
+
+    const cur = {lat: pos.coords.latitude, lon: pos.coords.longitude, t: Date.now()};
+    sessGpsTrace.push(cur);
+
+    if (lastPos && running && !paused) {
+        const d = haversine(lastPos, cur);
+        if (d >= 0.2 && d < 30) {
+            distance += d;
+            
+            // 4. Lower the threshold to 0.3 m/s (~1.1 km/h)
+            // This ensures the display turns on even during a slow paddle
+            if (spd > 0.3) {
+                const rawFromSpd = 500 / spd;
+                if (rawFromSpd < PACE_MAX) {
+                    paceReadings.push(rawFromSpd);
+                    if (paceReadings.length > 5) paceReadings.shift();
+                    
+                    const sorted = [...paceReadings].sort((a,b) => a-b);
+                    const median = sorted[Math.floor(sorted.length/2)];
+                    
+                    // PACE_IIR 0.3 as requested
+                    pace = (pace === 0) ? median : (0.3 * median + 0.7 * pace);
+                    sessPaceTrace.push(pace);
+                }
+            } else {
+                // If we stop, clear it out
+                paceReadings.length = 0;
+                pace = 0;
+            }
         }
-      }
     }
-  }
-  lastPos=cur;
-  updateUI();
+    lastPos = cur;
+    updateUI();
 }
 
 function handleGpsErr(err){
