@@ -672,8 +672,16 @@ const CFG_LABELS={
   'lap-dist':   'Lap distance',
 };
 
-let cfgTop = localStorage.getItem('scull_cfg_top') || 'total-time';
-let cfgBot = localStorage.getItem('scull_cfg_bot') || 'total-dist';
+let cfgTop = localStorage.getItem('scull_cfg_top');
+if(!CFG_OPTIONS.includes(cfgTop)){
+  cfgTop = 'total-time';
+  localStorage.setItem('scull_cfg_top','total-time');
+}
+let cfgBot = localStorage.getItem('scull_cfg_bot');
+if(!CFG_OPTIONS.includes(cfgBot)){
+  cfgBot = 'total-dist';
+  localStorage.setItem('scull_cfg_bot','total-dist');
+}
 
 function cycleCfg(which){
   const cur = which==='top' ? cfgTop : cfgBot;
