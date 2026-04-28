@@ -80,9 +80,9 @@ body{
 .char-num.dim{color:#888}
 .char-label-sm{font-size:clamp(7px,1.1dvh,11px);color:#aaa;font-weight:400;text-align:center;line-height:1;white-space:nowrap;overflow:hidden;max-width:100%;}
 .catch-bar-wrap{width:88%;flex-shrink:0;margin-top:1px}
-.catch-bar-bg{height:4px;background:#e8e8e8;border-radius:2px;position:relative;overflow:hidden;}
-.catch-bar-fill{position:absolute;top:0;height:100%;border-radius:2px;transition:width .12s;}
-.catch-needle{position:absolute;top:-3px;width:3px;height:10px;border-radius:2px;transform:translateX(-50%);transition:left .12s;box-shadow:0 1px 3px rgba(0,0,0,.25);}
+.catch-bar-bg{height:6px;background:#cfcfcf;border-radius:3px;position:relative;overflow:hidden;}
+.catch-bar-fill{position:absolute;top:0;height:100%;border-radius:3px;transition:width .12s;;background:#00cfff;box-shadow:0 0 6px rgba(0,207,255,6);}
+.catch-needle{position:absolute;top:-4px;width:5px;height:14px;border-radius:2px;transform:translateX(-50%);transition:left .12s;background:#ff3b30,box-shadow:0 1px 8px rgba(255,59,48,.9);}
 .ctrl-col{display:flex;flex-direction:column;gap:4px;background:#1a5276;flex-shrink:0;width:clamp(68px,9.5vw,100px);padding:5px 5px calc(5px + env(safe-area-inset-bottom));}
 .ctrl-col .btn{flex:1;width:100%;padding:0 3px;font-size:clamp(9px,1.1vw,13px);letter-spacing:.04em;}
 .ctrl-row{display:none;}
