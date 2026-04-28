@@ -50,14 +50,14 @@ body{
 .rec{display:flex;align-items:center;gap:4px;color:#fff;font-size:9px;font-weight:700}
 .recdot{width:7px;height:7px;border-radius:50%;background:#e74c3c;animation:blink 1s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
-.live-body{flex:1;min-height:0;min-width:0;display:flex;flex-direction:row;position:relative;} //==============
+.live-body{flex:1;min-height:0;min-width:0;display:flex;flex-direction:row;} //==============
 .tile-grid{
   flex:1;min-height:0;min-width:0;
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
   grid-template-rows:40fr 30fr 30fr;
   gap:2px;background:#999;padding:2px;
-  position:relative; //=====================
+  //position:relative; //=====================
   z-index:1;
 }
 .tile{background:#fff;display:flex;flex-direction:column;overflow:hidden;min-height:0;min-width:0;}
