@@ -371,12 +371,12 @@ const REFRACTORY_MIN_MS=1200;
 let lastCatchT=0,strokesDetected=0,adaptiveRefractory=REFRACTORY_MIN_MS;
 
 // FIX: extended stroke timestamp ring — keep 8 for more stable median interval
-const MAX_STROKE_TS=8;
+const MAX_STROKE_TS=5;
 const strokeTs=[];
 
 let timerInt=null,wakeLock=null;
 let pace=0;
-const PACE_IIR=0.2,PACE_MAX=600;
+const PACE_MAX=600;
 const paceReadings=[];
 
 // GPS anchor speed (used for DPS and run-loss velocity window)
@@ -446,36 +446,47 @@ function handleMotion(e){
         strokeChar=Math.round(charVals.reduce((a,b)=>a+b,0)/charVals.length);
       }
 
-      // Stroke rate — median-filtered ring of 8 timestamps
+      // Stroke rate — ring of 5 timestamps (4 intervals), true median, light IIR on rate
       strokeTs.push(now);
       if(strokeTs.length>MAX_STROKE_TS)strokeTs.shift();
       if(strokeTs.length>=3){
         const ints=[];
         for(let i=1;i<strokeTs.length;i++)ints.push(strokeTs[i]-strokeTs[i-1]);
         const sorted=[...ints].sort((a,b)=>a-b);
-        const median=sorted[Math.floor(sorted.length/2)];
-        const filtered=ints.filter(x=>x>median*0.6&&x<median*1.6);
+        const mid=Math.floor(sorted.length/2);
+        const median=sorted.length%2===0?(sorted[mid-1]+sorted[mid])/2:sorted[mid];
+        const filtered=ints.filter(x=>x>median*0.65&&x<median*1.5);
         if(filtered.length>=2){
           const avgInt=filtered.reduce((a,b)=>a+b,0)/filtered.length;
-          const r=Math.round(60000/avgInt);
-          // FIX: raised ceiling from 40 to 50 spm to cover sprint rates
-          if(r>=10&&r<=50)strokeRate=r;
+          const raw=60000/avgInt;
+          if(raw>=10&&raw<=50){
+            // light IIR damps integer boundary bouncing without adding meaningful lag
+            strokeRate=strokeRate===0?Math.round(raw):Math.round(0.3*raw+0.7*strokeRate);
+          }
         }
       }
 
-      // DPS: GPS anchor speed × stroke interval (GPS-only, no accel integration)
+      // DPS: average GPS velocity over the stroke interval, with staleness guard
       const strokeIntervalS=strokeTs.length>=2
         ?(strokeTs[strokeTs.length-1]-strokeTs[strokeTs.length-2])/1000
-        :3.0;
-      if(vAnchor>0.5){
-        const dps=vAnchor*strokeIntervalS;
-        if(dps>0.5&&dps<25){
-          dpsVals.push(dps);
-          if(dpsVals.length>4)dpsVals.shift();
-          distPerStroke=Math.round(dpsVals.reduce((a,b)=>a+b,0)/dpsVals.length*10)/10;
-          if(distPerStroke>maxDPS)maxDPS=distPerStroke;
+        :0;
+      if(strokeIntervalS>0.5&&strokeIntervalS<6){
+        const strokeStart=now-strokeIntervalS*1000;
+        const rel=velocityWindow.filter(p=>p.t>=strokeStart);
+        const avgV=rel.length>=2
+          ?rel.reduce((a,b)=>a+b.v,0)/rel.length
+          :(vAnchorT>0&&(now-vAnchorT)<3000?vAnchor:0);
+        if(avgV>0.5){
+          const dps=avgV*strokeIntervalS;
+          if(dps>0.5&&dps<25){
+            dpsVals.push(dps);
+            if(dpsVals.length>4)dpsVals.shift();
+            distPerStroke=Math.round(dpsVals.reduce((a,b)=>a+b,0)/dpsVals.length*10)/10;
+            if(distPerStroke>maxDPS)maxDPS=distPerStroke;
+          }
         }
       }
+
 
       computeRunLoss();
       if(runLossPct!=null&&distPerStroke>0){
@@ -547,8 +558,7 @@ function handlePos(pos){
 
   lastPos=cur;
 
-  // FIX: pace from GPS speed only — never from accelerometer integration
-  // Only update pace while running and not paused
+  // Pace: median of 6 GPS speed samples — no IIR, median alone is sufficient smoothing
   if(running&&!paused&&spd!=null){
     if(spd>0.5){
       const rawFromSpd=500/spd;
@@ -556,8 +566,8 @@ function handlePos(pos){
         paceReadings.push(rawFromSpd);
         if(paceReadings.length>6)paceReadings.shift();
         const sorted=[...paceReadings].sort((a,b)=>a-b);
-        const median=sorted[Math.floor(sorted.length/2)];
-        pace=(pace===0)?median:(PACE_IIR*median+(1-PACE_IIR)*pace);
+        const mid=Math.floor(sorted.length/2);
+        pace=sorted.length%2===0?(sorted[mid-1]+sorted[mid])/2:sorted[mid];
         sessPaceTrace.push(pace);
       }
     } else {
