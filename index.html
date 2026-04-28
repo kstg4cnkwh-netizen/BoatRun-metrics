@@ -84,8 +84,8 @@ body{
 .catch-bar-fill{position:absolute;top:0;height:100%;border-radius:2px;transition:width .12s;}
 .catch-needle{position:absolute;top:-3px;width:3px;height:10px;border-radius:2px;transform:translateX(-50%);transition:left .12s;box-shadow:0 1px 3px rgba(0,0,0,.25);}
 .ctrl-col{display:none;}
-.ctrl-row{background:#1a5276;display:flex;gap:5px;flex-shrink:0;padding:5px 8px calc(5px + env(safe-area-inset-bottom));}
-#live-tabs-port{display:flex;background:#0f3a54;flex-shrink:0;border-top:1px solid rgba(255,255,255,.1);padding-bottom:env(safe-area-inset-bottom);}
+.ctrl-row{display:none;background:#1a5276;gap:5px;flex-shrink:0;padding:5px 8px calc(5px + env(safe-area-inset-bottom));}
+#live-tabs-port{display:none;background:#0f3a54;flex-shrink:0;border-top:1px solid rgba(255,255,255,.1);padding-bottom:env(safe-area-inset-bottom);}
 .tab-bar{display:flex;background:#0f3a54;flex-shrink:0;border-top:1px solid rgba(255,255,255,.1);padding-bottom:env(safe-area-inset-bottom);}
 #live-tabs{display:none;}
 .tab{flex:1;padding:6px 0 5px;text-align:center;border:none;background:none;color:rgba(255,255,255,.38);font-family:'Roboto',sans-serif;font-size:8px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;}
@@ -108,12 +108,10 @@ body{
 .btn-lap{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3)}
 .btn-reset{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
 @media (orientation:landscape){
-  .ctrl-row{display:none;}
-  #live-tabs-port{display:none;}
   .live-body{flex-direction:row;}
-  .ctrl-col{display:flex;flex-direction:column;gap:4px;background:#1a5276;flex-shrink:0;width:clamp(68px,9.5vw,100px);padding:5px 5px calc(5px + env(safe-area-inset-bottom));}
+  .ctrl-col{flex-direction:column;gap:4px;background:#1a5276;flex-shrink:0;width:clamp(68px,9.5vw,100px);padding:5px 5px calc(5px + env(safe-area-inset-bottom));}
   .ctrl-col .btn{flex:1;width:100%;padding:0 3px;font-size:clamp(9px,1.1vw,13px);letter-spacing:.04em;}
-  #live-tabs{display:flex;flex-direction:column;align-self:stretch;flex-shrink:0;width:clamp(38px,5vw,50px);background:#0f3a54;border-top:none;border-left:1px solid rgba(255,255,255,.1);padding-bottom:env(safe-area-inset-bottom);padding-right:env(safe-area-inset-right);}
+  #live-tabs{flex-direction:column;align-self:stretch;flex-shrink:0;width:clamp(38px,5vw,50px);background:#0f3a54;border-top:none;border-left:1px solid rgba(255,255,255,.1);padding-bottom:env(safe-area-inset-bottom);padding-right:env(safe-area-inset-right);}
   #live-tabs .tab{flex:1;padding:10px 0;}
   #live-tabs .tab-txt{display:none;}
   #live-tabs .tab-icon{font-size:18px;margin-bottom:0;}
@@ -836,6 +834,32 @@ function wireButtons(){
   });
 }
 
+/* ── layout: show col (landscape) or row (portrait) based on actual px ──
+   The CSS body rotation fools @media orientation queries on iOS Safari,
+   so we detect layout in JS using the live element dimensions instead. ── */
+function applyLayout(){
+  // After the CSS rotation, the visual width is always > height for us.
+  // Use screen.width/height (physical, pre-rotation) as ground truth.
+  const isLandscape = screen.width > screen.height ||
+                      window.innerWidth > window.innerHeight;
+  const col  = document.getElementById('ctrl-col');
+  const row  = document.getElementById('ctrl-row');
+  const tabL = document.getElementById('live-tabs');
+  const tabP = document.getElementById('live-tabs-port');
+  if(isLandscape){
+    col.style.display  = 'flex';
+    row.style.display  = 'none';
+    tabL.style.display = 'flex';
+    tabP.style.display = 'none';
+  } else {
+    col.style.display  = 'none';
+    row.style.display  = 'flex';
+    tabL.style.display = 'none';
+    tabP.style.display = 'flex';
+  }
+}
+window.addEventListener('resize', applyLayout);
+
 /* ═══════════════════════════════════════════════
    TAB NAVIGATION
 ═══════════════════════════════════════════════ */
@@ -894,6 +918,7 @@ document.getElementById('perm-btn').addEventListener('click',async()=>{
   wireButtons();
   wireTabButtons();
   wireCfgTiles();
+  applyLayout();
   renderCtrl();
   updateUI();
 });
