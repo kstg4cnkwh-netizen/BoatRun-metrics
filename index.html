@@ -108,6 +108,7 @@ body{
 }
 .btn:active{filter:brightness(.82);transform:scale(.96)}
 .btn-start{background:#27ae60;color:#fff}
+.btn-resume{background:#27ae60;color:#fff}
 .btn-stop{background:#c0392b;color:#fff}
 .btn-pause{background:#f39c12;color:#fff}
 .btn-lap{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3)}
@@ -289,7 +290,7 @@ body{
 <!-- Single button column — always visible on the right -->
 <div class="ctrl-col" id="ctrl-col">
   <button class="btn btn-start"  id="cc-start"  style="display:none">Start</button>
-  <button class="btn btn-start"  id="cc-resume" style="display:none">Resume</button>
+  <button class="btn btn-resume"  id="cc-resume" style="display:none">Resume</button>
   <button class="btn btn-pause"  id="cc-pause"  style="display:none">Pause</button>
   <button class="btn btn-lap"    id="cc-lap"    style="display:none">Lap</button>
   <button class="btn btn-stop"   id="cc-stop"   style="display:none">Stop</button>
@@ -716,7 +717,7 @@ function wireCfgTiles(){
 function renderCtrl(){
   const rec=document.getElementById('rec-ind');
   const showStart  = !running && !paused;
-  const showResume = !running && paused;//====================== && elapsed>0;
+  const showResume = !running && paused && elapsed>0;
   const showPause  = running && !paused;
   const showLap    = running && !paused;
   const showStop   = running && !paused;
