@@ -246,7 +246,7 @@ body{
           <div class="catch-bar-wrap">
             <div class="catch-bar-bg">
               <div class="catch-bar-fill" id="catch-fill" style="left:0;width:0;background:rgba(26,82,118,.3)"></div>
-              //<div class="catch-needle" id="catch-needle" style="left:0;background:#1a5276"></div> =================================================
+              <div class="catch-needle" id="catch-needle" style="left:0;background:#1a5276"></div> //=================================================
             </div>
           </div>
           <div class="sub-micro">m/s³ · 0 ──── 30 ──── 60</div>
@@ -602,7 +602,7 @@ function updateUI(){
     charBadgeEl.textContent=charLabel(strokeChar);needle.style.background='#1a5276';
   } else {charNumEl.textContent='--';charNumEl.className='char-num dim';charBadgeEl.textContent='—';needle.style.background='#ccc';}
 
-  const CATCH_SCALE=60;
+  const CATCH_SCALE=90;
   const ce=document.getElementById('t-catch');
   if(catchLast!==null){
     ce.textContent=catchLast;ce.className='tval-r23';
