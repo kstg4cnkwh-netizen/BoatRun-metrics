@@ -550,41 +550,46 @@ function computeRunLoss(){
 }
 
 function handlePos(pos) {
+    // FORCE the icon green - if we are here, GPS is working
+    const pill = document.getElementById('p-gps');
+    if (pill) {
+        pill.className = 'pill pill-on';
+        pill.textContent = 'GPS';
+    }
+
     const gpsSpd = pos.coords.speed;
     const now = performance.now();
 
-    // 1. Force vIntegrated to wake up
-    if (gpsSpd !== null && gpsSpd > 0.1) {
-        if (vIntegrated < 0.1) vIntegrated = gpsSpd;
+    // Reset drift: If GPS says we are basically stopped, kill the accelerometer's "ghost speed"
+    if (gpsSpd !== null && gpsSpd < 0.2) {
+        vIntegrated = 0;
+        vAnchor = 0;
+    } else if (gpsSpd !== null) {
+        vAnchor = gpsSpd;
+        vAnchorT = now;
     }
 
-    // 2. Calculate pace BEFORE the distance gate
-    // This ensures the UI updates even if you're moving slowly
     let currentSpd = Math.max(gpsSpd || 0, vIntegrated);
     
-    if (currentSpd > 0.2) { // Just enough to filter out sitting still
-        const rawFromSpd = 500 / currentSpd;
-        if (rawFromSpd < PACE_MAX) {
-            paceReadings.push(rawFromSpd);
-            if (paceReadings.length > 5) paceReadings.shift();
-            const sorted = [...paceReadings].sort((a,b) => a-b);
-            const median = sorted[Math.floor(sorted.length/2)];
-            
-            // Your 0.3 IIR
-            pace = (pace === 0) ? median : (0.3 * median + 0.7 * pace);
-        }
+    // PACING LOGIC
+    if (currentSpd > 0.5) { // Only calculate pace if moving > 0.5m/s
+        let rawFromSpd = 500 / currentSpd;
+        
+        // Safety Cap: Don't allow a pace slower than 10:00/500m
+        // This prevents the "faster and faster" number runaway
+        rawFromSpd = Math.min(rawFromSpd, 600); 
+
+        paceReadings.push(rawFromSpd);
+        if (paceReadings.length > 5) paceReadings.shift();
+        const sorted = [...paceReadings].sort((a,b) => a-b);
+        const median = sorted[Math.floor(sorted.length/2)];
+        
+        pace = (pace === 0) ? median : (0.3 * median + 0.7 * pace);
     } else {
-        // If we truly stop, eventually clear it
-        pace = 0;
+        pace = 0; // Boat is stopped
+        paceReadings.length = 0;
     }
 
-    // 3. Distance logic (Keep this for the odometer)
-    if (lastPos && running && !paused) {
-        const d = haversine(lastPos, cur);
-        if (d >= 0.1 && d < 30) distance += d;
-    }
-    
-    lastPos = {lat: pos.coords.latitude, lon: pos.coords.longitude, t: Date.now()};
     updateUI();
 }
 
