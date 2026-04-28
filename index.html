@@ -74,7 +74,7 @@ body{
 .cz1{background:#e74c3c;flex:1;}
 .cz2{background:#27ae60;flex:2;}
 .cz3{background:#e67e22;flex:1;}
-.cbar-needle{position:absolute;width:5px;height:18px;top:-4px;background:#000;border-radius:2px;transform:translateX(-50%);z-index:3;box-shadow:0 2px 6px rgba(0,0,0,.4);}
+.cbar-needle{position:absolute;width:7px;height:22px;top:-4px;background:#000;border-radius:2px;transform:translateX(-50%);z-index:3;box-shadow:0 2px 6px rgba(0,0,0,.4);}
 .cbar-midline{position:absolute;left:50%;top:0;width:2px;height:100%;background:#000;opacity:.4;transform:translateX(-50%);z-index:2;}
 .char-num{font-family:'Roboto Condensed',sans-serif;font-weight:700;font-size:clamp(28px,11dvh,130px);line-height:1;color:#111;text-align:center;}
 .char-num.dim{color:#888}
@@ -82,7 +82,7 @@ body{
 .catch-bar-wrap{width:88%;flex-shrink:0;margin-top:1px}
 .catch-bar-bg{height:6px;background:#cfcfcf;border-radius:3px;position:relative;overflow:hidden;}
 .catch-bar-fill{position:absolute;top:0;height:100%;border-radius:3px;transition:width .12s;background:#00cfff;box-shadow:0 0 6px rgba(0,207,255,6);}
-.catch-needle{position:absolute;top:-3px;width:5px;height:12px;border-radius:2px;transform:translateX(-50%);transition:left .12s;background:#000,box-shadow:0 2px 8px rgba(255,59,48,.9);}//====ff3b30
+.catch-needle{position:absolute;top:-5px;width:7px;height:16px;border-radius:3px;transform:translateX(-50%);transition:left .12s;background:#000;box-shadow:0 2px 8px rgba(255,59,48,.9);}
 .ctrl-col{display:flex;flex-direction:column;gap:4px;background:#1a5276;flex-shrink:0;width:clamp(68px,9.5vw,100px);padding:5px 5px calc(5px + env(safe-area-inset-bottom));}
 .ctrl-col .btn{flex:1;width:100%;padding:0 3px;font-size:clamp(9px,1.1vw,13px);letter-spacing:.04em;}
 .ctrl-row{display:none;}
@@ -246,7 +246,7 @@ body{
           <div class="catch-bar-wrap">
             <div class="catch-bar-bg">
               <div class="catch-bar-fill" id="catch-fill" style="left:0;width:0;background:rgba(26,82,118,.3)"></div>
-              <div class="catch-needle" id="catch-needle" style="left:0;background:#1a5276"></div> //=================================================
+              <div class="catch-needle" id="catch-needle" style="left:0;background:#1a5276"></div> 
             </div>
           </div>
           <div class="sub-micro">m/s³ · 0 ──── 30 ──── 60</div>
