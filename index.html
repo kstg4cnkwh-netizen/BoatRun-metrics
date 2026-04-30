@@ -1279,6 +1279,7 @@ document.getElementById('perm-btn').addEventListener('click', async () => {
 
   document.getElementById('screen-perm').classList.remove('active');
   document.getElementById('screen-cal').classList.add('active');
+  document.body.classList.add('ls');
 
   document.getElementById('cal-start-btn').addEventListener('click', startCalibration);
   document.getElementById('cal-skip-btn').addEventListener('click', () => {
@@ -1577,7 +1578,7 @@ if ('serviceWorker' in navigator) {
 }
 
 /* ── init ── */
-wireTabButtons(); wireCfgTiles(); updateCfgTile('top'); updateCfgTile('bot');
+wireCfgTiles(); updateCfgTile('top'); updateCfgTile('bot');
 checkAutosave();
 </script>
 
