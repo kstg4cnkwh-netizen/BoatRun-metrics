@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -141,6 +142,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <body>
 
 <!-- PERMISSION -->
+
 <div id="screen-perm" class="screen active">
   <div class="perm-inner">
     <div class="perm-icon">🚣</div>
@@ -162,6 +164,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 </div>
 
 <!-- CALIBRATION -->
+
 <div id="screen-cal" class="screen">
   <div class="perm-inner">
     <div class="perm-icon">📐</div>
@@ -180,6 +183,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 </div>
 
 <!-- LIVE -->
+
 <div id="screen-live" class="screen">
   <div class="sbar">
     <div class="sbar-l">
@@ -273,6 +277,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 </div>
 
 <!-- ANALYSIS -->
+
 <div id="screen-analysis" class="screen">
   <div class="ahdr">
     <span class="ahdr-title">SESSION HISTORY</span>
@@ -317,10 +322,54 @@ if (screen.orientation && screen.orientation.lock) screen.orientation.lock('land
    STORAGE
 ════════════════════════════════════════ */
 const DB = 'scull_v3';
+const AUTOSAVE_DB = 'scull_autosave';
 const loadSess = () => { try { return JSON.parse(localStorage.getItem(DB) || '[]'); } catch { return []; } };
 const saveSess = a => localStorage.setItem(DB, JSON.stringify(a));
 const addSess = s => { const a = loadSess(); a.unshift(s); saveSess(a); };
 const delSess = id => saveSess(loadSess().filter(s => s.id !== id));
+
+// Auto-save in-progress session every 30s so a crash doesn't lose everything
+function saveInProgress() {
+  if (!running || !sessStart || sessStrokes.length === 0) return;
+  try {
+    const snap = {
+      id: sessStart.toString(), startTime: sessStart,
+      duration: elapsed, distance: Math.round(distance),
+      avgPace: sessPaceTrace.length ? Math.round(sessPaceTrace.reduce((a,b)=>a+b,0)/sessPaceTrace.length) : 0,
+      avgRate: sessStrokes.length ? Math.round(sessStrokes.reduce((a,b)=>a+b.rate,0)/sessStrokes.length) : 0,
+      maxRate: sessStrokes.length ? Math.max(...sessStrokes.map(s=>s.rate)) : 0,
+      strokeCount, catchPeakSess, catchAvg8, laps,
+      strokes: sessStrokes, paceTrace: sessPaceTrace, gpsTrace: sessGpsTrace,
+      avgDPS: dpsValsArr.length ? dpsValsArr.reduce((a,b)=>a+b,0)/dpsValsArr.length : null,
+      avgRunLoss: runLossPct, avgEffScore: effScore,
+      _autosave: true, _savedAt: Date.now()
+    };
+    localStorage.setItem(AUTOSAVE_DB, JSON.stringify(snap));
+  } catch(e) {}
+}
+
+// Check for autosave on startup and offer to restore
+function checkAutosave() {
+  try {
+    const raw = localStorage.getItem(AUTOSAVE_DB);
+    if (!raw) return;
+    const snap = JSON.parse(raw);
+    if (!snap || !snap._autosave || !snap.strokeCount) return;
+    const age = Date.now() - snap._savedAt;
+    if (age > 12 * 3600 * 1000) { localStorage.removeItem(AUTOSAVE_DB); return; } // >12h old
+    const mins = Math.round(snap.duration / 60);
+    const km = (snap.distance / 1000).toFixed(2);
+    if (confirm(`Recover autosaved session?\n${km} km · ${mins} min · ${snap.strokeCount} strokes\n(Saved ${Math.round(age/60000)} min ago)`)) {
+      // Add as a completed session
+      snap._autosave = false;
+      const a = loadSess(); a.unshift(snap); saveSess(a);
+      localStorage.removeItem(AUTOSAVE_DB);
+      alert('Session recovered and saved. View it in Analysis.');
+    } else {
+      localStorage.removeItem(AUTOSAVE_DB);
+    }
+  } catch(e) { localStorage.removeItem(AUTOSAVE_DB); }
+}
 
 /* ════════════════════════════════════════
    CALIBRATION
@@ -644,9 +693,26 @@ const MAX_STROKE_TS = 4;
 const strokeTs = [];
 let runLossPct = null, runLossMs = null, runEfficiency = null, effScore = null;
 
-// Stroke rate blending weights
-const RATE_FSM_W   = 0.30; // weight of FSM interval in blend
-const RATE_AUTOCR_W = 0.70; // weight of autocorrelation
+// Stroke rate: primary = median of last N FSM catch intervals (responsive from stroke 2)
+// Autocorr used only as a long-term smoother once confident
+const CATCH_TS_BUF = 7; // keep last 7 catch timestamps → 6 intervals
+const catchTsBuf = [];  // performance.now() of each confirmed catch
+
+function rateFromMedianIntervals() {
+  if (catchTsBuf.length < 2) return 0;
+  const intervals = [];
+  for (let i = 1; i < catchTsBuf.length; i++) {
+    const dt = catchTsBuf[i] - catchTsBuf[i - 1];
+    if (dt >= PERIOD_MIN_MS && dt <= PERIOD_MAX_MS) intervals.push(dt);
+  }
+  if (intervals.length === 0) return 0;
+  intervals.sort((a, b) => a - b);
+  const mid = Math.floor(intervals.length / 2);
+  const med = intervals.length % 2 === 0
+    ? (intervals[mid - 1] + intervals[mid]) / 2
+    : intervals[mid];
+  return 60000 / med;
+}
 
 function onStrokeFinish(now, driveDur) {
   if (driveDur < MIN_DRIVE_MS || driveDur > MAX_DRIVE_MS) return;
@@ -665,21 +731,24 @@ function onStrokeFinish(now, driveDur) {
     : 50;
 
   /* ── STROKE INTERVAL → instantaneous rate ────────── */
-  let fsmRate = 0;
-  if (lastCatchAbsT > 0) {
-    const interval = driveStartT - lastCatchAbsT;
-    if (interval >= PERIOD_MIN_MS && interval <= PERIOD_MAX_MS) {
-      fsmRate = 60000 / interval;
-      // Blend FSM rate with autocorrelation rate
-      if (strokeRate === 0 || acRate === 0) {
-        strokeRate = Math.round(acRate > 0 ? acRate : fsmRate);
-      } else {
-        const blended = RATE_FSM_W * fsmRate + RATE_AUTOCR_W * acRate;
-        strokeRate = Math.round(0.25 * blended + 0.75 * strokeRate);
-      }
+  // Primary: median of recent FSM intervals (responsive from stroke 2)
+  // Autocorr blended in only once it has converged (acConf > 0.35)
+  catchTsBuf.push(driveStartT);
+  if (catchTsBuf.length > CATCH_TS_BUF) catchTsBuf.shift();
+  lastCatchAbsT = driveStartT;
+
+  const medRate = rateFromMedianIntervals();
+  if (medRate > 0) {
+    if (strokeRate === 0) {
+      strokeRate = Math.round(medRate);
+    } else if (acConf > 0.35 && acRate > 0) {
+      // Blend: 65% FSM-median, 35% autocorr — autocorr smooths without lagging
+      strokeRate = Math.round(0.65 * medRate + 0.35 * acRate);
+    } else {
+      // Autocorr not yet reliable — IIR on FSM median alone
+      strokeRate = Math.round(0.45 * medRate + 0.55 * strokeRate);
     }
   }
-  lastCatchAbsT = driveStartT;
   strokesDetected++;
 
   /* ── ADAPTIVE JERK THRESHOLD ──────────────────────── */
@@ -715,21 +784,30 @@ function onStrokeFinish(now, driveDur) {
   strokeChar = Math.round(charValsArr.reduce((a, b) => a + b, 0) / charValsArr.length);
 
   /* ── DISTANCE PER STROKE ──────────────────────────── */
+  // Use median GPS speed over the stroke interval (not raw point average)
+  // averaged over 8 strokes for stability
   strokeTs.push(driveStartT);
   if (strokeTs.length > MAX_STROKE_TS) strokeTs.shift();
   const intervalS = strokeTs.length >= 2
     ? (strokeTs[strokeTs.length - 1] - strokeTs[strokeTs.length - 2]) / 1000 : 0;
-  if (intervalS > 0.8 && intervalS < 8 && vAnchorT > 0 && (now - vAnchorT) < 4000) {
+  if (intervalS > 0.8 && intervalS < 8 && vAnchorT > 0 && (now - vAnchorT) < 5000) {
     const segStart = now - intervalS * 1000;
     const seg = velocityWindow.filter(p => p.t >= segStart);
-    const avgV = seg.length >= 2 ? seg.reduce((a, b) => a + b.v, 0) / seg.length : vAnchor;
-    if (avgV > 0.3) {
-      const dps = avgV * intervalS;
-      if (dps > 0.5 && dps < 25) {
-        dpsValsArr.push(dps);
-        if (dpsValsArr.length > 4) dpsValsArr.shift();
-        distPerStroke = Math.round(dpsValsArr.reduce((a, b) => a + b, 0) / dpsValsArr.length * 10) / 10;
-        if (distPerStroke > maxDPS) maxDPS = distPerStroke;
+    if (seg.length >= 2) {
+      // Use median speed (not mean) — resistant to GPS spike
+      const sorted = [...seg].sort((a, b) => a.v - b.v);
+      const mid = Math.floor(sorted.length / 2);
+      const medV = sorted.length % 2 === 0
+        ? (sorted[mid - 1].v + sorted[mid].v) / 2
+        : sorted[mid].v;
+      if (medV > 0.3) {
+        const dps = medV * intervalS;
+        if (dps > 0.5 && dps < 25) {
+          dpsValsArr.push(dps);
+          if (dpsValsArr.length > 8) dpsValsArr.shift(); // was 4 — now 8 strokes
+          distPerStroke = Math.round(dpsValsArr.reduce((a, b) => a + b, 0) / dpsValsArr.length * 10) / 10;
+          if (distPerStroke > maxDPS) maxDPS = distPerStroke;
+        }
       }
     }
   }
@@ -801,10 +879,11 @@ function computeAutocorrelationRate(now) {
   if (raw < SPM_MIN || raw > SPM_MAX) return;
 
   acConf = Math.min(1, bestR);
-  acRate = acRate === 0 ? Math.round(raw) : Math.round(0.20 * raw + 0.80 * acRate);
+  // Faster IIR: 0.35 new vs 0.65 old (was 0.20/0.80 — too sluggish)
+  acRate = acRate === 0 ? Math.round(raw) : Math.round(0.35 * raw + 0.65 * acRate);
 
-  // If FSM hasn't fired recently, update display rate directly from autocorr
-  if (running && !paused && (now - lastCatchAbsT) > 3000) {
+  // Only drive the display from autocorr if FSM hasn't fired in >4s (e.g. paused paddle)
+  if (running && !paused && (now - lastCatchAbsT) > 4000) {
     strokeRate = acRate;
     updateUI();
   }
@@ -854,10 +933,15 @@ const PACE_MAX = 600;
 const paceReadings = [];
 let vAnchor = 0, vAnchorT = 0;
 const velocityWindow = [];
-const VEL_WINDOW_MS = 8000;
+const VEL_WINDOW_MS = 10000; // extended to 10s for better DPS median
+let gpsSpeedEma = -1; // EMA-smoothed GPS speed; -1 = uninitialised
+const GPS_EMA_ALPHA = 0.35; // ~3 GPS readings to converge
 
 function pushVelocity(t, v) {
-  velocityWindow.push({ t, v });
+  // EMA-smooth the GPS speed before storing — reduces single-reading spikes
+  if (gpsSpeedEma < 0) gpsSpeedEma = v;
+  else gpsSpeedEma = GPS_EMA_ALPHA * v + (1 - GPS_EMA_ALPHA) * gpsSpeedEma;
+  velocityWindow.push({ t, v: gpsSpeedEma });
   const cut = t - VEL_WINDOW_MS;
   while (velocityWindow.length > 1 && velocityWindow[0].t < cut) velocityWindow.shift();
 }
@@ -935,7 +1019,7 @@ function handleGpsErr(err) {
 let running = false, paused = false, elapsed = 0;
 let distance = 0, lapStartDist = 0, lapStartTime = 0;
 let laps = [], sessStart = null, sessStrokes = [], sessPaceTrace = [];
-let timerInt = null, wakeLock = null;
+let timerInt = null, autosaveInt = null, wakeLock = null;
 
 /* ════════════════════════════════════════
    UI UPDATE
@@ -1052,6 +1136,7 @@ function startSess() {
   lapStartDist = distance; lapStartTime = elapsed;
   running = true; paused = false;
   timerInt = setInterval(() => { elapsed++; updateUI(); }, 1000);
+  autosaveInt = setInterval(saveInProgress, 30000);
   requestAnimationFrame(renderCtrl);
 }
 
@@ -1190,7 +1275,18 @@ document.getElementById('perm-btn').addEventListener('click', async () => {
       `Noise floor ${cal.noiseFloor} m/s²  ·  Jerk threshold ${cal.jerkThresh} m/s³`;
     document.getElementById('cal-bar').style.width = '100%';
     document.getElementById('p-cal').className = 'pill pill-on';
-    setTimeout(enterLive, 1500);
+    // Give 8 seconds before auto-proceeding so user can recalibrate outdoors
+    document.getElementById('cal-start-btn').textContent = 'RECALIBRATE';
+    document.getElementById('cal-start-btn').disabled = false;
+    document.getElementById('cal-skip-btn').textContent = 'USE SAVED · CONTINUE';
+    let autoT = setTimeout(enterLive, 8000);
+    // Cancel auto-proceed if user taps either button
+    document.getElementById('cal-start-btn').addEventListener('click', () => {
+      clearTimeout(autoT); startCalibration();
+    }, { once: true });
+    document.getElementById('cal-skip-btn').addEventListener('click', () => {
+      clearTimeout(autoT); calRunning = false; enterLive();
+    }, { once: true });
   }
 });
 
@@ -1467,5 +1563,6 @@ if ('serviceWorker' in navigator) {
 /* ── init ── */
 wireTabButtons(); wireCfgTiles(); updateCfgTile('top'); updateCfgTile('bot');
 </script>
+
 </body>
 </html>
