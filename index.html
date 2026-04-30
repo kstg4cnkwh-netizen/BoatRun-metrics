@@ -1074,8 +1074,8 @@ function updateUI() {
 /* ════════════════════════════════════════
    CONFIGURABLE TILES
 ════════════════════════════════════════ */
-const CFG_OPTIONS = ['total-time', 'total-dist', 'tod', 'lap-pace', 'lap-time', 'lap-dist'];
-const CFG_LABELS = { 'tod': 'Time of day', 'total-time': 'Total time', 'lap-time': 'Lap time', 'lap-pace': 'Lap pace', 'total-dist': 'Total distance', 'lap-dist': 'Lap distance' };
+const CFG_OPTIONS = ['total-time', 'total-dist', 'tod', 'lap-pace', 'lap-time', 'lap-dist', 'avg-pace'];
+const CFG_LABELS = { 'tod': 'Time of day', 'total-time': 'Total time', 'lap-time': 'Lap time', 'lap-pace': 'Lap pace', 'total-dist': 'Total distance', 'lap-dist': 'Lap distance', 'avg-pace': 'Avg pace' };
 let cfgTop = (() => { const v = localStorage.getItem('scull_cfg_top'); return (v && CFG_OPTIONS.includes(v)) ? v : 'total-time'; })();
 let cfgBot = (() => { const v = localStorage.getItem('scull_cfg_bot'); return (v && CFG_OPTIONS.includes(v)) ? v : 'total-dist'; })();
 
@@ -1091,12 +1091,24 @@ function cfgValue(key) {
   const on = running && !paused;
   const ld = Math.round(distance - lapStartDist);
   const lt = elapsed - lapStartTime;
+  // Lap pace: use lap-specific pace if a lap has been pressed, else fall back to avg pace
+  const lapPressed = laps.length > 0;
   const lp = ld > 5 && lt > 0 ? (lt / ld) * 500 : 0;
+  const ap = sessPaceTrace.length > 0 ? sessPaceTrace.reduce((a, b) => a + b, 0) / sessPaceTrace.length : 0;
   switch (key) {
     case 'tod': { const d = new Date(); return { val: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, sub: '', dim: false }; }
     case 'total-time': return { val: fmtH(elapsed), sub: '', dim: !on && elapsed === 0 };
     case 'lap-time': return { val: fmt(lt), sub: '', dim: !on };
-    case 'lap-pace': if (on && lp > 0 && lp < PACE_MAX) return { val: fmt(lp), sub: 'min/500m', dim: false }; return { val: '--:--', sub: 'min/500m', dim: true };
+    case 'lap-pace':
+      if (on) {
+        // Before first lap tap: show avg pace as a proxy
+        if (!lapPressed && ap > 0 && ap < PACE_MAX) return { val: fmt(ap), sub: 'avg pace', dim: false };
+        if (lapPressed && lp > 0 && lp < PACE_MAX) return { val: fmt(lp), sub: 'lap pace', dim: false };
+      }
+      return { val: '--:--', sub: 'min/500m', dim: true };
+    case 'avg-pace':
+      if ((running || elapsed > 0) && ap > 0 && ap < PACE_MAX) return { val: fmt(ap), sub: 'min/500m', dim: false };
+      return { val: '--:--', sub: 'min/500m', dim: true };
     case 'total-dist': if (running || elapsed > 0) return { val: Math.round(distance), sub: 'metres', dim: false }; return { val: '0', sub: 'metres', dim: true };
     case 'lap-dist': if (on && ld > 0) return { val: ld, sub: 'metres', dim: false }; return { val: '--', sub: 'metres', dim: true };
     default: return { val: '--', sub: '', dim: true };
@@ -1144,7 +1156,7 @@ function pauseSess() { paused = true; running = false; clearInterval(timerInt); 
 function resumeSess() { paused = false; running = true; timerInt = setInterval(() => { elapsed++; updateUI(); }, 1000); requestAnimationFrame(renderCtrl); }
 
 function stopSess() {
-  running = false; paused = false; clearInterval(timerInt);
+  running = false; paused = false; clearInterval(timerInt); clearInterval(autosaveInt);
   if (elapsed > 10 && sessStrokes.length > 0) {
     const ap = sessPaceTrace.length > 0 ? Math.round(sessPaceTrace.reduce((a, b) => a + b, 0) / sessPaceTrace.length) : 0;
     const ar = sessStrokes.length > 0 ? Math.round(sessStrokes.reduce((a, b) => a + b.rate, 0) / sessStrokes.length) : 0;
@@ -1168,12 +1180,14 @@ function stopSess() {
       detectedAxis: selAxis
     });
     toast('Session saved');
+    localStorage.removeItem(AUTOSAVE_DB);
   }
   requestAnimationFrame(renderCtrl);
 }
 
 function resetSess() {
-  running = false; paused = false; clearInterval(timerInt);
+  running = false; paused = false; clearInterval(timerInt); clearInterval(autosaveInt);
+  localStorage.removeItem(AUTOSAVE_DB);
   elapsed = 0; distance = 0; pace = 0; strokeRate = 0; strokeCount = 0;
   acRate = 0; acConf = 0; distPerStroke = 0; dpsValsArr = [];
   lapStartDist = 0; lapStartTime = 0;
@@ -1188,6 +1202,8 @@ function resetSess() {
   jerkThreshActive = jerkThreshBase; adaptReady = false;
   acBuf.length = 0; acLastUpdate = 0;
   jerkBuf.length = 0;
+  catchTsBuf.length = 0;
+  gpsSpeedEma = -1;
   // Unlock axis so it re-detects
   axisLocked = false; axisAutoDetected = false;
   lastAxisCheck = 0;
@@ -1562,6 +1578,7 @@ if ('serviceWorker' in navigator) {
 
 /* ── init ── */
 wireTabButtons(); wireCfgTiles(); updateCfgTile('top'); updateCfgTile('bot');
+checkAutosave();
 </script>
 
 </body>
