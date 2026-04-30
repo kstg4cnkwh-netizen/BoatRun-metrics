@@ -816,20 +816,42 @@ function onStrokeFinish(now, driveDur) {
   computeRunLoss(now, intervalS);
 
   /* ── EFFICIENCY SCORE ─────────────────────────────── */
-  // Composite: DPS × (1 - run_loss%) × gaussian rate factor centred at 28 spm
   if (runLossPct != null && distPerStroke > 0 && strokeRate > 0) {
     const baseEff = distPerStroke * (1 - runLossPct / 100);
     const rateFactor = Math.exp(-Math.pow((strokeRate - 28) / 10, 2));
     effScore = baseEff * rateFactor;
   } else effScore = null;
 
-  /* ── RECORD ───────────────────────────────────────── */
+  /* ── RECORD (standard + debug fields) ────────────── */
+  const catchIntervalMs = catchTsBuf.length >= 2
+    ? catchTsBuf[catchTsBuf.length - 1] - catchTsBuf[catchTsBuf.length - 2] : null;
+  // Raw median rate before IIR blending
+  const medRateRaw = rateFromMedianIntervals();
+  // Raw DPS before 8-stroke average
+  const dpsRaw = intervalS > 0 && gpsSpeedEma > 0 ? +(gpsSpeedEma * intervalS).toFixed(2) : null;
+
   strokeCount++;
   sessStrokes.push({
+    // Standard fields
     t: Date.now(), catchPeak: catchSlope, char: strokeChar,
     rate: strokeRate, pace: pace > 0 ? pace : null,
     dist: distance, dps: distPerStroke,
-    runLossPct, runLossMs, runEfficiency, effScore, catchConsistency
+    runLossPct, runLossMs, runEfficiency, effScore, catchConsistency,
+    // Debug fields
+    dbg: {
+      intervalMs: catchIntervalMs ? Math.round(catchIntervalMs) : null,
+      driveDurMs: Math.round(driveDur),
+      catchJerkRaw: +catchPeakJerk.toFixed(1),
+      jerkThresh: +jerkThreshActive.toFixed(2),
+      medRateFsm: medRateRaw > 0 ? +medRateRaw.toFixed(1) : null,
+      acRate: acRate > 0 ? acRate : null,
+      acConf: +acConf.toFixed(3),
+      gpsEma: gpsSpeedEma > 0 ? +gpsSpeedEma.toFixed(3) : null,
+      dpsRaw,
+      dpsN: dpsValsArr.length,
+      selAxis,
+      axisLocked
+    }
   });
   updateUI();
 }
@@ -972,6 +994,7 @@ function computeRunLoss(now, strokeIntervalS) {
 
 let lastPos = null;
 const sessGpsTrace = [];
+const sessGpsRawTrace = []; // debug: raw + EMA GPS speed with timestamps
 
 function handlePos(pos) {
   document.getElementById('p-gps').className = 'pill pill-on';
@@ -982,6 +1005,8 @@ function handlePos(pos) {
   if (running && !paused && spd != null && spd >= 0 && spd < 12) {
     vAnchor = spd; vAnchorT = now;
     pushVelocity(now, spd);
+    // Record raw + smoothed speed for debug export
+    sessGpsRawTrace.push({ t: Date.now(), rawSpd: +spd.toFixed(3), emaSpd: +gpsSpeedEma.toFixed(3), acc: +(pos.coords.accuracy || 0).toFixed(1) });
   }
 
   const cur = { lat: pos.coords.latitude, lon: pos.coords.longitude, t: Date.now() };
@@ -1175,7 +1200,7 @@ function stopSess() {
       avgConsistency: ac,
       avgEffScore: avg(sessStrokes, 'effScore'),
       strokes: sessStrokes, paceTrace: sessPaceTrace,
-      gpsTrace: sessGpsTrace, hrTrace: null, laps,
+      gpsTrace: sessGpsTrace, gpsRawTrace: sessGpsRawTrace, hrTrace: null, laps,
       calNoiseFloor: cal.noiseFloor, calThresh: cal.jerkThresh,
       detectedAxis: selAxis
     });
@@ -1195,7 +1220,7 @@ function resetSess() {
   catchValsArr.length = 0; catchConsistency = null;
   strokeChar = 50; charValsArr.length = 0;
   runLossPct = null; runLossMs = null; runEfficiency = null; effScore = null;
-  laps = []; sessStrokes.length = 0; sessPaceTrace.length = 0; sessGpsTrace.length = 0;
+  laps = []; sessStrokes.length = 0; sessPaceTrace.length = 0; sessGpsTrace.length = 0; sessGpsRawTrace.length = 0;
   strokeTs.length = 0; paceReadings.length = 0;
   velocityWindow.length = 0; vAnchor = 0; vAnchorT = 0;
   fsmState = FS.IDLE; catchPeakJerk = 0; lastCatchAbsT = 0; strokesDetected = 0;
@@ -1411,6 +1436,7 @@ function showDetail(id) {
       ${(() => { const best = s.laps.length > 1 ? s.laps.reduce((b, l) => l.pace < b.pace ? l : b, s.laps[0]) : null; return s.laps.map(l => `<tr class="${best && l.n === best.n ? 'best' : ''}"><td>${l.n}</td><td>${l.dist}m</td><td>${fmt(l.time)}</td><td>${l.pace > 0 ? fmt(l.pace) : '—'}</td><td>${l.rate}</td></tr>`).join(''); })()}
       </table></div>` : ''}
     <button class="exp-btn" id="exp-btn">⬇ Export CSV</button>
+    <button class="exp-btn" id="dbg-btn" style="background:#2e4057;margin-top:4px">⬇ Debug CSV</button>
     <button class="del-btn" id="del-btn">Delete Session</button>
     <div style="height:20px"></div>`;
 
@@ -1436,6 +1462,7 @@ function showDetail(id) {
     const fz = document.getElementById('fit-zone');
     if (fz) fz.addEventListener('click', () => { const inp = document.getElementById('fit-input'); inp.onchange = ev => handleGPX(ev, s.id); inp.click(); });
     document.getElementById('exp-btn').addEventListener('click', () => exportCSV(s));
+    document.getElementById('dbg-btn').addEventListener('click', () => exportDebugCSV(s));
     document.getElementById('del-btn').addEventListener('click', () => {
       if (confirm('Delete this session?')) {
         delSess(s.id);
@@ -1487,9 +1514,12 @@ async function handleGPX(e, sessionId) {
     if (idx >= 0) {
       sessions[idx].hrTrace = result.hr;
       if (result.speedTrace) sessions[idx].garminSpeedTrace = result.speedTrace;
+      if (result.cadenceTrace) sessions[idx].garminCadenceTrace = result.cadenceTrace;
       if (result.laps) sessions[idx].garminLaps = result.laps;
       saveSess(sessions);
-      if (st) { st.textContent = `✓ ${result.hr.length} HR samples${result.laps ? ` · ${result.laps.length} laps` : ''}`; st.style.color = '#27ae60'; }
+      const cadCount = result.cadenceTrace ? result.cadenceTrace.filter(p => p.cadence != null).length : 0;
+      const cadMsg = cadCount > 0 ? ` · ${cadCount} cadence pts` : ' · no cadence in file';
+      if (st) { st.textContent = `✓ ${result.hr.length} HR samples${cadMsg}${result.laps ? ` · ${result.laps.length} laps` : ''}`; st.style.color = '#27ae60'; }
       setTimeout(() => showDetail(sessionId), 700);
     }
   } catch (err) { if (st) { st.textContent = 'Parse error: ' + err.message; st.style.color = '#c0392b'; } }
@@ -1499,15 +1529,76 @@ async function handleGPX(e, sessionId) {
 function parseTCX(text) {
   const doc = new DOMParser().parseFromString(text, 'application/xml');
   if (doc.querySelector('parseerror')) throw new Error('Invalid XML');
-  const hr = [], speedTrace = [];
+
+  // Helper: find first child element matching localName (namespace-agnostic)
+  const childVal = (el, name) => {
+    const found = [...el.querySelectorAll('*')].find(e => e.localName === name);
+    return found ? found.textContent.trim() : null;
+  };
+
+  const hr = [], speedTrace = [], cadenceTrace = [];
+
   doc.querySelectorAll('Trackpoint').forEach(tp => {
     const timeEl = tp.querySelector('Time'); if (!timeEl) return;
     const t = new Date(timeEl.textContent.trim()).getTime(); if (isNaN(t)) return;
+
+    // Heart rate
     const hrEl = tp.querySelector('HeartRateBpm Value');
     if (hrEl) { const v = parseInt(hrEl.textContent.trim()); if (v > 0 && v < 250) hr.push({ t, hr: v }); }
-    const speedEls = [...tp.querySelectorAll('*')].filter(el => el.localName === 'Speed');
-    if (speedEls.length) { const spd = parseFloat(speedEls[0].textContent.trim()); if (!isNaN(spd) && spd >= 0) speedTrace.push({ t, spd }); }
+
+    // Speed: standard then Garmin extension ns3:Speed / TPX Speed
+    let spd = null;
+    const speedEls = [...tp.querySelectorAll('*')].filter(e => e.localName === 'Speed');
+    if (speedEls.length) { const v = parseFloat(speedEls[0].textContent.trim()); if (!isNaN(v) && v >= 0) spd = v; }
+    if (spd !== null) speedTrace.push({ t, spd });
+
+    // Cumulative distance
+    const distEl = tp.querySelector('DistanceMeters');
+    const dist = distEl ? parseFloat(distEl.textContent.trim()) : null;
+
+    // Cadence: try multiple locations Garmin uses for rowing
+    // 1. Standard <Cadence> (used by some Garmin rowing profiles)
+    // 2. Extensions → ns3:RunCadence (Garmin Connect rowing export)
+    // 3. Extensions → RunCadence (no namespace prefix)
+    // 4. Extensions → TPX → ns3:RunCadence
+    let cadence = null;
+    const cadEl = tp.querySelector('Cadence');
+    if (cadEl) { const v = parseInt(cadEl.textContent.trim()); if (v >= 0 && v < 100) cadence = v; }
+    if (cadence === null) {
+      // Walk all extension children looking for any cadence-like element
+      const extEls = [...tp.querySelectorAll('*')].filter(e =>
+        e.localName === 'RunCadence' || e.localName === 'Cadence'
+      );
+      for (const el of extEls) {
+        const v = parseInt(el.textContent.trim());
+        if (!isNaN(v) && v >= 0 && v < 100) { cadence = v; break; }
+      }
+    }
+
+    // Only push to cadenceTrace if we have something useful
+    if (cadence !== null || dist !== null || spd !== null) {
+      cadenceTrace.push({
+        t,
+        cadence,           // stroke rate at this point (spm), null if absent
+        dist: dist != null ? +dist.toFixed(1) : null,  // cumulative metres
+        spd: spd != null ? +spd.toFixed(3) : null      // m/s
+      });
+    }
   });
+
+  // Compute incremental distance and per-interval DPS from cadenceTrace
+  // Garmin DPS = distance_increment / strokes_in_interval
+  for (let i = 1; i < cadenceTrace.length; i++) {
+    const prev = cadenceTrace[i - 1], cur = cadenceTrace[i];
+    const dtS = (cur.t - prev.t) / 1000;
+    if (dtS > 0 && dtS < 10 && cur.dist != null && prev.dist != null) {
+      const dDist = cur.dist - prev.dist;
+      const strokes = cur.cadence != null ? cur.cadence * dtS / 60 : null;
+      cur.dDist = +dDist.toFixed(2);
+      cur.dps = strokes > 0.1 ? +(dDist / strokes).toFixed(2) : null;
+    }
+  }
+
   const laps = [];
   doc.querySelectorAll('Lap').forEach((lap, i) => {
     const get = tag => { const el = lap.querySelector(tag); return el ? parseFloat(el.textContent.trim()) : null; };
@@ -1520,7 +1611,13 @@ function parseTCX(text) {
     const avgSpm = (steps && t) ? Math.round(steps / t * 60) : null;
     if (t && d) laps.push({ n: i + 1, time: Math.round(t), dist: Math.round(d), pace: t > 0 && d > 0 ? (t / d) * 500 : 0, avgHr, maxHr, cal: cal_c, garminStrokes: steps, garminAvgSpm: avgSpm });
   });
-  return { hr, speedTrace: speedTrace.length ? speedTrace : null, laps: laps.length ? laps : null };
+
+  return {
+    hr,
+    speedTrace: speedTrace.length ? speedTrace : null,
+    cadenceTrace: cadenceTrace.length ? cadenceTrace : null,
+    laps: laps.length ? laps : null
+  };
 }
 
 function parseGPX(text) {
@@ -1572,6 +1669,187 @@ function exportCSV(s) {
 }
 
 /* ── service worker ── */
+/* ════════════════════════════════════════
+   DEBUG EXPORT
+════════════════════════════════════════ */
+function exportDebugCSV(s) {
+  const n  = v => (v != null && !isNaN(v)) ? v : '';
+  const f1 = v => v != null && !isNaN(v) ? parseFloat(v).toFixed(1) : '';
+  const f2 = v => v != null && !isNaN(v) ? parseFloat(v).toFixed(2) : '';
+  const f3 = v => v != null && !isNaN(v) ? parseFloat(v).toFixed(3) : '';
+  const rows = [];
+  const t0 = s.startTime;
+
+  rows.push(['=== ENVIRONMENT ===']);
+  rows.push(['session_id', s.id]);
+  rows.push(['start_time', new Date(s.startTime).toISOString()]);
+  rows.push(['end_time', new Date(s.endTime || s.startTime + s.duration * 1000).toISOString()]);
+  rows.push(['duration_s', n(s.duration)]);
+  rows.push(['detected_axis', s.detectedAxis || '?']);
+  rows.push(['cal_noise_floor_ms2', n(s.calNoiseFloor)]);
+  rows.push(['cal_jerk_thresh_ms3', n(s.calThresh)]);
+  rows.push(['stroke_count', n(s.strokeCount)]);
+  rows.push(['distance_m', n(s.distance)]);
+  rows.push([]);
+
+  rows.push(['=== STROKE DEBUG ===']);
+  rows.push(['stroke_n','timestamp','elapsed_s',
+    'rate_displayed_spm','rate_fsm_median_spm','rate_autocorr_spm','autocorr_conf','catch_interval_ms',
+    'drive_dur_ms','catch_jerk_raw_ms3','catch_jerk_avg_ms3','jerk_thresh_ms3',
+    'stroke_char_pct','catch_consistency_sigma',
+    'pace_s500m','gps_ema_ms','dps_raw_m','dps_avg_m','dps_sample_n',
+    'run_loss_pct','run_loss_delta_ms','run_efficiency','eff_score',
+    'axis','axis_locked','cumul_dist_m']);
+  if (s.strokes) s.strokes.forEach((r, i) => {
+    const d = r.dbg || {};
+    rows.push([i+1, new Date(r.t).toISOString(), +((r.t-t0)/1000).toFixed(1),
+      n(r.rate), f1(d.medRateFsm), n(d.acRate), f3(d.acConf), n(d.intervalMs),
+      n(d.driveDurMs), f1(d.catchJerkRaw), f1(r.catchPeak), f2(d.jerkThresh),
+      n(r.char), f1(r.catchConsistency),
+      r.pace>0?f1(r.pace):'', f3(d.gpsEma), f2(d.dpsRaw), f1(r.dps), n(d.dpsN),
+      f1(r.runLossPct), f2(r.runLossMs), f3(r.runEfficiency), f1(r.effScore),
+      d.selAxis||'', d.axisLocked?'1':'0', f1(r.dist)]);
+  });
+  rows.push([]);
+
+  if (s.gpsRawTrace && s.gpsRawTrace.length) {
+    rows.push(['=== GPS SPEED TRACE ===']);
+    rows.push(['timestamp','elapsed_s','raw_speed_ms','ema_speed_ms','raw_pace_s500m','ema_pace_s500m','gps_accuracy_m']);
+    s.gpsRawTrace.forEach(p => rows.push([
+      new Date(p.t).toISOString(), +((p.t-t0)/1000).toFixed(1),
+      f3(p.rawSpd), f3(p.emaSpd),
+      p.rawSpd>0.1?f1(500/p.rawSpd):'', p.emaSpd>0.1?f1(500/p.emaSpd):'',
+      f1(p.acc)]));
+    rows.push([]);
+  }
+
+  if (s.paceTrace && s.paceTrace.length) {
+    rows.push(['=== MEDIAN PACE TRACE ===']);
+    rows.push(['sample_n','pace_s500m']);
+    s.paceTrace.forEach((p,i) => rows.push([i+1, f1(p)]));
+    rows.push([]);
+  }
+
+  if (s.laps && s.laps.length) {
+    rows.push(['=== LAPS ===']);
+    rows.push(['lap','dist_m','time_s','pace_s500m','rate_spm']);
+    s.laps.forEach(l => rows.push([l.n,l.dist,l.time,l.pace>0?f1(l.pace):'',n(l.rate)]));
+    rows.push([]);
+  }
+
+  if (s.hrTrace && s.hrTrace.length) {
+    rows.push(['=== HEART RATE ===']);
+    rows.push(['timestamp','elapsed_s','hr_bpm']);
+    s.hrTrace.forEach(h => rows.push([new Date(h.t).toISOString(),+((h.t-t0)/1000).toFixed(1),h.hr]));
+    rows.push([]);
+  }
+
+  // ── GARMIN TRACKPOINT TRACE ──────────────────────────
+  // Full per-trackpoint data: cadence (stroke rate), speed, cumulative dist, derived DPS
+  if (s.garminCadenceTrace && s.garminCadenceTrace.length) {
+    const hasCad = s.garminCadenceTrace.some(p => p.cadence != null);
+    rows.push([`=== GARMIN TRACKPOINT TRACE (${s.garminCadenceTrace.length} points${hasCad ? '' : ' — NO CADENCE IN FILE'}) ===`]);
+    if (!hasCad) rows.push(['NOTE: FR955 rowing mode may not export per-trackpoint cadence. Lap-level stroke count is still available above.']);
+    rows.push(['timestamp','elapsed_s','garmin_cadence_spm','garmin_speed_ms','garmin_pace_s500m','garmin_cumul_dist_m','garmin_dist_increment_m','garmin_dps_m']);
+    s.garminCadenceTrace.forEach(p => rows.push([
+      new Date(p.t).toISOString(),
+      +((p.t - t0) / 1000).toFixed(1),
+      p.cadence != null ? p.cadence : '',
+      p.spd != null ? f3(p.spd) : '',
+      p.spd > 0.1 ? f1(500 / p.spd) : '',
+      p.dist != null ? f1(p.dist) : '',
+      p.dDist != null ? f2(p.dDist) : '',
+      p.dps != null ? f2(p.dps) : ''
+    ]));
+    rows.push([]);
+
+    // ── STROKE vs GARMIN COMPARISON ─────────────────────
+    // For each app-detected stroke, find the nearest Garmin trackpoint by timestamp.
+    // Shows: app rate, Garmin rate at that moment, error, and DPS comparison.
+    // Time-alignment note: app timestamps are wall-clock (Date.now()),
+    // Garmin timestamps are UTC from GPS — they should align if clocks agree.
+    if (hasCad && s.strokes && s.strokes.length) {
+      rows.push(['=== STROKE vs GARMIN COMPARISON ===']);
+      rows.push(['NOTE: Garmin values are interpolated from nearest trackpoint (±Xs). Large time_offset_s = clock skew.']);
+      rows.push([
+        'stroke_n', 'app_timestamp', 'elapsed_s',
+        'app_rate_spm', 'app_rate_fsm_median', 'app_rate_autocorr',
+        'garmin_rate_spm', 'rate_error_spm', 'rate_abs_error_spm',
+        'nearest_garmin_offset_s',
+        'app_dps_avg_m', 'garmin_dps_m', 'dps_error_m',
+        'app_catch_jerk_ms3', 'app_jerk_thresh_ms3',
+        'app_drive_dur_ms', 'app_interval_ms'
+      ]);
+
+      const cTrace = s.garminCadenceTrace;
+      s.strokes.forEach((r, i) => {
+        const d = r.dbg || {};
+        // Find nearest Garmin trackpoint by timestamp
+        let best = null, bestDt = Infinity;
+        for (const p of cTrace) {
+          const dt = Math.abs(p.t - r.t);
+          if (dt < bestDt) { bestDt = dt; best = p; }
+        }
+        const gRate = best && best.cadence != null ? best.cadence : null;
+        const rateErr = (gRate != null && r.rate > 0) ? (r.rate - gRate) : null;
+        const gDps = best && best.dps != null ? best.dps : null;
+        const dpsErr = (gDps != null && r.dps > 0) ? (r.dps - gDps) : null;
+        rows.push([
+          i + 1,
+          new Date(r.t).toISOString(),
+          +((r.t - t0) / 1000).toFixed(1),
+          n(r.rate),
+          f1(d.medRateFsm),
+          n(d.acRate),
+          gRate != null ? gRate : '',
+          rateErr != null ? f1(rateErr) : '',
+          rateErr != null ? f1(Math.abs(rateErr)) : '',
+          +(bestDt / 1000).toFixed(1),
+          f1(r.dps),
+          gDps != null ? f2(gDps) : '',
+          dpsErr != null ? f2(dpsErr) : '',
+          f1(d.catchJerkRaw),
+          f2(d.jerkThresh),
+          n(d.driveDurMs),
+          n(d.intervalMs)
+        ]);
+      });
+      rows.push([]);
+
+      // Summary stats for the comparison
+      const rateErrors = s.strokes
+        .map((r, i) => {
+          const best = s.garminCadenceTrace.reduce((b, p) => Math.abs(p.t - r.t) < Math.abs(b.t - r.t) ? p : b);
+          return best.cadence != null && r.rate > 0 ? r.rate - best.cadence : null;
+        })
+        .filter(e => e != null);
+      if (rateErrors.length > 0) {
+        const mean = rateErrors.reduce((a, b) => a + b, 0) / rateErrors.length;
+        const mae = rateErrors.reduce((a, b) => a + Math.abs(b), 0) / rateErrors.length;
+        const rmse = Math.sqrt(rateErrors.reduce((a, b) => a + b * b, 0) / rateErrors.length);
+        rows.push(['=== RATE ERROR SUMMARY ===']);
+        rows.push(['compared_strokes', rateErrors.length]);
+        rows.push(['mean_error_spm (positive=app_high)', f2(mean)]);
+        rows.push(['mean_abs_error_spm', f2(mae)]);
+        rows.push(['rmse_spm', f2(rmse)]);
+        rows.push([]);
+      }
+    } else if (!hasCad) {
+      // No cadence but we can still show lap-level comparison
+      rows.push(['=== NOTE: No per-trackpoint cadence available ===']);
+      rows.push(['Use Garmin lap average SPM (in GARMIN LAPS section of standard export) for lap-level rate comparison.']);
+      rows.push(['To get per-trackpoint cadence: ensure FR955 is in Rowing activity (not Other). Some firmware versions do not export cadence in TCX.']);
+      rows.push([]);
+    }
+  }
+
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'}));
+  a.download = `scull_debug_${new Date(s.startTime).toISOString().slice(0,10)}_${s.id}.csv`;
+  a.click();
+  toast('Debug CSV exported');
+}
+
 if ('serviceWorker' in navigator) {
   const sw = `const C='scull-v8';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
   navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw], { type: 'application/javascript' }))).catch(() => {});
