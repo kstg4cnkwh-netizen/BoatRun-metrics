@@ -155,7 +155,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
     <div class="perm-note">
       iOS: Settings → Safari → Motion &amp; Orientation Access<br/>
       Add to Home Screen for full-screen use · Works offline<br/>
-      <span style="color:rgba(255,255,255,.18)">v2.1</span>
+      <span style="color:rgba(255,255,255,.18)">v2.2</span>
     </div>
   </div>
 </div>
@@ -549,7 +549,10 @@ const PERIOD_MIN_MS = 1200;
 const PERIOD_MAX_MS = 6000;
 const REFRACTORY_MIN_MS = 600;
 const MAX_DRIVE_MS = 2800;
-const MIN_DRIVE_MS = 80;
+// FIX v2.2: MIN_DRIVE_MS raised 80→300ms
+// Ghost strokes (drive<300ms) inflated stroke count ~25% vs Garmin truth.
+// Real drive phase: r45≈400ms, r30≈600ms, r20≈900ms. 300ms gives safe margin.
+const MIN_DRIVE_MS = 300;
 
 let jerkThreshBase   = cal.jerkThresh;
 let jerkThreshActive = cal.jerkThresh;
@@ -622,6 +625,7 @@ let catchLast = null, catchPeakSess = null, catchAvg8 = null, catchConsistency =
 let charValsArr = [];
 let strokeChar = 50;
 let distPerStroke = 0, dpsValsArr = [], maxDPS = 0;
+let prevStrokeDist = 0, prevStrokeDistT = 0; // FIX v2.2: haversine dist-delta DPS
 const MAX_STROKE_TS = 4;
 const strokeTs = [];
 let runLossPct = null, runLossMs = null, runEfficiency = null, effScore = null;
@@ -678,15 +682,23 @@ function onStrokeFinish(now, driveDur) {
   catchAvg8 = catchLast;
   if (catchPeakSess === null || catchSlope > catchPeakSess) catchPeakSess = catchSlope;
 
-  if (catchValsArr.length >= 5 && !adaptReady) {
+  // FIX v2.2: continuous rolling jerk-threshold adaptation; floor raised 60%→100% of base
+  // v2.1 used !adaptReady guard — fired once, then threshold stuck at 3.0 m/s³ all session.
+  // That caused persistent ghost strokes. Now re-adapts every stroke with exponential smoothing.
+  if (catchValsArr.length >= 5) {
     const m = catchValsArr.reduce((a, b) => a + b, 0) / catchValsArr.length;
     const sd = Math.sqrt(catchValsArr.reduce((s, v) => s + (v - m) ** 2, 0) / catchValsArr.length);
-    jerkThreshActive = Math.max(jerkThreshBase * 0.6, m * 0.40 - sd * 0.5);
-    adaptReady = true;
-    if (strokesDetected >= 4) {
-      axisLocked = true;
-      const pill = document.getElementById('p-axis');
-      if (pill) { pill.textContent = 'AX:' + selAxis.toUpperCase(); pill.className = 'pill pill-on'; }
+    const target = Math.max(jerkThreshBase, m * 0.50 - sd * 0.35);
+    jerkThreshActive = adaptReady
+      ? (0.80 * jerkThreshActive + 0.20 * target)
+      : target;
+    if (!adaptReady) {
+      adaptReady = true;
+      if (strokesDetected >= 4) {
+        axisLocked = true;
+        const pill = document.getElementById('p-axis');
+        if (pill) { pill.textContent = 'AX:' + selAxis.toUpperCase(); pill.className = 'pill pill-on'; }
+      }
     }
   }
 
@@ -704,27 +716,20 @@ function onStrokeFinish(now, driveDur) {
   const intervalS = strokeTs.length >= 2
     ? (strokeTs[strokeTs.length - 1] - strokeTs[strokeTs.length - 2]) / 1000 : 0;
 
-  // ── FIX: DPS — require only 1 velocity point (was 2), use median of EMA window
-  if (intervalS > 0.8 && intervalS < 8 && vAnchorT > 0 && (now - vAnchorT) < 5000) {
-    const segStart = now - intervalS * 1000;
-    const seg = velocityWindow.filter(p => p.t >= segStart);
-    if (seg.length >= 1) { // FIX: was >= 2
-      const sorted = [...seg].sort((a, b) => a.v - b.v);
-      const mid = Math.floor(sorted.length / 2);
-      const medV = sorted.length % 2 === 0
-        ? (sorted[mid - 1].v + sorted[mid].v) / 2
-        : sorted[mid].v;
-      if (medV > 0.3) {
-        const dps = medV * intervalS;
-        if (dps > 0.5 && dps < 25) {
-          dpsValsArr.push(dps);
-          if (dpsValsArr.length > 8) dpsValsArr.shift();
-          distPerStroke = Math.round(dpsValsArr.reduce((a, b) => a + b, 0) / dpsValsArr.length * 10) / 10;
-          if (distPerStroke > maxDPS) maxDPS = distPerStroke;
-        }
-      }
+  // FIX v2.2: DPS from haversine distance-delta — matches Garmin method exactly.
+  // v2.1 used median(EMA-speed) × intervalS which lagged during acceleration phases
+  // and underestimated DPS by ~15% vs Garmin truth (app 7.6m vs Garmin 9.0m/stroke).
+  if (intervalS > 0.8 && intervalS < 8 && prevStrokeDistT > 0) {
+    const dDist = distance - prevStrokeDist;
+    if (dDist > 0.5 && dDist < 25) {
+      dpsValsArr.push(dDist);
+      if (dpsValsArr.length > 8) dpsValsArr.shift();
+      distPerStroke = Math.round(dpsValsArr.reduce((a, b) => a + b, 0) / dpsValsArr.length * 10) / 10;
+      if (distPerStroke > maxDPS) maxDPS = distPerStroke;
     }
   }
+  prevStrokeDist = distance;
+  prevStrokeDistT = driveStartT;
 
   computeRunLoss(now, intervalS);
 
@@ -737,7 +742,7 @@ function onStrokeFinish(now, driveDur) {
   const catchIntervalMs = catchTsBuf.length >= 2
     ? catchTsBuf[catchTsBuf.length - 1] - catchTsBuf[catchTsBuf.length - 2] : null;
   const medRateRaw = rateFromMedianIntervals();
-  const dpsRaw = intervalS > 0 && gpsSpeedEma > 0 ? +(gpsSpeedEma * intervalS).toFixed(2) : null;
+  const dpsRaw = +(distance - prevStrokeDist).toFixed(2);
 
   strokeCount++;
   sessStrokes.push({
@@ -844,14 +849,12 @@ function handleMotion(e) {
 /* ════════════════════════════════════════
    GPS / PACE / VELOCITY
    ─────────────────────────────────────
-   FIX v2.1: GPS_EMA_ALPHA reduced 0.35→0.20
-   to dampen phone-GPS spikes (analysis showed
-   phone GPS can spike 40% above Garmin truth).
-   FIX v2.1: spike guard — if new GPS reading
-   is >2.5× current EMA, cap at 2.5× EMA before
-   applying EMA. Prevents single bad readings
-   from corrupting pace/DPS/run-loss for ~5s.
-   FIX v2.1: hard speed cap 12→8 m/s.
+   FIX v2.2: GPS_EMA_ALPHA raised 0.20→0.28
+   Spike guard (2.5× cap) handles outliers.
+   0.20 over-smoothed velocity → DPS underestimated
+   ~15% vs Garmin truth. 0.28 tracks better while
+   spike guard still prevents bad single readings.
+   Hard speed cap remains 8 m/s.
 ════════════════════════════════════════ */
 let pace = 0;
 const PACE_MAX = 600;
@@ -860,14 +863,14 @@ let vAnchor = 0, vAnchorT = 0;
 const velocityWindow = [];
 const VEL_WINDOW_MS = 10000;
 
-// FIX: EMA alpha reduced from 0.35 to 0.20 — reduces GPS spike influence
+// FIX v2.2: EMA alpha raised 0.20→0.28; spike guard handles outliers; 0.20 over-smoothed DPS ~15%
 let gpsSpeedEma = -1;
-const GPS_EMA_ALPHA = 0.20; // was 0.35
+const GPS_EMA_ALPHA = 0.28; // was 0.35→0.20→0.28
 
 function pushVelocity(t, v) {
   if (gpsSpeedEma < 0) gpsSpeedEma = v;
   else {
-    // FIX: spike guard — reject/cap readings >2.5× current EMA
+    // spike guard — reject/cap readings >2.5× current EMA
     const vCapped = (gpsSpeedEma > 0.5 && v > gpsSpeedEma * 2.5) ? gpsSpeedEma * 2.5 : v;
     gpsSpeedEma = GPS_EMA_ALPHA * vCapped + (1 - GPS_EMA_ALPHA) * gpsSpeedEma;
   }
@@ -877,11 +880,8 @@ function pushVelocity(t, v) {
 }
 
 /* ── Run Loss ─────────────────────────────────────────
-   FIX v2.1: require only 2 GPS points (was 3) to
-   compute run loss — doubles coverage from ~38% to ~70%.
-   FIX v2.1: guard vmax > 1.0 m/s — prevents GPS-zero
-   readings during active rowing from generating 90%+
-   run-loss readings that are physically impossible.
+   FIX v2.1: require only 2 GPS points (was 3).
+   FIX v2.1: guard vmax > 1.0 m/s.
 ─────────────────────────────────────────────────────── */
 function computeRunLoss(now, strokeIntervalS) {
   const windowMs = strokeIntervalS > 0
@@ -889,14 +889,12 @@ function computeRunLoss(now, strokeIntervalS) {
     : (strokeRate > 0 ? (60000 / strokeRate) * 1.1 : 3500);
   const cutoff = (now || performance.now()) - windowMs;
   const rel = velocityWindow.filter(p => p.t >= cutoff);
-  if (rel.length < 2) { runLossPct = null; runLossMs = null; runEfficiency = null; return; } // FIX: was < 3
+  if (rel.length < 2) { runLossPct = null; runLossMs = null; runEfficiency = null; return; }
   let vmax = 0, vmin = Infinity;
   for (const p of rel) {
     if (p.v > vmax) vmax = p.v;
     if (p.v < vmin) vmin = p.v;
   }
-  // FIX: guard — vmax must be physically plausible for rowing (>1.0 m/s)
-  // prevents GPS-zero artifacts from producing ~100% run-loss readings
   if (vmax < 1.0 || vmin >= vmax) { runLossPct = null; runLossMs = null; runEfficiency = null; return; }
   runLossMs = +(vmax - vmin).toFixed(2);
   runLossPct = Math.round((vmax - vmin) / vmax * 100);
@@ -913,9 +911,7 @@ function handlePos(pos) {
   const spd = pos.coords.speed;
   const now = performance.now();
 
-  // FIX: tighter hard cap — 8 m/s (was 12). Garmin truth showed max 4.42 m/s even with
-  // tidal assist in a double; 8 m/s gives generous headroom while cutting obvious spikes.
-  if (running && !paused && spd != null && spd >= 0 && spd < 8) { // FIX: was < 12
+  if (running && !paused && spd != null && spd >= 0 && spd < 8) {
     vAnchor = spd; vAnchorT = now;
     pushVelocity(now, spd);
     sessGpsRawTrace.push({ t: Date.now(), rawSpd: +spd.toFixed(3), emaSpd: +gpsSpeedEma.toFixed(3), acc: +(pos.coords.accuracy || 0).toFixed(1) });
@@ -929,11 +925,11 @@ function handlePos(pos) {
   lastPos = cur;
 
   if (running && !paused && spd != null) {
-    if (spd > 0.5 && spd < 8) { // FIX: was spd > 0.5 (no upper cap on pace readings)
+    if (spd > 0.5 && spd < 8) {
       const raw = 500 / spd;
       if (raw < PACE_MAX) {
         paceReadings.push(raw);
-        if (paceReadings.length > 6) paceReadings.shift();
+        if (paceReadings.length > 10) paceReadings.shift(); // FIX v2.2: 6→10 for smoother pace display
         const sorted = [...paceReadings].sort((a, b) => a - b);
         const mid = Math.floor(sorted.length / 2);
         pace = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
@@ -1142,6 +1138,7 @@ function resetSess() {
   laps = []; sessStrokes.length = 0; sessPaceTrace.length = 0; sessGpsTrace.length = 0; sessGpsRawTrace.length = 0;
   strokeTs.length = 0; paceReadings.length = 0;
   velocityWindow.length = 0; vAnchor = 0; vAnchorT = 0;
+  prevStrokeDist = 0; prevStrokeDistT = 0; // FIX v2.2
   fsmState = FS.IDLE; catchPeakJerk = 0; lastCatchAbsT = 0; strokesDetected = 0;
   jerkThreshActive = jerkThreshBase; adaptReady = false;
   acBuf.length = 0; acLastUpdate = 0;
@@ -1431,7 +1428,7 @@ async function handleGPX(e, sessionId) {
     let result;
     if (isFIT) {
       const buf = await file.arrayBuffer();
-      result = parseFITInline(buf); // FIX: inline parser, no CDN needed
+      result = parseFITInline(buf);
     } else {
       const text = await file.text();
       result = isTCX ? parseTCX(text) : parseGPX(text);
@@ -1460,32 +1457,7 @@ async function handleGPX(e, sessionId) {
 }
 
 /* ════════════════════════════════════════
-   INLINE FIT BINARY PARSER  (v2.1)
-   ─────────────────────────────────────
-   Fully self-contained — no CDN required.
-   Works offline. Handles FIT protocol 1 & 2.
-
-   Key field IDs (Record, global msg 20):
-     0  pos_lat       sint32  semicircles
-     1  pos_lon       sint32  semicircles
-     3  heart_rate    uint8   bpm
-     4  cadence       uint8   spm (rowing)
-     5  distance      uint32  /100 = m
-     6  speed         uint16  /1000 = m/s
-    87  speed alt     uint16  /1000 = m/s
-   108  enhanced_spd  uint32  /1000 = m/s  ← Garmin FR955 uses this
-   253  timestamp     uint32  FIT epoch + s
-
-   Key field IDs (Lap, global msg 19):
-     7  total_elapsed_time  uint32 /1000=s
-     9  total_distance      uint32 /100=m
-    10  total_cycles        uint32 (strokes in rowing)
-    11  total_calories      uint16
-    13  avg_speed           uint16 /1000=m/s
-    16  avg_heart_rate      uint8  bpm
-    17  max_heart_rate      uint8  bpm
-    18  avg_cadence         uint8  spm
-    90  avg_stroke_dist     uint16 /100=m
+   INLINE FIT BINARY PARSER  (v2.2)
 ════════════════════════════════════════ */
 function parseFITInline(buffer) {
   const u8 = new Uint8Array(buffer);
@@ -1509,7 +1481,7 @@ function parseFITInline(buffer) {
       if (btype === 0x85) return dv.getInt32(p, le);
       return dv.getUint32(p, le);
     }
-    return null; // skip 8-byte and string types
+    return null;
   }
 
   function isValid(v, size) {
@@ -1524,7 +1496,7 @@ function parseFITInline(buffer) {
     let hdr;
     try { hdr = u8[pos++]; } catch(e) { break; }
 
-    if (hdr & 0x80) { // compressed timestamp
+    if (hdr & 0x80) {
       const ln = (hdr >> 5) & 0x3;
       const d = defs[ln];
       if (d) pos += d.sz;
@@ -1561,7 +1533,6 @@ function parseFITInline(buffer) {
       }
       pos = p;
 
-      /* ── Record message (20) ── */
       if (d.gn === 20) {
         const ts = fd[253];
         if (!isValid(ts, 4)) continue;
@@ -1570,7 +1541,6 @@ function parseFITInline(buffer) {
         const hrV = fd[3];
         if (isValid(hrV, 1) && hrV > 0 && hrV < 250) hr.push({ t: tMs, hr: hrV });
 
-        // Speed: enhanced_speed (108) preferred — FR955 uses this field, not field 6
         let spd = null;
         if (isValid(fd[108], 4)) spd = fd[108] / 1000;
         else if (isValid(fd[6],   2)) spd = fd[6]   / 1000;
@@ -1589,13 +1559,12 @@ function parseFITInline(buffer) {
         });
       }
 
-      /* ── Lap message (19) ── */
       else if (d.gn === 19) {
-        const elRaw = fd[7]; // uint32, /1000 = seconds — always divide
-        const dRaw  = fd[9]; // uint32, /100  = metres  — always divide
+        const elRaw = fd[7];
+        const dRaw  = fd[9];
         if (!isValid(elRaw, 4)) continue;
-        const lapTime = elRaw / 1000;   // FIX: unconditional /1000 (was conditional)
-        const lapDist = isValid(dRaw, 4) ? dRaw / 100 : 0; // FIX: unconditional /100
+        const lapTime = elRaw / 1000;
+        const lapDist = isValid(dRaw, 4) ? dRaw / 100 : 0;
         const avgHr  = isValid(fd[16], 1) ? fd[16] : null;
         const maxHr  = isValid(fd[17], 1) ? fd[17] : null;
         const avgCad = isValid(fd[18], 1) ? fd[18] : null;
@@ -1603,7 +1572,6 @@ function parseFITInline(buffer) {
         const avgSpd = isValid(avgSR, 2) ? avgSR / 1000
                      : (lapDist > 0 && lapTime > 0 ? lapDist / lapTime : 0);
         const cal    = isValid(fd[11], 2) ? fd[11] : null;
-        // total_cycles (field 10) = strokes in Garmin rowing; fallback 23, 32
         const strokRaw = fd[10] || fd[23] || fd[32] || null;
         const strokes  = (strokRaw && strokRaw < 0xFFFFFFFF) ? strokRaw : null;
         const sdRaw    = fd[90];
@@ -1623,7 +1591,6 @@ function parseFITInline(buffer) {
     }
   }
 
-  // Incremental distance and per-interval DPS from cadenceTrace
   for (let i = 1; i < cadenceTrace.length; i++) {
     const prev = cadenceTrace[i - 1], cur = cadenceTrace[i];
     const dtS = (cur.t - prev.t) / 1000;
@@ -1775,8 +1742,9 @@ function exportDebugCSV(s) {
   rows.push(['cal_jerk_thresh_ms3', n(s.calThresh)]);
   rows.push(['stroke_count', n(s.strokeCount)]);
   rows.push(['distance_m', n(s.distance)]);
-  rows.push(['app_version', 'v2.1']);
-  rows.push(['gps_ema_alpha', '0.20']);
+  rows.push(['app_version', 'v2.2']);
+  rows.push(['gps_ema_alpha', '0.28']);
+  rows.push(['min_drive_ms', '300']);
   rows.push(['gps_spike_cap_ms', '8.0']);
   rows.push([]);
   rows.push(['=== STROKE DEBUG ===']);
@@ -1887,7 +1855,7 @@ function exportDebugCSV(s) {
 
 /* ── service worker ── */
 if ('serviceWorker' in navigator) {
-  const sw = `const C='scull-v9';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
+  const sw = `const C='scull-v10';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
   navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw], { type: 'application/javascript' }))).catch(() => {});
 }
 
