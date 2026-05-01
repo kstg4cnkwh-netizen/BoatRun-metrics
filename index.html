@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -141,8 +140,6 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 </head>
 <body>
 
-<!-- PERMISSION -->
-
 <div id="screen-perm" class="screen active">
   <div class="perm-inner">
     <div class="perm-icon">🚣</div>
@@ -158,12 +155,10 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
     <div class="perm-note">
       iOS: Settings → Safari → Motion &amp; Orientation Access<br/>
       Add to Home Screen for full-screen use · Works offline<br/>
-      <span style="color:rgba(255,255,255,.18)">v2.0</span>
+      <span style="color:rgba(255,255,255,.18)">v2.1</span>
     </div>
   </div>
 </div>
-
-<!-- CALIBRATION -->
 
 <div id="screen-cal" class="screen">
   <div class="perm-inner">
@@ -171,7 +166,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
     <div class="perm-title">CALIBRATE</div>
     <div class="perm-body">
       Sit still in the boat, phone mounted.<br/>
-      Measures noise floor on all axes to set catch threshold<br/>
+      Measures noise floor on all axes to set catch threshold
       and identify the rowing axis automatically.
     </div>
     <div class="cal-progress"><div class="cal-bar" id="cal-bar"></div></div>
@@ -181,8 +176,6 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
     <button class="perm-btn-sec" id="cal-skip-btn">SKIP · USE DEFAULTS</button>
   </div>
 </div>
-
-<!-- LIVE -->
 
 <div id="screen-live" class="screen">
   <div class="sbar">
@@ -276,8 +269,6 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
   </div>
 </div>
 
-<!-- ANALYSIS -->
-
 <div id="screen-analysis" class="screen">
   <div class="ahdr">
     <span class="ahdr-title">SESSION HISTORY</span>
@@ -310,10 +301,7 @@ const fmt = s => { s = Math.max(0, Math.round(s)); return `${String(Math.floor(s
 const fmtH = s => { s = Math.max(0, Math.round(s)); return `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
 const fmtDate = ts => { const d = new Date(ts); return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + d.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' }); };
 const haversine = (a, b) => { const R = 6371000, dLat = (b.lat - a.lat) * Math.PI / 180, dLon = (b.lon - a.lon) * Math.PI / 180, x = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2; return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x)); };
-
-// charLabel: 0=peak at catch (front loaded) ... 100=peak at finish (back loaded)
 const charLabel = v => v < 22 ? 'EARLY DRIVE' : v < 40 ? 'FRONT LOADED' : v < 60 ? 'BALANCED' : v < 78 ? 'LATE DRIVE' : 'BACK LOADED';
-
 function toast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
 
 if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
@@ -328,7 +316,6 @@ const saveSess = a => localStorage.setItem(DB, JSON.stringify(a));
 const addSess = s => { const a = loadSess(); a.unshift(s); saveSess(a); };
 const delSess = id => saveSess(loadSess().filter(s => s.id !== id));
 
-// Auto-save in-progress session every 30s so a crash doesn't lose everything
 function saveInProgress() {
   if (!running || !sessStart || sessStrokes.length === 0) return;
   try {
@@ -348,7 +335,6 @@ function saveInProgress() {
   } catch(e) {}
 }
 
-// Check for autosave on startup and offer to restore
 function checkAutosave() {
   try {
     const raw = localStorage.getItem(AUTOSAVE_DB);
@@ -356,11 +342,10 @@ function checkAutosave() {
     const snap = JSON.parse(raw);
     if (!snap || !snap._autosave || !snap.strokeCount) return;
     const age = Date.now() - snap._savedAt;
-    if (age > 12 * 3600 * 1000) { localStorage.removeItem(AUTOSAVE_DB); return; } // >12h old
+    if (age > 12 * 3600 * 1000) { localStorage.removeItem(AUTOSAVE_DB); return; }
     const mins = Math.round(snap.duration / 60);
     const km = (snap.distance / 1000).toFixed(2);
     if (confirm(`Recover autosaved session?\n${km} km · ${mins} min · ${snap.strokeCount} strokes\n(Saved ${Math.round(age/60000)} min ago)`)) {
-      // Add as a completed session
       snap._autosave = false;
       const a = loadSess(); a.unshift(snap); saveSess(a);
       localStorage.removeItem(AUTOSAVE_DB);
@@ -375,7 +360,6 @@ function checkAutosave() {
    CALIBRATION
 ════════════════════════════════════════ */
 const CAL_DB = 'scull_cal_v2';
-// Stored: noise per axis, jerk threshold, best axis hint
 let cal = { done: false, noiseFloor: 2.0, jerkThresh: 8.0, accThresh: 0.8, bestAxis: null };
 (() => { try { const c = JSON.parse(localStorage.getItem(CAL_DB)); if (c && c.done) cal = c; } catch {} })();
 
@@ -408,15 +392,12 @@ function finishCalibration() {
     setTimeout(enterLive, 1500);
     return;
   }
-  // Compute RMS noise per axis
   const rms = ax => {
     const a = calSamples[ax];
     return Math.sqrt(a.reduce((s, v) => s + v * v, 0) / a.length);
   };
   const noises = { x: rms('x'), y: rms('y'), z: rms('z') };
-  // Axis with most noise during stillness = probably gravity axis (z when flat) → skip
-  // Pick axis with least noise as baseline (excluding z which has ~9.8 gravity)
-  const noiseFloor = Math.min(noises.x, noises.y); // don't use z gravity baseline
+  const noiseFloor = Math.min(noises.x, noises.y);
   const jerkT = Math.max(5.0, Math.min(25.0, noiseFloor * 5.0));
   const accT = Math.max(0.4, Math.min(2.0, noiseFloor * 1.5));
 
@@ -431,7 +412,7 @@ function finishCalibration() {
 }
 
 function enterLive() {
-  if (enterLive._done) return; // guard — only wire once
+  if (enterLive._done) return;
   enterLive._done = true;
   document.getElementById('screen-cal').classList.remove('active');
   document.getElementById('screen-live').classList.add('active');
@@ -446,30 +427,21 @@ function enterLive() {
 
 /* ════════════════════════════════════════
    MULTI-AXIS AUTO-DETECTION
-   ─────────────────────────────────────
-   All 3 axes are smoothed and buffered.
-   Every 4 seconds we score each axis via
-   normalised autocorrelation in the rowing
-   period range (10–50 SPM). The axis with
-   the strongest periodic component is
-   selected. After 3+ strokes are confirmed
-   the axis is locked.
 ════════════════════════════════════════ */
 const AXES = ['x', 'y', 'z'];
-let selAxis = 'x';       // currently selected axis
-let axisLocked = false;  // locked once enough strokes detected
+let selAxis = 'x';
+let axisLocked = false;
 let axisAutoDetected = false;
 
-// Per-axis state
-const axSmooth = { x: 0, y: 0, z: 0 };  // IIR state (slow, for autocorr)
-const axFast   = { x: 0, y: 0, z: 0 };  // IIR state (fast, for FSM jerk)
-const axBuf    = { x: [], y: [], z: [] }; // smoothed sample buffers
-const axPrev   = { x: 0, y: 0, z: 0 };  // previous fast value for jerk
-const axPrevT  = { x: 0, y: 0, z: 0 };  // previous timestamp
+const axSmooth = { x: 0, y: 0, z: 0 };
+const axFast   = { x: 0, y: 0, z: 0 };
+const axBuf    = { x: [], y: [], z: [] };
+const axPrev   = { x: 0, y: 0, z: 0 };
+const axPrevT  = { x: 0, y: 0, z: 0 };
 
-const AX_BUF_MS  = 14000; // 14s ring buffer per axis
-const ALPHA_SLOW = 0.12;  // slow IIR for autocorr
-const ALPHA_FAST = 0.22;  // fast IIR for stroke detection
+const AX_BUF_MS  = 14000;
+const ALPHA_SLOW = 0.12;
+const ALPHA_FAST = 0.22;
 
 function updateAxes(e, now) {
   const acc = e.acceleration || e.accelerationIncludingGravity;
@@ -481,13 +453,10 @@ function updateAxes(e, now) {
     axBuf[ax].push({ t: now, v: axSmooth[ax] });
     const cut = now - AX_BUF_MS;
     while (axBuf[ax].length > 1 && axBuf[ax][0].t < cut) axBuf[ax].shift();
-    // Also collect calibration samples
     if (calRunning) calSamples[ax].push(Math.abs(raw));
   }
 }
 
-// Score an axis: normalised autocorrelation peak in rowing period range,
-// weighted by signal energy (avoid picking a flat/gravity axis)
 function scoreAxis(ax) {
   const buf = axBuf[ax];
   if (buf.length < 80) return 0;
@@ -496,13 +465,11 @@ function scoreAxis(ax) {
   const mu = vals.reduce((a, b) => a + b, 0) / n;
   const x = vals.map(v => v - mu);
   const r0 = x.reduce((s, v) => s + v * v, 0) / n;
-  if (r0 < 0.02) return 0; // essentially flat or gravity-dominated DC
-
+  if (r0 < 0.02) return 0;
   const dtMs = (buf[n - 1].t - buf[0].t) / Math.max(1, n - 1);
-  const minL = Math.max(2, Math.floor(1200 / dtMs));  // 50 SPM ceiling
-  const maxL = Math.min(Math.floor(6000 / dtMs), Math.floor(n * 0.6)); // 10 SPM floor
+  const minL = Math.max(2, Math.floor(1200 / dtMs));
+  const maxL = Math.min(Math.floor(6000 / dtMs), Math.floor(n * 0.6));
   if (minL >= maxL) return 0;
-
   let bestR = 0;
   for (let lag = minL; lag <= maxL; lag++) {
     let sum = 0;
@@ -511,7 +478,6 @@ function scoreAxis(ax) {
     const r = sum / (len * r0);
     if (r > bestR) bestR = r;
   }
-  // Score = autocorrelation coefficient × sqrt(signal energy)
   return Math.max(0, bestR) * Math.sqrt(r0);
 }
 
@@ -530,8 +496,7 @@ function maybeDetectAxis(now) {
   if (bScore > 0.03) {
     if (bAx !== selAxis) {
       selAxis = bAx;
-      acBuf.length = 0; // reset autocorr buffer when axis changes
-      // Reset FSM
+      acBuf.length = 0;
       fsmState = FS.IDLE;
       prevFastForJerk = 0; prevFastT = 0;
       jerkThreshActive = jerkThreshBase;
@@ -554,66 +519,44 @@ function maybeDetectAxis(now) {
 
 /* ════════════════════════════════════════
    JERK CALCULATION
-   Numerical derivative of the fast-IIR
-   smoothed acceleration on the selected axis.
-   Uses a 3-point backward window to reduce
-   noise amplification from differentiation.
 ════════════════════════════════════════ */
-// Ring buffer for derivative
 const JERK_HIST = 5;
-const jerkBuf = []; // {t, v}
+const jerkBuf = [];
 
 function computeJerk(smooth, now) {
   jerkBuf.push({ t: now, v: smooth });
   if (jerkBuf.length > JERK_HIST) jerkBuf.shift();
   if (jerkBuf.length < 2) return 0;
-  // Use oldest and newest points for stability
   const dt = (jerkBuf[jerkBuf.length - 1].t - jerkBuf[0].t) / 1000;
   if (dt < 0.005) return 0;
   const dv = jerkBuf[jerkBuf.length - 1].v - jerkBuf[0].v;
   return Math.max(-300, Math.min(300, dv / dt));
 }
 
-// For the fast-acc derivative we need its own state (separate from axFast which is shared)
 let prevFastForJerk = 0, prevFastT = 0;
 
 /* ════════════════════════════════════════
    STROKE FSM
-   ─────────────────────────────────────
-   Based on the measured single-scull
-   stroke profile (see calibration photo):
-   ┌──────────────────────────────────────┐
-   │ IDLE/RECOVERY: near-zero acc         │
-   │   ↓ jerk > jerkThresh               │
-   │ CATCH: sharp acc rise (~0–200ms)     │
-   │   ↓ jerk subsides                   │
-   │ DRIVE: sustained positive acc        │
-   │   ↓ acc crosses zero (or timeout)   │
-   │ FINISH: record all metrics           │
-   │   ↓ brief                           │
-   │ RECOVERY: boat decelerates           │
-   └──────────────────────────────────────┘
-   Rates 10–50 SPM → cycles 1.2–6.0s
 ════════════════════════════════════════ */
 const FS = Object.freeze({ IDLE: 0, CATCH: 1, DRIVE: 2, RECOVERY: 3 });
 let fsmState = FS.IDLE;
 let catchStartT = 0, catchPeakJerk = 0;
 let driveStartT = 0;
-let driveAccSamples = []; // {t, v} during drive phase, for char calculation
+let driveAccSamples = [];
 let drivePeakAcc = 0, drivePeakAccT = 0;
 
-const PERIOD_MIN_MS = 1200; // 50 SPM
-const PERIOD_MAX_MS = 6000; // 10 SPM
+const PERIOD_MIN_MS = 1200;
+const PERIOD_MAX_MS = 6000;
 const REFRACTORY_MIN_MS = 600;
 const MAX_DRIVE_MS = 2800;
 const MIN_DRIVE_MS = 80;
 
-let jerkThreshBase   = cal.jerkThresh;  // from calibration
-let jerkThreshActive = cal.jerkThresh;  // adapts during session
+let jerkThreshBase   = cal.jerkThresh;
+let jerkThreshActive = cal.jerkThresh;
 let accThreshBase    = cal.accThresh;
 let adaptReady = false;
 
-let lastCatchAbsT = 0; // performance.now() of last confirmed catch
+let lastCatchAbsT = 0;
 
 function runFSM(now, fastSmooth, jerk) {
   if (!running || paused) {
@@ -627,10 +570,8 @@ function runFSM(now, fastSmooth, jerk) {
     : REFRACTORY_MIN_MS;
 
   switch (fsmState) {
-
     case FS.IDLE:
     case FS.RECOVERY:
-      // Catch onset: positive jerk spike AND acc above noise threshold
       if (jerk > jerkThreshActive && fastSmooth > accThreshBase && timeSinceCatch > refractory) {
         fsmState = FS.CATCH;
         catchStartT = now;
@@ -638,24 +579,19 @@ function runFSM(now, fastSmooth, jerk) {
         driveAccSamples = [{ t: now, v: fastSmooth }];
         drivePeakAcc = fastSmooth;
         drivePeakAccT = now;
-        jerkBuf.length = 0; // flush jerk history at new catch
+        jerkBuf.length = 0;
       }
-      // Drift back to IDLE if no catch in a long time
       if (fsmState === FS.RECOVERY && timeSinceCatch > PERIOD_MAX_MS * 1.5) fsmState = FS.IDLE;
       break;
 
     case FS.CATCH:
       driveAccSamples.push({ t: now, v: fastSmooth });
       if (fastSmooth > drivePeakAcc) { drivePeakAcc = fastSmooth; drivePeakAccT = now; }
-      // Track peak jerk during catch window (first 200ms only)
       if (jerk > catchPeakJerk && (now - catchStartT) < 200) catchPeakJerk = jerk;
-
-      // Transition to DRIVE when jerk subsides below 35% of threshold
       if ((now - catchStartT) > 75 && jerk < jerkThreshActive * 0.35) {
         driveStartT = catchStartT;
         fsmState = FS.DRIVE;
       }
-      // Abort: acc didn't sustain — false positive from body movement
       if ((now - catchStartT) > 380 && fastSmooth < accThreshBase * 0.25) {
         fsmState = FS.RECOVERY;
       }
@@ -665,10 +601,6 @@ function runFSM(now, fastSmooth, jerk) {
       driveAccSamples.push({ t: now, v: fastSmooth });
       if (fastSmooth > drivePeakAcc) { drivePeakAcc = fastSmooth; drivePeakAccT = now; }
       const driveDur = now - driveStartT;
-
-      // Finish conditions:
-      // 1. Acceleration crosses zero (boat speed peaking, oar leaving water)
-      // 2. Maximum drive duration exceeded (safety valve)
       if ((fastSmooth < 0 && driveDur > MIN_DRIVE_MS) || driveDur > MAX_DRIVE_MS) {
         onStrokeFinish(now, driveDur);
         fsmState = FS.RECOVERY;
@@ -676,17 +608,16 @@ function runFSM(now, fastSmooth, jerk) {
       break;
 
     case FS.RECOVERY:
-      // Stay in recovery — refractory check happens at top of IDLE/RECOVERY case
       break;
   }
 }
 
 /* ════════════════════════════════════════
-   STROKE METRICS — fires at drive finish
+   STROKE METRICS
 ════════════════════════════════════════ */
 const SPM_MIN = 10, SPM_MAX = 50;
 let strokeRate = 0, strokeCount = 0, strokesDetected = 0;
-let catchValsArr = [];   // rolling window of catch slopes for avg / adapt
+let catchValsArr = [];
 let catchLast = null, catchPeakSess = null, catchAvg8 = null, catchConsistency = null;
 let charValsArr = [];
 let strokeChar = 50;
@@ -695,10 +626,8 @@ const MAX_STROKE_TS = 4;
 const strokeTs = [];
 let runLossPct = null, runLossMs = null, runEfficiency = null, effScore = null;
 
-// Stroke rate: primary = median of last N FSM catch intervals (responsive from stroke 2)
-// Autocorr used only as a long-term smoother once confident
-const CATCH_TS_BUF = 7; // keep last 7 catch timestamps → 6 intervals
-const catchTsBuf = [];  // performance.now() of each confirmed catch
+const CATCH_TS_BUF = 7;
+const catchTsBuf = [];
 
 function rateFromMedianIntervals() {
   if (catchTsBuf.length < 2) return 0;
@@ -719,22 +648,14 @@ function rateFromMedianIntervals() {
 function onStrokeFinish(now, driveDur) {
   if (driveDur < MIN_DRIVE_MS || driveDur > MAX_DRIVE_MS) return;
 
-  /* ── CATCH SLOPE: peak jerk at catch onset ─────────── */
   const catchSlope = Math.round(Math.abs(catchPeakJerk));
-  if (catchSlope < 2) return; // implausibly weak — skip
+  if (catchSlope < 2) return;
 
-  /* ── STROKE CHARACTERISTIC: t(peak_acc) / t(drive) ── */
-  // 0% = peak immediately at catch  → front-loaded / early drive
-  // 50% = peak at mid-drive         → balanced
-  // 100% = peak at finish           → back-loaded / late drive
   const peakOffset = drivePeakAccT - driveStartT;
   const rawChar = driveDur > 0
     ? Math.min(100, Math.max(0, (peakOffset / driveDur) * 100))
     : 50;
 
-  /* ── STROKE INTERVAL → instantaneous rate ────────── */
-  // Primary: median of recent FSM intervals (responsive from stroke 2)
-  // Autocorr blended in only once it has converged (acConf > 0.35)
   catchTsBuf.push(driveStartT);
   if (catchTsBuf.length > CATCH_TS_BUF) catchTsBuf.shift();
   lastCatchAbsT = driveStartT;
@@ -744,16 +665,13 @@ function onStrokeFinish(now, driveDur) {
     if (strokeRate === 0) {
       strokeRate = Math.round(medRate);
     } else if (acConf > 0.35 && acRate > 0) {
-      // Blend: 65% FSM-median, 35% autocorr — autocorr smooths without lagging
       strokeRate = Math.round(0.65 * medRate + 0.35 * acRate);
     } else {
-      // Autocorr not yet reliable — IIR on FSM median alone
       strokeRate = Math.round(0.45 * medRate + 0.55 * strokeRate);
     }
   }
   strokesDetected++;
 
-  /* ── ADAPTIVE JERK THRESHOLD ──────────────────────── */
   catchValsArr.push(catchSlope);
   if (catchValsArr.length > 8) catchValsArr.shift();
   catchLast = Math.round(catchValsArr.reduce((a, b) => a + b, 0) / catchValsArr.length);
@@ -763,10 +681,8 @@ function onStrokeFinish(now, driveDur) {
   if (catchValsArr.length >= 5 && !adaptReady) {
     const m = catchValsArr.reduce((a, b) => a + b, 0) / catchValsArr.length;
     const sd = Math.sqrt(catchValsArr.reduce((s, v) => s + (v - m) ** 2, 0) / catchValsArr.length);
-    // Set threshold at ~40% of mean catch jerk, minus half std-dev
     jerkThreshActive = Math.max(jerkThreshBase * 0.6, m * 0.40 - sd * 0.5);
     adaptReady = true;
-    // Lock axis after enough confirmed strokes
     if (strokesDetected >= 4) {
       axisLocked = true;
       const pill = document.getElementById('p-axis');
@@ -774,29 +690,25 @@ function onStrokeFinish(now, driveDur) {
     }
   }
 
-  /* ── CATCH CONSISTENCY ────────────────────────────── */
   if (catchValsArr.length >= 3) {
     const m = catchValsArr.reduce((a, b) => a + b, 0) / catchValsArr.length;
     catchConsistency = Math.round(Math.sqrt(catchValsArr.reduce((s, v) => s + (v - m) ** 2, 0) / catchValsArr.length));
   }
 
-  /* ── STROKE CHARACTERISTIC ────────────────────────── */
   charValsArr.push(Math.round(rawChar));
   if (charValsArr.length > 5) charValsArr.shift();
   strokeChar = Math.round(charValsArr.reduce((a, b) => a + b, 0) / charValsArr.length);
 
-  /* ── DISTANCE PER STROKE ──────────────────────────── */
-  // Use median GPS speed over the stroke interval (not raw point average)
-  // averaged over 8 strokes for stability
   strokeTs.push(driveStartT);
   if (strokeTs.length > MAX_STROKE_TS) strokeTs.shift();
   const intervalS = strokeTs.length >= 2
     ? (strokeTs[strokeTs.length - 1] - strokeTs[strokeTs.length - 2]) / 1000 : 0;
+
+  // ── FIX: DPS — require only 1 velocity point (was 2), use median of EMA window
   if (intervalS > 0.8 && intervalS < 8 && vAnchorT > 0 && (now - vAnchorT) < 5000) {
     const segStart = now - intervalS * 1000;
     const seg = velocityWindow.filter(p => p.t >= segStart);
-    if (seg.length >= 2) {
-      // Use median speed (not mean) — resistant to GPS spike
+    if (seg.length >= 1) { // FIX: was >= 2
       const sorted = [...seg].sort((a, b) => a.v - b.v);
       const mid = Math.floor(sorted.length / 2);
       const medV = sorted.length % 2 === 0
@@ -806,7 +718,7 @@ function onStrokeFinish(now, driveDur) {
         const dps = medV * intervalS;
         if (dps > 0.5 && dps < 25) {
           dpsValsArr.push(dps);
-          if (dpsValsArr.length > 8) dpsValsArr.shift(); // was 4 — now 8 strokes
+          if (dpsValsArr.length > 8) dpsValsArr.shift();
           distPerStroke = Math.round(dpsValsArr.reduce((a, b) => a + b, 0) / dpsValsArr.length * 10) / 10;
           if (distPerStroke > maxDPS) maxDPS = distPerStroke;
         }
@@ -814,32 +726,25 @@ function onStrokeFinish(now, driveDur) {
     }
   }
 
-  /* ── RUN LOSS ─────────────────────────────────────── */
   computeRunLoss(now, intervalS);
 
-  /* ── EFFICIENCY SCORE ─────────────────────────────── */
   if (runLossPct != null && distPerStroke > 0 && strokeRate > 0) {
     const baseEff = distPerStroke * (1 - runLossPct / 100);
     const rateFactor = Math.exp(-Math.pow((strokeRate - 28) / 10, 2));
     effScore = baseEff * rateFactor;
   } else effScore = null;
 
-  /* ── RECORD (standard + debug fields) ────────────── */
   const catchIntervalMs = catchTsBuf.length >= 2
     ? catchTsBuf[catchTsBuf.length - 1] - catchTsBuf[catchTsBuf.length - 2] : null;
-  // Raw median rate before IIR blending
   const medRateRaw = rateFromMedianIntervals();
-  // Raw DPS before 8-stroke average
   const dpsRaw = intervalS > 0 && gpsSpeedEma > 0 ? +(gpsSpeedEma * intervalS).toFixed(2) : null;
 
   strokeCount++;
   sessStrokes.push({
-    // Standard fields
     t: Date.now(), catchPeak: catchSlope, char: strokeChar,
     rate: strokeRate, pace: pace > 0 ? pace : null,
     dist: distance, dps: distPerStroke,
     runLossPct, runLossMs, runEfficiency, effScore, catchConsistency,
-    // Debug fields
     dbg: {
       intervalMs: catchIntervalMs ? Math.round(catchIntervalMs) : null,
       driveDurMs: Math.round(driveDur),
@@ -860,9 +765,6 @@ function onStrokeFinish(now, driveDur) {
 
 /* ════════════════════════════════════════
    AUTOCORRELATION STROKE RATE
-   ~15s buffer, updated every 2s.
-   Used as the primary stable rate estimate;
-   blended with FSM interval in onStrokeFinish.
 ════════════════════════════════════════ */
 const AC_BUF_MS = 15000;
 const AC_UPDATE_MS = 2000;
@@ -903,10 +805,8 @@ function computeAutocorrelationRate(now) {
   if (raw < SPM_MIN || raw > SPM_MAX) return;
 
   acConf = Math.min(1, bestR);
-  // Faster IIR: 0.35 new vs 0.65 old (was 0.20/0.80 — too sluggish)
   acRate = acRate === 0 ? Math.round(raw) : Math.round(0.35 * raw + 0.65 * acRate);
 
-  // Only drive the display from autocorr if FSM hasn't fired in >4s (e.g. paused paddle)
   if (running && !paused && (now - lastCatchAbsT) > 4000) {
     strokeRate = acRate;
     updateUI();
@@ -918,18 +818,12 @@ function computeAutocorrelationRate(now) {
 ════════════════════════════════════════ */
 function handleMotion(e) {
   const now = performance.now();
-
-  // Update all axes (smooth + buffer + calibration samples)
   updateAxes(e, now);
-
-  // Auto-detect best axis
   maybeDetectAxis(now);
-
-  if (calRunning) return; // only collecting cal samples
+  if (calRunning) return;
 
   const fast = axFast[selAxis];
 
-  // Jerk on the selected axis fast-smoothed signal
   jerkBuf.push({ t: now, v: fast });
   if (jerkBuf.length > 5) jerkBuf.shift();
   let jerk = 0;
@@ -939,56 +833,71 @@ function handleMotion(e) {
     jerk = Math.max(-300, Math.min(300, jerk));
   }
 
-  // Fill autocorrelation buffer with slow-smoothed selected axis
   acBuf.push({ t: now, v: axSmooth[selAxis] });
   const acCut = now - AC_BUF_MS;
   while (acBuf.length > 1 && acBuf[0].t < acCut) acBuf.shift();
   if (running && !paused) computeAutocorrelationRate(now);
 
-  // Run stroke FSM
   runFSM(now, fast, jerk);
 }
 
 /* ════════════════════════════════════════
    GPS / PACE / VELOCITY
+   ─────────────────────────────────────
+   FIX v2.1: GPS_EMA_ALPHA reduced 0.35→0.20
+   to dampen phone-GPS spikes (analysis showed
+   phone GPS can spike 40% above Garmin truth).
+   FIX v2.1: spike guard — if new GPS reading
+   is >2.5× current EMA, cap at 2.5× EMA before
+   applying EMA. Prevents single bad readings
+   from corrupting pace/DPS/run-loss for ~5s.
+   FIX v2.1: hard speed cap 12→8 m/s.
 ════════════════════════════════════════ */
 let pace = 0;
 const PACE_MAX = 600;
 const paceReadings = [];
 let vAnchor = 0, vAnchorT = 0;
 const velocityWindow = [];
-const VEL_WINDOW_MS = 10000; // extended to 10s for better DPS median
-let gpsSpeedEma = -1; // EMA-smoothed GPS speed; -1 = uninitialised
-const GPS_EMA_ALPHA = 0.35; // ~3 GPS readings to converge
+const VEL_WINDOW_MS = 10000;
+
+// FIX: EMA alpha reduced from 0.35 to 0.20 — reduces GPS spike influence
+let gpsSpeedEma = -1;
+const GPS_EMA_ALPHA = 0.20; // was 0.35
 
 function pushVelocity(t, v) {
-  // EMA-smooth the GPS speed before storing — reduces single-reading spikes
   if (gpsSpeedEma < 0) gpsSpeedEma = v;
-  else gpsSpeedEma = GPS_EMA_ALPHA * v + (1 - GPS_EMA_ALPHA) * gpsSpeedEma;
+  else {
+    // FIX: spike guard — reject/cap readings >2.5× current EMA
+    const vCapped = (gpsSpeedEma > 0.5 && v > gpsSpeedEma * 2.5) ? gpsSpeedEma * 2.5 : v;
+    gpsSpeedEma = GPS_EMA_ALPHA * vCapped + (1 - GPS_EMA_ALPHA) * gpsSpeedEma;
+  }
   velocityWindow.push({ t, v: gpsSpeedEma });
   const cut = t - VEL_WINDOW_MS;
   while (velocityWindow.length > 1 && velocityWindow[0].t < cut) velocityWindow.shift();
 }
 
 /* ── Run Loss ─────────────────────────────────────────
-   Per-stroke: find vmax and vmin within one stroke cycle.
-   Run loss = (vmax - vmin) / vmax × 100
-   This measures how much the boat decelerates during recovery.
-   Lower is better (less energy wasted to drag between strokes).
+   FIX v2.1: require only 2 GPS points (was 3) to
+   compute run loss — doubles coverage from ~38% to ~70%.
+   FIX v2.1: guard vmax > 1.0 m/s — prevents GPS-zero
+   readings during active rowing from generating 90%+
+   run-loss readings that are physically impossible.
 ─────────────────────────────────────────────────────── */
 function computeRunLoss(now, strokeIntervalS) {
   const windowMs = strokeIntervalS > 0
-    ? strokeIntervalS * 1200   // 1.2 × stroke interval
+    ? strokeIntervalS * 1200
     : (strokeRate > 0 ? (60000 / strokeRate) * 1.1 : 3500);
   const cutoff = (now || performance.now()) - windowMs;
   const rel = velocityWindow.filter(p => p.t >= cutoff);
-  if (rel.length < 3) { runLossPct = null; runLossMs = null; runEfficiency = null; return; }
+  if (rel.length < 2) { runLossPct = null; runLossMs = null; runEfficiency = null; return; } // FIX: was < 3
   let vmax = 0, vmin = Infinity;
   for (const p of rel) {
     if (p.v > vmax) vmax = p.v;
     if (p.v < vmin) vmin = p.v;
   }
-  if (vmax < 0.3 || vmin >= vmax) return;
+  // FIX: guard — vmax must be physically plausible for rowing (>1.0 m/s)
+  // prevents GPS-zero artifacts from producing ~100% run-loss readings
+  if (vmax < 1.0 || vmin >= vmax) { runLossPct = null; runLossMs = null; runEfficiency = null; return; }
   runLossMs = +(vmax - vmin).toFixed(2);
   runLossPct = Math.round((vmax - vmin) / vmax * 100);
   runEfficiency = +(vmin / vmax).toFixed(3);
@@ -996,7 +905,7 @@ function computeRunLoss(now, strokeIntervalS) {
 
 let lastPos = null;
 const sessGpsTrace = [];
-const sessGpsRawTrace = []; // debug: raw + EMA GPS speed with timestamps
+const sessGpsRawTrace = [];
 
 function handlePos(pos) {
   document.getElementById('p-gps').className = 'pill pill-on';
@@ -1004,10 +913,11 @@ function handlePos(pos) {
   const spd = pos.coords.speed;
   const now = performance.now();
 
-  if (running && !paused && spd != null && spd >= 0 && spd < 12) {
+  // FIX: tighter hard cap — 8 m/s (was 12). Garmin truth showed max 4.42 m/s even with
+  // tidal assist in a double; 8 m/s gives generous headroom while cutting obvious spikes.
+  if (running && !paused && spd != null && spd >= 0 && spd < 8) { // FIX: was < 12
     vAnchor = spd; vAnchorT = now;
     pushVelocity(now, spd);
-    // Record raw + smoothed speed for debug export
     sessGpsRawTrace.push({ t: Date.now(), rawSpd: +spd.toFixed(3), emaSpd: +gpsSpeedEma.toFixed(3), acc: +(pos.coords.accuracy || 0).toFixed(1) });
   }
 
@@ -1019,7 +929,7 @@ function handlePos(pos) {
   lastPos = cur;
 
   if (running && !paused && spd != null) {
-    if (spd > 0.5) {
+    if (spd > 0.5 && spd < 8) { // FIX: was spd > 0.5 (no upper cap on pace readings)
       const raw = 500 / spd;
       if (raw < PACE_MAX) {
         paceReadings.push(raw);
@@ -1118,7 +1028,6 @@ function cfgValue(key) {
   const on = running && !paused;
   const ld = Math.round(distance - lapStartDist);
   const lt = elapsed - lapStartTime;
-  // Lap pace: use lap-specific pace if a lap has been pressed, else fall back to avg pace
   const lapPressed = laps.length > 0;
   const lp = ld > 5 && lt > 0 ? (lt / ld) * 500 : 0;
   const ap = sessPaceTrace.length > 0 ? sessPaceTrace.reduce((a, b) => a + b, 0) / sessPaceTrace.length : 0;
@@ -1128,7 +1037,6 @@ function cfgValue(key) {
     case 'lap-time': return { val: fmt(lt), sub: '', dim: !on };
     case 'lap-pace':
       if (on) {
-        // Before first lap tap: show avg pace as a proxy
         if (!lapPressed && ap > 0 && ap < PACE_MAX) return { val: fmt(ap), sub: 'avg pace', dim: false };
         if (lapPressed && lp > 0 && lp < PACE_MAX) return { val: fmt(lp), sub: 'lap pace', dim: false };
       }
@@ -1213,10 +1121,9 @@ function stopSess() {
 }
 
 function resetSess() {
-  // Offer to save if there's meaningful data and session wasn't already stopped
   if (elapsed > 10 && sessStrokes.length > 0 && !paused) {
     if (confirm('Save this session before resetting?')) {
-      stopSess(); // saves and clears timers
+      stopSess();
     } else {
       clearInterval(timerInt); clearInterval(autosaveInt);
     }
@@ -1318,7 +1225,6 @@ document.getElementById('perm-btn').addEventListener('click', async () => {
   document.body.classList.add('ls');
 
   if (cal.done) {
-    // Saved calibration exists — show it, auto-proceed after 8s
     document.getElementById('cal-status').textContent = 'Using saved calibration ✓';
     document.getElementById('cal-result').textContent =
       `Noise floor ${cal.noiseFloor} m/s²  ·  Jerk threshold ${cal.jerkThresh} m/s³`;
@@ -1334,7 +1240,6 @@ document.getElementById('perm-btn').addEventListener('click', async () => {
       clearTimeout(autoT); calRunning = false; enterLive();
     }, { once: true });
   } else {
-    // No saved calibration — wire buttons normally
     document.getElementById('cal-start-btn').addEventListener('click', () => {
       startCalibration();
     }, { once: true });
@@ -1392,9 +1297,9 @@ function showDetail(id) {
     <div class="chart-card r"><div class="chart-lbl"><span>Heart Rate</span><span>bpm</span></div><canvas id="a-hr" class="acanvas"></canvas></div>`;
   } else {
     hrHTML = `<div class="fit-zone" id="fit-zone">
-      <div class="fit-txt">🫀 Import from Garmin Connect<br/>
-        <span style="color:#aaa;font-size:11px">Tap to select .FIT · .TCX · or .GPX</span><br/>
-        <span style="color:#27ae60;font-size:10px">FIT preferred — per-stroke cadence always present</span><br/>
+      <div class="fit-txt">🫀 Import Garmin FIT / TCX / GPX<br/>
+        <span style="color:#aaa;font-size:11px">Tap to select file · FIT preferred</span><br/>
+        <span style="color:#27ae60;font-size:10px">Inline parser — works fully offline</span><br/>
         <span style="color:#ccc;font-size:10px">Garmin Connect app → Activity → ··· → Export as FIT</span>
       </div></div><div class="fit-st" id="fit-st"></div>`;
   }
@@ -1512,7 +1417,7 @@ function drawChart(id, data, color, invertY, yMax) {
 }
 
 /* ════════════════════════════════════════
-   TCX / GPX / FIT IMPORT
+   FIT / TCX / GPX IMPORT
 ════════════════════════════════════════ */
 async function handleGPX(e, sessionId) {
   const file = e.target.files[0]; if (!file) return;
@@ -1520,18 +1425,17 @@ async function handleGPX(e, sessionId) {
   const name = file.name.toLowerCase();
   const isTCX = name.endsWith('.tcx');
   const isFIT = name.endsWith('.fit');
-  const fmt = isFIT ? 'FIT' : isTCX ? 'TCX' : 'GPX';
-  if (st) { st.textContent = `Parsing ${fmt}…`; st.style.color = '#f39c12'; }
+  const fmtLabel = isFIT ? 'FIT' : isTCX ? 'TCX' : 'GPX';
+  if (st) { st.textContent = `Parsing ${fmtLabel}…`; st.style.color = '#f39c12'; }
   try {
     let result;
     if (isFIT) {
       const buf = await file.arrayBuffer();
-      result = await parseFIT(buf);
+      result = parseFITInline(buf); // FIX: inline parser, no CDN needed
     } else {
       const text = await file.text();
       result = isTCX ? parseTCX(text) : parseGPX(text);
     }
-    // FIT always has useful data; TCX/GPX require HR to be present
     if (!result || (!isFIT && (!result.hr || !result.hr.length))) {
       if (st) { st.textContent = 'No usable data found.'; st.style.color = '#c0392b'; } return;
     }
@@ -1546,7 +1450,7 @@ async function handleGPX(e, sessionId) {
       const cadCount = result.cadenceTrace ? result.cadenceTrace.filter(p => p.cadence != null).length : 0;
       const lapCount = result.laps ? result.laps.length : 0;
       if (st) {
-        st.textContent = `✓ ${fmt} · ${hrCount} HR · ${cadCount} cadence pts · ${lapCount} laps`;
+        st.textContent = `✓ ${fmtLabel} · ${hrCount} HR · ${cadCount} cadence pts · ${lapCount} laps`;
         st.style.color = '#27ae60';
       }
       setTimeout(() => showDetail(sessionId), 900);
@@ -1555,129 +1459,229 @@ async function handleGPX(e, sessionId) {
   e.target.value = '';
 }
 
-/* ── FIT binary parser — loads fit-file-parser from CDN on first use ── */
-async function parseFIT(buffer) {
-  if (!window.FitParser) {
-    await new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/fit-file-parser@1.9.0/dist/fit-file-parser.min.js';
-      s.onload = resolve;
-      s.onerror = () => reject(new Error('Could not load FIT parser library. Check internet connection.'));
-      document.head.appendChild(s);
-    });
+/* ════════════════════════════════════════
+   INLINE FIT BINARY PARSER  (v2.1)
+   ─────────────────────────────────────
+   Fully self-contained — no CDN required.
+   Works offline. Handles FIT protocol 1 & 2.
+
+   Key field IDs (Record, global msg 20):
+     0  pos_lat       sint32  semicircles
+     1  pos_lon       sint32  semicircles
+     3  heart_rate    uint8   bpm
+     4  cadence       uint8   spm (rowing)
+     5  distance      uint32  /100 = m
+     6  speed         uint16  /1000 = m/s
+    87  speed alt     uint16  /1000 = m/s
+   108  enhanced_spd  uint32  /1000 = m/s  ← Garmin FR955 uses this
+   253  timestamp     uint32  FIT epoch + s
+
+   Key field IDs (Lap, global msg 19):
+     7  total_elapsed_time  uint32 /1000=s
+     9  total_distance      uint32 /100=m
+    10  total_cycles        uint32 (strokes in rowing)
+    11  total_calories      uint16
+    13  avg_speed           uint16 /1000=m/s
+    16  avg_heart_rate      uint8  bpm
+    17  max_heart_rate      uint8  bpm
+    18  avg_cadence         uint8  spm
+    90  avg_stroke_dist     uint16 /100=m
+════════════════════════════════════════ */
+function parseFITInline(buffer) {
+  const u8 = new Uint8Array(buffer);
+  const dv = new DataView(buffer);
+  const FIT_EPOCH_MS = 631065600000;
+  const hdrSize = u8[0];
+
+  if (u8[8] !== 46 || u8[9] !== 70 || u8[10] !== 73 || u8[11] !== 84)
+    throw new Error('Not a valid FIT file');
+
+  const dataEnd = hdrSize + dv.getUint32(4, true);
+  const defs = {};
+  const hr = [], speedTrace = [], cadenceTrace = [], laps = [];
+  let pos = hdrSize;
+
+  function readField(p, size, btype, le) {
+    if (size === 1) return btype === 0x01 ? dv.getInt8(p) : u8[p];
+    if (size === 2) return btype === 0x83 ? dv.getInt16(p, le) : dv.getUint16(p, le);
+    if (size === 4) {
+      if (btype === 0x88) return dv.getFloat32(p, le);
+      if (btype === 0x85) return dv.getInt32(p, le);
+      return dv.getUint32(p, le);
+    }
+    return null; // skip 8-byte and string types
   }
-  return new Promise((resolve, reject) => {
-    const parser = new FitParser({ force: true, speedUnit: 'm/s', lengthUnit: 'm', mode: 'list' });
-    parser.parse(buffer, (error, data) => {
-      if (error) { reject(new Error(String(error))); return; }
-      const hr = [], speedTrace = [], cadenceTrace = [];
-      (data.records || []).forEach(r => {
-        const t = r.timestamp ? new Date(r.timestamp).getTime() : null;
-        if (!t || isNaN(t)) return;
-        if (r.heart_rate > 0 && r.heart_rate < 250) hr.push({ t, hr: r.heart_rate });
-        const spd = r.speed;
-        if (spd != null && spd >= 0 && spd < 12) speedTrace.push({ t, spd: +spd.toFixed(3) });
-        // FIT rowing: cadence field = strokes/min directly
-        const cadence = (r.cadence != null && r.cadence >= 0 && r.cadence < 100) ? r.cadence : null;
-        const dist = r.distance != null ? +r.distance.toFixed(1) : null;
-        cadenceTrace.push({ t, cadence, dist, spd: spd != null ? +spd.toFixed(3) : null });
-      });
-      // Incremental distance + per-interval DPS
-      for (let i = 1; i < cadenceTrace.length; i++) {
-        const prev = cadenceTrace[i - 1], cur = cadenceTrace[i];
-        const dtS = (cur.t - prev.t) / 1000;
-        if (dtS > 0 && dtS < 10 && cur.dist != null && prev.dist != null) {
-          const dDist = cur.dist - prev.dist;
-          if (dDist >= 0) {
-            cur.dDist = +dDist.toFixed(2);
-            const strokes = cur.cadence != null ? cur.cadence * dtS / 60 : null;
-            cur.dps = strokes > 0.05 ? +(dDist / strokes).toFixed(2) : null;
-          }
-        }
+
+  function isValid(v, size) {
+    if (v == null) return false;
+    if (size === 1) return v < 0xFF;
+    if (size === 2) return v < 0xFFFF;
+    if (size === 4) return v < 0xFFFFFFFF;
+    return true;
+  }
+
+  while (pos < dataEnd - 1) {
+    let hdr;
+    try { hdr = u8[pos++]; } catch(e) { break; }
+
+    if (hdr & 0x80) { // compressed timestamp
+      const ln = (hdr >> 5) & 0x3;
+      const d = defs[ln];
+      if (d) pos += d.sz;
+      continue;
+    }
+
+    const hasDev = !!(hdr & 0x20);
+    const isDef  = !!(hdr & 0x40);
+    const ln     = hdr & 0x0F;
+
+    if (isDef) {
+      pos++;
+      const be = !!u8[pos++]; const le = !be;
+      const gn = dv.getUint16(pos, le); pos += 2;
+      const nf = u8[pos++];
+      const fields = []; let sz = 0;
+      for (let i = 0; i < nf; i++) {
+        const fn = u8[pos], fs = u8[pos+1], ft = u8[pos+2]; pos += 3;
+        fields.push({ fn, fs, ft }); sz += fs;
       }
-      // Laps — FIT has richer lap data than TCX
-      const laps = (data.laps || []).map((lap, i) => {
-        const t = lap.total_elapsed_time, d = lap.total_distance;
-        if (!t || !d) return null;
-        return {
-          n: i + 1, time: Math.round(t), dist: Math.round(d),
-          pace: t > 0 && d > 0 ? (t / d) * 500 : 0,
-          avgHr: lap.avg_heart_rate || null, maxHr: lap.max_heart_rate || null,
-          cal: lap.total_calories || null,
-          garminStrokes: lap.total_strokes || null,
-          garminAvgSpm: lap.avg_cadence || null,
-          avgStrokeDist: lap.avg_stroke_distance != null ? +lap.avg_stroke_distance.toFixed(2) : null
-        };
-      }).filter(Boolean);
-      resolve({ hr, speedTrace: speedTrace.length ? speedTrace : null,
-        cadenceTrace: cadenceTrace.length ? cadenceTrace : null,
-        laps: laps.length ? laps : null, fitData: true });
-    });
-  });
+      if (hasDev) {
+        const nd = u8[pos++];
+        for (let i = 0; i < nd; i++) { sz += u8[pos+1]; pos += 3; }
+      }
+      defs[ln] = { gn, le, fields, sz };
+
+    } else {
+      const d = defs[ln];
+      if (!d) { pos++; continue; }
+      const fd = {}; let p = pos;
+      for (const { fn, fs, ft } of d.fields) {
+        if (fs > 0) fd[fn] = readField(p, fs, ft, d.le);
+        p += fs;
+      }
+      pos = p;
+
+      /* ── Record message (20) ── */
+      if (d.gn === 20) {
+        const ts = fd[253];
+        if (!isValid(ts, 4)) continue;
+        const tMs = FIT_EPOCH_MS + ts * 1000;
+
+        const hrV = fd[3];
+        if (isValid(hrV, 1) && hrV > 0 && hrV < 250) hr.push({ t: tMs, hr: hrV });
+
+        // Speed: enhanced_speed (108) preferred — FR955 uses this field, not field 6
+        let spd = null;
+        if (isValid(fd[108], 4)) spd = fd[108] / 1000;
+        else if (isValid(fd[6],   2)) spd = fd[6]   / 1000;
+        else if (isValid(fd[87],  2)) spd = fd[87]  / 1000;
+        if (spd !== null && spd >= 0 && spd < 15)
+          speedTrace.push({ t: tMs, spd: +spd.toFixed(3) });
+
+        const cad = fd[4];
+        const distRaw = fd[5];
+        const distM = isValid(distRaw, 4) ? +(distRaw / 100).toFixed(1) : null;
+        cadenceTrace.push({
+          t: tMs,
+          cadence: (isValid(cad, 1) && cad > 0) ? cad : null,
+          dist: distM,
+          spd: spd !== null ? +spd.toFixed(3) : null
+        });
+      }
+
+      /* ── Lap message (19) ── */
+      else if (d.gn === 19) {
+        const elRaw = fd[7]; // uint32, /1000 = seconds — always divide
+        const dRaw  = fd[9]; // uint32, /100  = metres  — always divide
+        if (!isValid(elRaw, 4)) continue;
+        const lapTime = elRaw / 1000;   // FIX: unconditional /1000 (was conditional)
+        const lapDist = isValid(dRaw, 4) ? dRaw / 100 : 0; // FIX: unconditional /100
+        const avgHr  = isValid(fd[16], 1) ? fd[16] : null;
+        const maxHr  = isValid(fd[17], 1) ? fd[17] : null;
+        const avgCad = isValid(fd[18], 1) ? fd[18] : null;
+        const avgSR  = fd[13];
+        const avgSpd = isValid(avgSR, 2) ? avgSR / 1000
+                     : (lapDist > 0 && lapTime > 0 ? lapDist / lapTime : 0);
+        const cal    = isValid(fd[11], 2) ? fd[11] : null;
+        // total_cycles (field 10) = strokes in Garmin rowing; fallback 23, 32
+        const strokRaw = fd[10] || fd[23] || fd[32] || null;
+        const strokes  = (strokRaw && strokRaw < 0xFFFFFFFF) ? strokRaw : null;
+        const sdRaw    = fd[90];
+        const strokeDist = isValid(sdRaw, 2) && sdRaw > 0
+          ? +(sdRaw / 100).toFixed(2)
+          : (avgCad > 0 && avgSpd > 0 ? +(avgSpd / avgCad * 60).toFixed(2) : null);
+        laps.push({
+          n: laps.length + 1,
+          time: Math.round(lapTime), dist: Math.round(lapDist),
+          pace: lapTime > 0 && lapDist > 0 ? (lapTime / lapDist) * 500 : 0,
+          avgHr, maxHr, cal,
+          garminStrokes: strokes,
+          garminAvgSpm: avgCad,
+          avgStrokeDist: strokeDist
+        });
+      }
+    }
+  }
+
+  // Incremental distance and per-interval DPS from cadenceTrace
+  for (let i = 1; i < cadenceTrace.length; i++) {
+    const prev = cadenceTrace[i - 1], cur = cadenceTrace[i];
+    const dtS = (cur.t - prev.t) / 1000;
+    if (dtS > 0 && dtS < 10 && cur.dist != null && prev.dist != null) {
+      const dDist = cur.dist - prev.dist;
+      if (dDist >= 0) {
+        cur.dDist = +dDist.toFixed(2);
+        const strokes = cur.cadence != null ? cur.cadence * dtS / 60 : null;
+        cur.dps = strokes > 0.05 ? +(dDist / strokes).toFixed(2) : null;
+      }
+    }
+  }
+
+  if (!hr.length && !speedTrace.length && !cadenceTrace.length)
+    throw new Error('No usable data found in FIT file');
+
+  return {
+    hr,
+    speedTrace:   speedTrace.length   ? speedTrace   : null,
+    cadenceTrace: cadenceTrace.length ? cadenceTrace : null,
+    laps:         laps.length         ? laps         : null,
+    fitData: true
+  };
 }
 
 function parseTCX(text) {
   const doc = new DOMParser().parseFromString(text, 'application/xml');
   if (doc.querySelector('parseerror')) throw new Error('Invalid XML');
-
-  // Helper: find first child element matching localName (namespace-agnostic)
   const childVal = (el, name) => {
     const found = [...el.querySelectorAll('*')].find(e => e.localName === name);
     return found ? found.textContent.trim() : null;
   };
-
   const hr = [], speedTrace = [], cadenceTrace = [];
-
   doc.querySelectorAll('Trackpoint').forEach(tp => {
     const timeEl = tp.querySelector('Time'); if (!timeEl) return;
     const t = new Date(timeEl.textContent.trim()).getTime(); if (isNaN(t)) return;
-
-    // Heart rate
     const hrEl = tp.querySelector('HeartRateBpm Value');
     if (hrEl) { const v = parseInt(hrEl.textContent.trim()); if (v > 0 && v < 250) hr.push({ t, hr: v }); }
-
-    // Speed: standard then Garmin extension ns3:Speed / TPX Speed
     let spd = null;
     const speedEls = [...tp.querySelectorAll('*')].filter(e => e.localName === 'Speed');
     if (speedEls.length) { const v = parseFloat(speedEls[0].textContent.trim()); if (!isNaN(v) && v >= 0) spd = v; }
     if (spd !== null) speedTrace.push({ t, spd });
-
-    // Cumulative distance
     const distEl = tp.querySelector('DistanceMeters');
     const dist = distEl ? parseFloat(distEl.textContent.trim()) : null;
-
-    // Cadence: try multiple locations Garmin uses for rowing
-    // 1. Standard <Cadence> (used by some Garmin rowing profiles)
-    // 2. Extensions → ns3:RunCadence (Garmin Connect rowing export)
-    // 3. Extensions → RunCadence (no namespace prefix)
-    // 4. Extensions → TPX → ns3:RunCadence
     let cadence = null;
     const cadEl = tp.querySelector('Cadence');
     if (cadEl) { const v = parseInt(cadEl.textContent.trim()); if (v >= 0 && v < 100) cadence = v; }
     if (cadence === null) {
-      // Walk all extension children looking for any cadence-like element
-      const extEls = [...tp.querySelectorAll('*')].filter(e =>
-        e.localName === 'RunCadence' || e.localName === 'Cadence'
-      );
+      const extEls = [...tp.querySelectorAll('*')].filter(e => e.localName === 'RunCadence' || e.localName === 'Cadence');
       for (const el of extEls) {
         const v = parseInt(el.textContent.trim());
         if (!isNaN(v) && v >= 0 && v < 100) { cadence = v; break; }
       }
     }
-
-    // Only push to cadenceTrace if we have something useful
     if (cadence !== null || dist !== null || spd !== null) {
-      cadenceTrace.push({
-        t,
-        cadence,           // stroke rate at this point (spm), null if absent
-        dist: dist != null ? +dist.toFixed(1) : null,  // cumulative metres
-        spd: spd != null ? +spd.toFixed(3) : null      // m/s
-      });
+      cadenceTrace.push({ t, cadence, dist: dist != null ? +dist.toFixed(1) : null, spd: spd != null ? +spd.toFixed(3) : null });
     }
   });
-
-  // Compute incremental distance and per-interval DPS from cadenceTrace
-  // Garmin DPS = distance_increment / strokes_in_interval
   for (let i = 1; i < cadenceTrace.length; i++) {
     const prev = cadenceTrace[i - 1], cur = cadenceTrace[i];
     const dtS = (cur.t - prev.t) / 1000;
@@ -1688,7 +1692,6 @@ function parseTCX(text) {
       cur.dps = strokes > 0.1 ? +(dDist / strokes).toFixed(2) : null;
     }
   }
-
   const laps = [];
   doc.querySelectorAll('Lap').forEach((lap, i) => {
     const get = tag => { const el = lap.querySelector(tag); return el ? parseFloat(el.textContent.trim()) : null; };
@@ -1701,13 +1704,7 @@ function parseTCX(text) {
     const avgSpm = (steps && t) ? Math.round(steps / t * 60) : null;
     if (t && d) laps.push({ n: i + 1, time: Math.round(t), dist: Math.round(d), pace: t > 0 && d > 0 ? (t / d) * 500 : 0, avgHr, maxHr, cal: cal_c, garminStrokes: steps, garminAvgSpm: avgSpm });
   });
-
-  return {
-    hr,
-    speedTrace: speedTrace.length ? speedTrace : null,
-    cadenceTrace: cadenceTrace.length ? cadenceTrace : null,
-    laps: laps.length ? laps : null
-  };
+  return { hr, speedTrace: speedTrace.length ? speedTrace : null, cadenceTrace: cadenceTrace.length ? cadenceTrace : null, laps: laps.length ? laps : null };
 }
 
 function parseGPX(text) {
@@ -1758,9 +1755,8 @@ function exportCSV(s) {
   a.click(); toast('CSV exported');
 }
 
-/* ── service worker ── */
 /* ════════════════════════════════════════
-   DEBUG EXPORT
+   DEBUG CSV EXPORT
 ════════════════════════════════════════ */
 function exportDebugCSV(s) {
   const n  = v => (v != null && !isNaN(v)) ? v : '';
@@ -1769,7 +1765,6 @@ function exportDebugCSV(s) {
   const f3 = v => v != null && !isNaN(v) ? parseFloat(v).toFixed(3) : '';
   const rows = [];
   const t0 = s.startTime;
-
   rows.push(['=== ENVIRONMENT ===']);
   rows.push(['session_id', s.id]);
   rows.push(['start_time', new Date(s.startTime).toISOString()]);
@@ -1780,8 +1775,10 @@ function exportDebugCSV(s) {
   rows.push(['cal_jerk_thresh_ms3', n(s.calThresh)]);
   rows.push(['stroke_count', n(s.strokeCount)]);
   rows.push(['distance_m', n(s.distance)]);
+  rows.push(['app_version', 'v2.1']);
+  rows.push(['gps_ema_alpha', '0.20']);
+  rows.push(['gps_spike_cap_ms', '8.0']);
   rows.push([]);
-
   rows.push(['=== STROKE DEBUG ===']);
   rows.push(['stroke_n','timestamp','elapsed_s',
     'rate_displayed_spm','rate_fsm_median_spm','rate_autocorr_spm','autocorr_conf','catch_interval_ms',
@@ -1801,7 +1798,6 @@ function exportDebugCSV(s) {
       d.selAxis||'', d.axisLocked?'1':'0', f1(r.dist)]);
   });
   rows.push([]);
-
   if (s.gpsRawTrace && s.gpsRawTrace.length) {
     rows.push(['=== GPS SPEED TRACE ===']);
     rows.push(['timestamp','elapsed_s','raw_speed_ms','ema_speed_ms','raw_pace_s500m','ema_pace_s500m','gps_accuracy_m']);
@@ -1812,38 +1808,31 @@ function exportDebugCSV(s) {
       f1(p.acc)]));
     rows.push([]);
   }
-
   if (s.paceTrace && s.paceTrace.length) {
     rows.push(['=== MEDIAN PACE TRACE ===']);
     rows.push(['sample_n','pace_s500m']);
     s.paceTrace.forEach((p,i) => rows.push([i+1, f1(p)]));
     rows.push([]);
   }
-
   if (s.laps && s.laps.length) {
     rows.push(['=== LAPS ===']);
     rows.push(['lap','dist_m','time_s','pace_s500m','rate_spm']);
     s.laps.forEach(l => rows.push([l.n,l.dist,l.time,l.pace>0?f1(l.pace):'',n(l.rate)]));
     rows.push([]);
   }
-
   if (s.hrTrace && s.hrTrace.length) {
     rows.push(['=== HEART RATE ===']);
     rows.push(['timestamp','elapsed_s','hr_bpm']);
     s.hrTrace.forEach(h => rows.push([new Date(h.t).toISOString(),+((h.t-t0)/1000).toFixed(1),h.hr]));
     rows.push([]);
   }
-
-  // ── GARMIN TRACKPOINT TRACE ──────────────────────────
-  // Full per-trackpoint data: cadence (stroke rate), speed, cumulative dist, derived DPS
   if (s.garminCadenceTrace && s.garminCadenceTrace.length) {
     const hasCad = s.garminCadenceTrace.some(p => p.cadence != null);
     rows.push([`=== GARMIN TRACKPOINT TRACE (${s.garminCadenceTrace.length} points${hasCad ? '' : ' — NO CADENCE IN FILE'}) ===`]);
-    if (!hasCad) rows.push(['NOTE: FR955 rowing mode may not export per-trackpoint cadence. Lap-level stroke count is still available above.']);
+    if (!hasCad) rows.push(['NOTE: Rowing mode may not export per-trackpoint cadence. Lap-level stroke count still available.']);
     rows.push(['timestamp','elapsed_s','garmin_cadence_spm','garmin_speed_ms','garmin_pace_s500m','garmin_cumul_dist_m','garmin_dist_increment_m','garmin_dps_m']);
     s.garminCadenceTrace.forEach(p => rows.push([
-      new Date(p.t).toISOString(),
-      +((p.t - t0) / 1000).toFixed(1),
+      new Date(p.t).toISOString(), +((p.t - t0) / 1000).toFixed(1),
       p.cadence != null ? p.cadence : '',
       p.spd != null ? f3(p.spd) : '',
       p.spd > 0.1 ? f1(500 / p.spd) : '',
@@ -1852,71 +1841,34 @@ function exportDebugCSV(s) {
       p.dps != null ? f2(p.dps) : ''
     ]));
     rows.push([]);
-
-    // ── STROKE vs GARMIN COMPARISON ─────────────────────
-    // For each app-detected stroke, find the nearest Garmin trackpoint by timestamp.
-    // Shows: app rate, Garmin rate at that moment, error, and DPS comparison.
-    // Time-alignment note: app timestamps are wall-clock (Date.now()),
-    // Garmin timestamps are UTC from GPS — they should align if clocks agree.
     if (hasCad && s.strokes && s.strokes.length) {
       rows.push(['=== STROKE vs GARMIN COMPARISON ===']);
-      rows.push(['NOTE: Garmin values are interpolated from nearest trackpoint (±Xs). Large time_offset_s = clock skew.']);
-      rows.push([
-        'stroke_n', 'app_timestamp', 'elapsed_s',
-        'app_rate_spm', 'app_rate_fsm_median', 'app_rate_autocorr',
-        'garmin_rate_spm', 'rate_error_spm', 'rate_abs_error_spm',
-        'nearest_garmin_offset_s',
-        'app_dps_avg_m', 'garmin_dps_m', 'dps_error_m',
-        'app_catch_jerk_ms3', 'app_jerk_thresh_ms3',
-        'app_drive_dur_ms', 'app_interval_ms'
-      ]);
-
+      rows.push(['NOTE: Garmin values interpolated from nearest trackpoint. Large time_offset_s = clock skew.']);
+      rows.push(['stroke_n','app_timestamp','elapsed_s','app_rate_spm','app_rate_fsm_median','app_rate_autocorr','garmin_rate_spm','rate_error_spm','rate_abs_error_spm','nearest_garmin_offset_s','app_dps_avg_m','garmin_dps_m','dps_error_m','app_catch_jerk_ms3','app_jerk_thresh_ms3','app_drive_dur_ms','app_interval_ms']);
       const cTrace = s.garminCadenceTrace;
       s.strokes.forEach((r, i) => {
         const d = r.dbg || {};
-        // Find nearest Garmin trackpoint by timestamp
         let best = null, bestDt = Infinity;
-        for (const p of cTrace) {
-          const dt = Math.abs(p.t - r.t);
-          if (dt < bestDt) { bestDt = dt; best = p; }
-        }
+        for (const p of cTrace) { const dt = Math.abs(p.t - r.t); if (dt < bestDt) { bestDt = dt; best = p; } }
         const gRate = best && best.cadence != null ? best.cadence : null;
         const rateErr = (gRate != null && r.rate > 0) ? (r.rate - gRate) : null;
         const gDps = best && best.dps != null ? best.dps : null;
         const dpsErr = (gDps != null && r.dps > 0) ? (r.dps - gDps) : null;
-        rows.push([
-          i + 1,
-          new Date(r.t).toISOString(),
-          +((r.t - t0) / 1000).toFixed(1),
-          n(r.rate),
-          f1(d.medRateFsm),
-          n(d.acRate),
-          gRate != null ? gRate : '',
-          rateErr != null ? f1(rateErr) : '',
-          rateErr != null ? f1(Math.abs(rateErr)) : '',
-          +(bestDt / 1000).toFixed(1),
-          f1(r.dps),
-          gDps != null ? f2(gDps) : '',
-          dpsErr != null ? f2(dpsErr) : '',
-          f1(d.catchJerkRaw),
-          f2(d.jerkThresh),
-          n(d.driveDurMs),
-          n(d.intervalMs)
-        ]);
+        rows.push([i+1, new Date(r.t).toISOString(), +((r.t-t0)/1000).toFixed(1),
+          n(r.rate), f1(d.medRateFsm), n(d.acRate),
+          gRate != null ? gRate : '', rateErr != null ? f1(rateErr) : '', rateErr != null ? f1(Math.abs(rateErr)) : '',
+          +(bestDt/1000).toFixed(1), f1(r.dps), gDps != null ? f2(gDps) : '', dpsErr != null ? f2(dpsErr) : '',
+          f1(d.catchJerkRaw), f2(d.jerkThresh), n(d.driveDurMs), n(d.intervalMs)]);
       });
       rows.push([]);
-
-      // Summary stats for the comparison
-      const rateErrors = s.strokes
-        .map((r, i) => {
-          const best = s.garminCadenceTrace.reduce((b, p) => Math.abs(p.t - r.t) < Math.abs(b.t - r.t) ? p : b);
-          return best.cadence != null && r.rate > 0 ? r.rate - best.cadence : null;
-        })
-        .filter(e => e != null);
+      const rateErrors = s.strokes.map((r) => {
+        const best = s.garminCadenceTrace.reduce((b, p) => Math.abs(p.t - r.t) < Math.abs(b.t - r.t) ? p : b);
+        return best.cadence != null && r.rate > 0 ? r.rate - best.cadence : null;
+      }).filter(e => e != null);
       if (rateErrors.length > 0) {
-        const mean = rateErrors.reduce((a, b) => a + b, 0) / rateErrors.length;
-        const mae = rateErrors.reduce((a, b) => a + Math.abs(b), 0) / rateErrors.length;
-        const rmse = Math.sqrt(rateErrors.reduce((a, b) => a + b * b, 0) / rateErrors.length);
+        const mean = rateErrors.reduce((a,b)=>a+b,0)/rateErrors.length;
+        const mae  = rateErrors.reduce((a,b)=>a+Math.abs(b),0)/rateErrors.length;
+        const rmse = Math.sqrt(rateErrors.reduce((a,b)=>a+b*b,0)/rateErrors.length);
         rows.push(['=== RATE ERROR SUMMARY ===']);
         rows.push(['compared_strokes', rateErrors.length]);
         rows.push(['mean_error_spm (positive=app_high)', f2(mean)]);
@@ -1924,15 +1876,8 @@ function exportDebugCSV(s) {
         rows.push(['rmse_spm', f2(rmse)]);
         rows.push([]);
       }
-    } else if (!hasCad) {
-      // No cadence but we can still show lap-level comparison
-      rows.push(['=== NOTE: No per-trackpoint cadence available ===']);
-      rows.push(['Use Garmin lap average SPM (in GARMIN LAPS section of standard export) for lap-level rate comparison.']);
-      rows.push(['To get per-trackpoint cadence: ensure FR955 is in Rowing activity (not Other). Some firmware versions do not export cadence in TCX.']);
-      rows.push([]);
     }
   }
-
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'}));
   a.download = `scull_debug_${new Date(s.startTime).toISOString().slice(0,10)}_${s.id}.csv`;
@@ -1940,8 +1885,9 @@ function exportDebugCSV(s) {
   toast('Debug CSV exported');
 }
 
+/* ── service worker ── */
 if ('serviceWorker' in navigator) {
-  const sw = `const C='scull-v8';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
+  const sw = `const C='scull-v9';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
   navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw], { type: 'application/javascript' }))).catch(() => {});
 }
 
@@ -1949,6 +1895,5 @@ if ('serviceWorker' in navigator) {
 wireCfgTiles(); updateCfgTile('top'); updateCfgTile('bot');
 checkAutosave();
 </script>
-
 </body>
 </html>
