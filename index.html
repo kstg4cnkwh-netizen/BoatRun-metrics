@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -155,7 +156,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
     <div class="perm-note">
       iOS: Settings → Safari → Motion &amp; Orientation Access<br/>
       Add to Home Screen for full-screen use · Works offline<br/>
-      <span style="color:rgba(255,255,255,.18)">v2.2</span>
+      <span style="color:rgba(255,255,255,.18)">v2.3</span>
     </div>
   </div>
 </div>
@@ -719,6 +720,9 @@ function onStrokeFinish(now, driveDur) {
   // FIX v2.2: DPS from haversine distance-delta — matches Garmin method exactly.
   // v2.1 used median(EMA-speed) × intervalS which lagged during acceleration phases
   // and underestimated DPS by ~15% vs Garmin truth (app 7.6m vs Garmin 9.0m/stroke).
+  // FIX v2.3: capture dpsRaw BEFORE updating prevStrokeDist (was always 0 in v2.2)
+  const dpsRawDelta = prevStrokeDistT > 0 ? +(distance - prevStrokeDist).toFixed(2) : 0;
+
   if (intervalS > 0.8 && intervalS < 8 && prevStrokeDistT > 0) {
     const dDist = distance - prevStrokeDist;
     if (dDist > 0.5 && dDist < 25) {
@@ -742,7 +746,7 @@ function onStrokeFinish(now, driveDur) {
   const catchIntervalMs = catchTsBuf.length >= 2
     ? catchTsBuf[catchTsBuf.length - 1] - catchTsBuf[catchTsBuf.length - 2] : null;
   const medRateRaw = rateFromMedianIntervals();
-  const dpsRaw = +(distance - prevStrokeDist).toFixed(2);
+  const dpsRaw = dpsRawDelta;
 
   strokeCount++;
   sessStrokes.push({
@@ -849,12 +853,14 @@ function handleMotion(e) {
 /* ════════════════════════════════════════
    GPS / PACE / VELOCITY
    ─────────────────────────────────────
-   FIX v2.2: GPS_EMA_ALPHA raised 0.20→0.28
-   Spike guard (2.5× cap) handles outliers.
-   0.20 over-smoothed velocity → DPS underestimated
-   ~15% vs Garmin truth. 0.28 tracks better while
-   spike guard still prevents bad single readings.
-   Hard speed cap remains 8 m/s.
+   v2.2: GPS_EMA_ALPHA raised 0.20→0.28.
+   v2.3: EMA hard-reset after GPS gap >3s.
+   Analysis (Garmin FIT truth): GPS dropouts
+   left EMA frozen → pace reading 3:54 when
+   truth was 2:06; hard-reset + pace buffer
+   flush gives <15s recovery vs >60s before.
+   Freshness guard: pace→0 if no GPS >6s.
+   Hard speed cap: 8 m/s. Spike guard: 2.5×.
 ════════════════════════════════════════ */
 let pace = 0;
 const PACE_MAX = 600;
@@ -863,13 +869,23 @@ let vAnchor = 0, vAnchorT = 0;
 const velocityWindow = [];
 const VEL_WINDOW_MS = 10000;
 
-// FIX v2.2: EMA alpha raised 0.20→0.28; spike guard handles outliers; 0.20 over-smoothed DPS ~15%
+// FIX v2.2: EMA alpha raised 0.20→0.28; spike guard handles outliers
+// FIX v2.3: gpsLastValidT tracks GPS update recency for gap detection
 let gpsSpeedEma = -1;
+let gpsLastValidT = 0; // FIX v2.3: ms timestamp of last valid GPS speed reading
 const GPS_EMA_ALPHA = 0.28; // was 0.35→0.20→0.28
+const GPS_GAP_RESET_MS = 3000; // FIX v2.3: gaps >3s trigger EMA hard-reset
 
 function pushVelocity(t, v) {
-  if (gpsSpeedEma < 0) gpsSpeedEma = v;
-  else {
+  const gapMs = gpsLastValidT > 0 ? t - gpsLastValidT : 0;
+  gpsLastValidT = t;
+  if (gpsSpeedEma < 0 || gapMs > GPS_GAP_RESET_MS) {
+    // FIX v2.3: hard-reset EMA after GPS gap — prevents stale EMA persisting through dropout.
+    // Analysis showed pace reading 3:54 when truth was 2:06, caused by EMA frozen during
+    // a ~15s GPS gap then smoothing too slowly back to real speed.
+    gpsSpeedEma = v;
+    if (gapMs > GPS_GAP_RESET_MS) paceReadings.length = 0; // flush stale median buffer too
+  } else {
     // spike guard — reject/cap readings >2.5× current EMA
     const vCapped = (gpsSpeedEma > 0.5 && v > gpsSpeedEma * 2.5) ? gpsSpeedEma * 2.5 : v;
     gpsSpeedEma = GPS_EMA_ALPHA * vCapped + (1 - GPS_EMA_ALPHA) * gpsSpeedEma;
@@ -913,7 +929,7 @@ function handlePos(pos) {
 
   if (running && !paused && spd != null && spd >= 0 && spd < 8) {
     vAnchor = spd; vAnchorT = now;
-    pushVelocity(now, spd);
+    pushVelocity(now, spd); // FIX v2.3: gap detection inside pushVelocity
     sessGpsRawTrace.push({ t: Date.now(), rawSpd: +spd.toFixed(3), emaSpd: +gpsSpeedEma.toFixed(3), acc: +(pos.coords.accuracy || 0).toFixed(1) });
   }
 
@@ -929,7 +945,7 @@ function handlePos(pos) {
       const raw = 500 / spd;
       if (raw < PACE_MAX) {
         paceReadings.push(raw);
-        if (paceReadings.length > 10) paceReadings.shift(); // FIX v2.2: 6→10 for smoother pace display
+        if (paceReadings.length > 10) paceReadings.shift();
         const sorted = [...paceReadings].sort((a, b) => a - b);
         const mid = Math.floor(sorted.length / 2);
         pace = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
@@ -937,6 +953,13 @@ function handlePos(pos) {
       }
     } else { paceReadings.length = 0; pace = 0; }
   }
+
+  // FIX v2.3: pace freshness guard — invalidate displayed pace if GPS speed absent >6s.
+  // Analysis: GPS dropouts leave EMA frozen at stale value; pace should go to --:-- not lie.
+  if (running && !paused && gpsLastValidT > 0 && (now - gpsLastValidT) > 6000) {
+    pace = 0;
+  }
+
   updateUI();
 }
 
@@ -1139,6 +1162,7 @@ function resetSess() {
   strokeTs.length = 0; paceReadings.length = 0;
   velocityWindow.length = 0; vAnchor = 0; vAnchorT = 0;
   prevStrokeDist = 0; prevStrokeDistT = 0; // FIX v2.2
+  gpsLastValidT = 0; // FIX v2.3
   fsmState = FS.IDLE; catchPeakJerk = 0; lastCatchAbsT = 0; strokesDetected = 0;
   jerkThreshActive = jerkThreshBase; adaptReady = false;
   acBuf.length = 0; acLastUpdate = 0;
@@ -1742,8 +1766,10 @@ function exportDebugCSV(s) {
   rows.push(['cal_jerk_thresh_ms3', n(s.calThresh)]);
   rows.push(['stroke_count', n(s.strokeCount)]);
   rows.push(['distance_m', n(s.distance)]);
-  rows.push(['app_version', 'v2.2']);
+  rows.push(['app_version', 'v2.3']);
   rows.push(['gps_ema_alpha', '0.28']);
+  rows.push(['gps_gap_reset_ms', '3000']);
+  rows.push(['gps_freshness_guard_ms', '6000']);
   rows.push(['min_drive_ms', '300']);
   rows.push(['gps_spike_cap_ms', '8.0']);
   rows.push([]);
@@ -1855,7 +1881,7 @@ function exportDebugCSV(s) {
 
 /* ── service worker ── */
 if ('serviceWorker' in navigator) {
-  const sw = `const C='scull-v10';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
+  const sw = `const C='scull-v11';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
   navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw], { type: 'application/javascript' }))).catch(() => {});
 }
 
@@ -1863,5 +1889,6 @@ if ('serviceWorker' in navigator) {
 wireCfgTiles(); updateCfgTile('top'); updateCfgTile('bot');
 checkAutosave();
 </script>
+
 </body>
 </html>
