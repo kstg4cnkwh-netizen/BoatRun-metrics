@@ -156,7 +156,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
     <div class="perm-note">
       iOS: Settings → Safari → Motion &amp; Orientation Access<br/>
       Add to Home Screen for full-screen use · Works offline<br/>
-      <span style="color:rgba(255,255,255,.18)">v2.3</span>
+      <span style="color:rgba(255,255,255,.18)">v2.4</span>
     </div>
   </div>
 </div>
@@ -313,8 +313,43 @@ if (screen.orientation && screen.orientation.lock) screen.orientation.lock('land
 const DB = 'scull_v3';
 const AUTOSAVE_DB = 'scull_autosave';
 const loadSess = () => { try { return JSON.parse(localStorage.getItem(DB) || '[]'); } catch { return []; } };
-const saveSess = a => localStorage.setItem(DB, JSON.stringify(a));
-const addSess = s => { const a = loadSess(); a.unshift(s); saveSess(a); };
+
+// FIX v2.4: saveSess wrapped in try/catch with slim fallback.
+// v2.3 had bare localStorage.setItem — quota overflow threw uncaught exception
+// mid-stopSess(), preventing renderCtrl() from running → UI freeze + data loss.
+function saveSess(a) {
+  try {
+    localStorage.setItem(DB, JSON.stringify(a));
+  } catch(e) {
+    // Quota exceeded — retry without dbg fields and gpsRawTrace
+    try {
+      const slim = a.map(s => {
+        if (!s.strokes) return s;
+        return { ...s,
+          strokes: s.strokes.map(({ dbg, ...rest }) => rest),
+          gpsRawTrace: undefined
+        };
+      });
+      localStorage.setItem(DB, JSON.stringify(slim));
+      toast('Storage full — debug data trimmed');
+    } catch(e2) {
+      toast('Storage full — oldest session removed');
+      try {
+        const pruned = a.slice(0, Math.max(1, a.length - 1));
+        localStorage.setItem(DB, JSON.stringify(pruned));
+      } catch(e3) { /* give up gracefully */ }
+    }
+  }
+}
+
+function addSess(s) {
+  try {
+    const a = loadSess();
+    a.unshift(s);
+    saveSess(a);
+  } catch(e) { /* loadSess failed — ignore */ }
+}
+
 const delSess = id => saveSess(loadSess().filter(s => s.id !== id));
 
 function saveInProgress() {
@@ -975,6 +1010,7 @@ function handleGpsErr(err) {
 let running = false, paused = false, elapsed = 0;
 let distance = 0, lapStartDist = 0, lapStartTime = 0;
 let laps = [], sessStart = null, sessStrokes = [], sessPaceTrace = [];
+let sessSaved = false; // FIX v2.4: prevents double-save prompt in resetSess
 let timerInt = null, autosaveInt = null, wakeLock = null;
 
 /* ════════════════════════════════════════
@@ -1111,36 +1147,49 @@ function resumeSess() { paused = false; running = true; timerInt = setInterval((
 
 function stopSess() {
   running = false; paused = false; clearInterval(timerInt); clearInterval(autosaveInt);
-  if (elapsed > 10 && sessStrokes.length > 0) {
-    const ap = sessPaceTrace.length > 0 ? Math.round(sessPaceTrace.reduce((a, b) => a + b, 0) / sessPaceTrace.length) : 0;
-    const ar = sessStrokes.length > 0 ? Math.round(sessStrokes.reduce((a, b) => a + b.rate, 0) / sessStrokes.length) : 0;
-    const avg = (arr, k) => { const v = arr.map(x => x[k]).filter(v => v != null && !isNaN(v)); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
-    const ac = (() => { const v = sessStrokes.map(x => x.catchConsistency).filter(v => v != null && !isNaN(v)); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; })();
-    addSess({
-      id: Date.now().toString(), startTime: sessStart, endTime: Date.now(), duration: elapsed,
-      distance: Math.round(distance), avgPace: ap, avgRate: ar,
-      maxRate: Math.max(...sessStrokes.map(s => s.rate), 0),
-      catchPeakSess, catchAvg8, strokeCount,
-      avgRunLoss: avg(sessStrokes, 'runLossPct'),
-      avgEfficiency: avg(sessStrokes, 'runEfficiency'),
-      avgDPS: avg(sessStrokes, 'dps'),
-      avgCatch: avg(sessStrokes, 'catchPeak'),
-      avgChar: avg(sessStrokes, 'char'),
-      avgConsistency: ac,
-      avgEffScore: avg(sessStrokes, 'effScore'),
-      strokes: sessStrokes, paceTrace: sessPaceTrace,
-      gpsTrace: sessGpsTrace, gpsRawTrace: sessGpsRawTrace, hrTrace: null, laps,
-      calNoiseFloor: cal.noiseFloor, calThresh: cal.jerkThresh,
-      detectedAxis: selAxis
-    });
-    toast('Session saved');
+  if (elapsed > 10 && sessStrokes.length > 0 && !sessSaved) {
+    try {
+      const ap = sessPaceTrace.length > 0 ? Math.round(sessPaceTrace.reduce((a, b) => a + b, 0) / sessPaceTrace.length) : 0;
+      const ar = sessStrokes.length > 0 ? Math.round(sessStrokes.reduce((a, b) => a + b.rate, 0) / sessStrokes.length) : 0;
+      // FIX v2.4: use reduce for maxRate — spread on large array risks stack overflow
+      const maxRate = sessStrokes.reduce((m, s) => s.rate > m ? s.rate : m, 0);
+      const avg = (arr, k) => { const v = arr.map(x => x[k]).filter(v => v != null && !isNaN(v)); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+      const ac = (() => { const v = sessStrokes.map(x => x.catchConsistency).filter(v => v != null && !isNaN(v)); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; })();
+      // FIX v2.4: snapshot strokes array by value — prevents sessStrokes.length=0 in
+      // resetSess mutating the stored reference before analysis tab reads it
+      const strokesSnap = sessStrokes.map(s => ({ ...s }));
+      addSess({
+        id: Date.now().toString(), startTime: sessStart, endTime: Date.now(), duration: elapsed,
+        distance: Math.round(distance), avgPace: ap, avgRate: ar, maxRate,
+        catchPeakSess, catchAvg8, strokeCount,
+        avgRunLoss: avg(sessStrokes, 'runLossPct'),
+        avgEfficiency: avg(sessStrokes, 'runEfficiency'),
+        avgDPS: avg(sessStrokes, 'dps'),
+        avgCatch: avg(sessStrokes, 'catchPeak'),
+        avgChar: avg(sessStrokes, 'char'),
+        avgConsistency: ac,
+        avgEffScore: avg(sessStrokes, 'effScore'),
+        strokes: strokesSnap, paceTrace: sessPaceTrace.slice(),
+        gpsTrace: sessGpsTrace.slice(), gpsRawTrace: sessGpsRawTrace.slice(),
+        hrTrace: null, laps: laps.slice(),
+        calNoiseFloor: cal.noiseFloor, calThresh: cal.jerkThresh,
+        detectedAxis: selAxis
+      });
+      sessSaved = true;
+      toast('Session saved');
+    } catch(e) {
+      toast('Save error — export CSV to recover data');
+    }
     localStorage.removeItem(AUTOSAVE_DB);
   }
   requestAnimationFrame(renderCtrl);
 }
 
 function resetSess() {
-  if (elapsed > 10 && sessStrokes.length > 0 && !paused) {
+  // FIX v2.4: only prompt to save if session has data AND hasn't already been saved by stopSess.
+  // v2.3 checked sessStrokes.length which is still >0 after stopSess → showed "Save again?" dialog
+  // → duplicate sessions on Yes, or confusing prompt on No.
+  if (elapsed > 10 && sessStrokes.length > 0 && !sessSaved) {
     if (confirm('Save this session before resetting?')) {
       stopSess();
     } else {
@@ -1149,7 +1198,7 @@ function resetSess() {
   } else {
     clearInterval(timerInt); clearInterval(autosaveInt);
   }
-  running = false; paused = false;
+  running = false; paused = false; sessSaved = false;
   localStorage.removeItem(AUTOSAVE_DB);
   elapsed = 0; distance = 0; pace = 0; strokeRate = 0; strokeCount = 0;
   acRate = 0; acConf = 0; distPerStroke = 0; dpsValsArr = [];
@@ -1766,7 +1815,7 @@ function exportDebugCSV(s) {
   rows.push(['cal_jerk_thresh_ms3', n(s.calThresh)]);
   rows.push(['stroke_count', n(s.strokeCount)]);
   rows.push(['distance_m', n(s.distance)]);
-  rows.push(['app_version', 'v2.3']);
+  rows.push(['app_version', 'v2.4']);
   rows.push(['gps_ema_alpha', '0.28']);
   rows.push(['gps_gap_reset_ms', '3000']);
   rows.push(['gps_freshness_guard_ms', '6000']);
@@ -1881,7 +1930,7 @@ function exportDebugCSV(s) {
 
 /* ── service worker ── */
 if ('serviceWorker' in navigator) {
-  const sw = `const C='scull-v11';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
+  const sw = `const C='scull-v12';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
   navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw], { type: 'application/javascript' }))).catch(() => {});
 }
 
