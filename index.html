@@ -156,7 +156,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
     <div class="perm-note">
       iOS: Settings → Safari → Motion &amp; Orientation Access<br/>
       Add to Home Screen for full-screen use · Works offline<br/>
-      <span style="color:rgba(255,255,255,.18)">v2.5</span>
+      <span style="color:rgba(255,255,255,.18)">v2.6</span>
     </div>
   </div>
 </div>
@@ -579,7 +579,7 @@ let drivePeakAcc = 0, drivePeakAccT = 0;
 
 const PERIOD_MIN_MS = 1200;
 const PERIOD_MAX_MS = 6000;
-const REFRACTORY_MIN_MS = 600;
+const REFRACTORY_MIN_MS = 900;
 const MAX_DRIVE_MS = 2800;
 const MIN_DRIVE_MS = 300;
 
@@ -598,7 +598,7 @@ function runFSM(now, fastSmooth, jerk) {
 
   const timeSinceCatch = now - lastCatchAbsT;
   const refractory = strokeRate > 0
-    ? Math.max(REFRACTORY_MIN_MS, (60000 / Math.min(strokeRate + 2, SPM_MAX)) * 0.45)
+    ? Math.max(REFRACTORY_MIN_MS, (60000 / Math.min(strokeRate + 2, SPM_MAX)) * 0.50)
     : REFRACTORY_MIN_MS;
 
   switch (fsmState) {
@@ -714,10 +714,10 @@ function onStrokeFinish(now, driveDur) {
   if (catchValsArr.length >= 5) {
     const m = catchValsArr.reduce((a, b) => a + b, 0) / catchValsArr.length;
     const sd = Math.sqrt(catchValsArr.reduce((s, v) => s + (v - m) ** 2, 0) / catchValsArr.length);
-    const target = Math.max(jerkThreshBase, m * 0.50 - sd * 0.35);
-    jerkThreshActive = adaptReady
-      ? (0.80 * jerkThreshActive + 0.20 * target)
-      : target;
+    const target = Math.max(jerkThreshBase, m * 0.50 - sd * 0.35);  
+      jerkThreshActive = adaptReady  
+        ? Math.max(jerkThreshBase * 0.8, 0.80 * jerkThreshActive + 0.20 * target)
+        : Math.max(jerkThreshBase * 0.8, target);",   
     if (!adaptReady) {
       adaptReady = true;
       if (strokesDetected >= 4) {
@@ -1108,7 +1108,16 @@ function startSess() {
 }
 
 function pauseSess() { paused = true; running = false; clearInterval(timerInt); requestAnimationFrame(renderCtrl); }
-function resumeSess() { paused = false; running = true; timerInt = setInterval(() => { elapsed++; updateUI(); }, 1000); requestAnimationFrame(renderCtrl); }
+
+function resumeSess() {  
+  paused = false; running = true;  
+  paceReadings.length = 0;  
+    velocityWindow.length = 0;  
+      gpsSpeedEma = -1; 
+        timerInt = setInterval(() => { elapsed++; updateUI(); }, 1000);  
+          requestAnimationFrame(renderCtrl);
+                      }",
+    "resumeSess clear pace/EMA")
 
 function stopSess() {
   running = false; paused = false; clearInterval(timerInt); clearInterval(autosaveInt);
@@ -1489,7 +1498,7 @@ async function handleGPX(e, sessionId) {
 }
 
 /* ════════════════════════════════════════
-   INLINE FIT BINARY PARSER  (v2.5)
+   INLINE FIT BINARY PARSER  (v2.6)
 ════════════════════════════════════════ */
 function parseFITInline(buffer) {
   const u8 = new Uint8Array(buffer);
@@ -1597,19 +1606,19 @@ function parseFITInline(buffer) {
         if (!isValid(elRaw, 4)) continue;
         const lapTime = elRaw / 1000;
         const lapDist = isValid(dRaw, 4) ? dRaw / 100 : 0;
-        const avgHr  = isValid(fd[16], 1) ? fd[16] : null;
-        const maxHr  = isValid(fd[17], 1) ? fd[17] : null;
-        const avgCad = isValid(fd[18], 1) ? fd[18] : null;
+        const avgHr  = isValid(fd[15], 1) ? fd[15] : null;
+        const maxHr  = isValid(fd[16], 1) ? fd[16] : null;
+        const avgCad = isValid(fd[17], 1) ? fd[17] : null;
         const avgSR  = fd[13];
         const avgSpd = isValid(avgSR, 2) ? avgSR / 1000
                      : (lapDist > 0 && lapTime > 0 ? lapDist / lapTime : 0);
         const cal_l  = isValid(fd[11], 2) ? fd[11] : null;
         const strokRaw = fd[10] || fd[23] || fd[32] || null;
         const strokes  = (strokRaw && strokRaw < 0xFFFFFFFF) ? strokRaw : null;
-        const sdRaw    = fd[90];
-        const strokeDist = isValid(sdRaw, 2) && sdRaw > 0
-          ? +(sdRaw / 100).toFixed(2)
-          : (avgCad > 0 && avgSpd > 0 ? +(avgSpd / avgCad * 60).toFixed(2) : null);
+        const sdRaw = isValid(fd[28], 2) ? fd[28] : null;         
+        const strokeDist = sdRaw != null && sdRaw > 0         
+          ? +(sdRaw / 100).toFixed(2)         
+          : (avgCad > 0 && avgSpd > 0 ? +(avgSpd / avgCad * 60).toFixed(2) : null);",
         laps.push({
           n: laps.length + 1,
           time: Math.round(lapTime), dist: Math.round(lapDist),
@@ -1799,7 +1808,7 @@ function exportDebugCSV(s) {
   rows.push(['cal_jerk_thresh_ms3', n(s.calThresh)]);
   rows.push(['stroke_count', n(s.strokeCount)]);
   rows.push(['distance_m', n(s.distance)]);
-  rows.push(['app_version', 'v2.5']);
+  rows.push(['app_version', 'v2.6']);
   rows.push(['gps_ema_alpha', '0.28']);
   rows.push(['gps_gap_reset_ms', '3000']);
   rows.push(['gps_freshness_guard_ms', '6000']);
@@ -1914,7 +1923,7 @@ function exportDebugCSV(s) {
 
 /* ── service worker ── */
 if ('serviceWorker' in navigator) {
-  const sw = `const C='scull-v13';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
+  const sw = `const C='scull-v14';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
   navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw], { type: 'application/javascript' }))).catch(() => {});
 }
 
