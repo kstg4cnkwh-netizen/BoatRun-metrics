@@ -714,10 +714,10 @@ function onStrokeFinish(now, driveDur) {
   if (catchValsArr.length >= 5) {
     const m = catchValsArr.reduce((a, b) => a + b, 0) / catchValsArr.length;
     const sd = Math.sqrt(catchValsArr.reduce((s, v) => s + (v - m) ** 2, 0) / catchValsArr.length);
-    const target = Math.max(jerkThreshBase, m * 0.50 - sd * 0.35);  
-      jerkThreshActive = adaptReady  
-        ? Math.max(jerkThreshBase * 0.8, 0.80 * jerkThreshActive + 0.20 * target)
-        : Math.max(jerkThreshBase * 0.8, target);   
+    const target = Math.max(jerkThreshBase, m * 0.50 - sd * 0.35);
+    jerkThreshActive = adaptReady
+      ? Math.max(jerkThreshBase * 0.8, 0.80 * jerkThreshActive + 0.20 * target)
+      : Math.max(jerkThreshBase * 0.8, target);
     if (!adaptReady) {
       adaptReady = true;
       if (strokesDetected >= 4) {
@@ -1109,15 +1109,14 @@ function startSess() {
 
 function pauseSess() { paused = true; running = false; clearInterval(timerInt); requestAnimationFrame(renderCtrl); }
 
-function resumeSess() {  
-  paused = false; running = true;  
-  paceReadings.length = 0;  
-    velocityWindow.length = 0;  
-      gpsSpeedEma = -1; 
-        timerInt = setInterval(() => { elapsed++; updateUI(); }, 1000);  
-          requestAnimationFrame(renderCtrl);
-                      }
-    "resumeSess clear pace/EMA")
+function resumeSess() {
+  paused = false; running = true;
+  paceReadings.length = 0;
+  velocityWindow.length = 0;
+  gpsSpeedEma = -1;
+  timerInt = setInterval(() => { elapsed++; updateUI(); }, 1000);
+  requestAnimationFrame(renderCtrl);
+}
 
 function stopSess() {
   running = false; paused = false; clearInterval(timerInt); clearInterval(autosaveInt);
@@ -1606,6 +1605,7 @@ function parseFITInline(buffer) {
         if (!isValid(elRaw, 4)) continue;
         const lapTime = elRaw / 1000;
         const lapDist = isValid(dRaw, 4) ? dRaw / 100 : 0;
+        // FIX v2.6: field 15=avg_hr, 16=max_hr, 17=avg_cadence (was off-by-one)
         const avgHr  = isValid(fd[15], 1) ? fd[15] : null;
         const maxHr  = isValid(fd[16], 1) ? fd[16] : null;
         const avgCad = isValid(fd[17], 1) ? fd[17] : null;
@@ -1615,10 +1615,11 @@ function parseFITInline(buffer) {
         const cal_l  = isValid(fd[11], 2) ? fd[11] : null;
         const strokRaw = fd[10] || fd[23] || fd[32] || null;
         const strokes  = (strokRaw && strokRaw < 0xFFFFFFFF) ? strokRaw : null;
-        const sdRaw = isValid(fd[28], 2) ? fd[28] : null;         
-        const strokeDist = sdRaw != null && sdRaw > 0         
-          ? +(sdRaw / 100).toFixed(2)         
-          : (avgCad > 0 && avgSpd > 0 ? +(avgSpd / avgCad * 60).toFixed(2) : null);",
+        // FIX v2.6: avg_stroke_distance is field 28 (was fd[90])
+        const sdRaw = isValid(fd[28], 2) ? fd[28] : null;
+        const strokeDist = sdRaw != null && sdRaw > 0
+          ? +(sdRaw / 100).toFixed(2)
+          : (avgCad > 0 && avgSpd > 0 ? +(avgSpd / avgCad * 60).toFixed(2) : null);
         laps.push({
           n: laps.length + 1,
           time: Math.round(lapTime), dist: Math.round(lapDist),
@@ -1641,18 +1642,11 @@ function parseFITInline(buffer) {
         cur.dDist = +dDist.toFixed(2);
         const strokes = cur.cadence != null ? cur.cadence * dtS / 60 : null;
         cur.dps = strokes > 0.05 ? +(dDist / strokes).toFixed(2) : null;
-        // FIX v2.5: per-point speed from distance delta; tight dt guard for 1 Hz GPS.
-        // FR955 rowing mode populates enhanced_speed (fd[108]) with a stroke-mechanics
-        // estimate (~1.9 m/s) rather than GPS speed (~4.0 m/s). The cumulative distance
-        // field is GPS-accurate — derive speed from that instead.
         if (dtS < 3) cur.derivedSpd = +(dDist / dtS).toFixed(3);
       }
     }
   }
 
-  // FIX v2.5: Build speedTrace from cumulative-distance deltas, not FIT speed field.
-  // Apply 5-point centred rolling average to suppress 1 Hz GPS quantisation noise.
-  // Falls back to raw FIT speed field if no distance data is available.
   const _WIN = 5, _HALF = 2;
   const derivedSpeedTrace = [];
   for (let i = 0; i < cadenceTrace.length; i++) {
@@ -1663,7 +1657,7 @@ function parseFITInline(buffer) {
     if (vals.length >= 2) {
       const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
       if (avg >= 0.3 && avg < 8) {
-        cadenceTrace[i].spd = +avg.toFixed(3); // update so debug CSV shows correct speed
+        cadenceTrace[i].spd = +avg.toFixed(3);
         derivedSpeedTrace.push({ t: cadenceTrace[i].t, spd: +avg.toFixed(3) });
       }
     }
