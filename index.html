@@ -315,27 +315,47 @@ const AUTOSAVE_DB = 'scull_autosave';
 const loadSess = () => { try { return JSON.parse(localStorage.getItem(DB) || '[]'); } catch { return []; } };
 
 function saveSess(a) {
+  // attempt 1: full data
+  try { localStorage.setItem(DB, JSON.stringify(a)); return true; } catch(e) {}
+
+  // attempt 2: strip dbg + gpsRawTrace from ALL sessions (including new)
   try {
-    localStorage.setItem(DB, JSON.stringify(a));
-  } catch(e) {
-    try {
-      const slim = a.map(s => {
-        if (!s.strokes) return s;
-        return { ...s,
-          strokes: s.strokes.map(({ dbg, ...rest }) => rest),
-          gpsRawTrace: undefined
-        };
-      });
-      localStorage.setItem(DB, JSON.stringify(slim));
-      toast('Storage full — debug data trimmed');
-    } catch(e2) {
-      toast('Storage full — oldest session removed');
+    const slim = a.map(s => {
+      if (!s.strokes) return s;
+      return { ...s,
+        strokes: s.strokes.map(({ dbg, ...rest }) => rest),
+        gpsRawTrace: undefined
+      };
+    });
+    localStorage.setItem(DB, JSON.stringify(slim));
+    toast('Storage full — debug data trimmed');
+    return true;
+  } catch(e2) {}
+
+  // attempt 3: slim + drop oldest sessions until it fits or only 1 remains
+  try {
+    let pruned = a.map(s => {
+      if (!s.strokes) return s;
+      return { ...s,
+        strokes: s.strokes.map(({ dbg, ...rest }) => rest),
+        gpsRawTrace: undefined
+      };
+    });
+    while (pruned.length > 1) {
+      pruned = pruned.slice(0, pruned.length - 1);
       try {
-        const pruned = a.slice(0, Math.max(1, a.length - 1));
         localStorage.setItem(DB, JSON.stringify(pruned));
-      } catch(e3) { /* give up gracefully */ }
+        toast('Storage full — oldest session removed');
+        return true;
+      } catch(e3) {}
     }
-  }
+    // last resort: just the newest session, fully slimmed
+    localStorage.setItem(DB, JSON.stringify(pruned));
+    toast('Storage full — only current session kept');
+    return true;
+  } catch(e4) {}
+
+  return false; // total failure
 }
 
 function addSess(s) {
@@ -1128,7 +1148,7 @@ function stopSess() {
       const avg = (arr, k) => { const v = arr.map(x => x[k]).filter(v => v != null && !isNaN(v)); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
       const ac = (() => { const v = sessStrokes.map(x => x.catchConsistency).filter(v => v != null && !isNaN(v)); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; })();
       const strokesSnap = sessStrokes.map(s => ({ ...s }));
-      addSess({
+      const sess = {
         id: Date.now().toString(), startTime: sessStart, endTime: Date.now(), duration: elapsed,
         distance: Math.round(distance), avgPace: ap, avgRate: ar, maxRate,
         catchPeakSess, catchAvg8, strokeCount,
@@ -1144,9 +1164,16 @@ function stopSess() {
         hrTrace: null, laps: laps.slice(),
         calNoiseFloor: cal.noiseFloor, calThresh: cal.jerkThresh,
         detectedAxis: selAxis
-      });
-      sessSaved = true;
-      toast('Session saved');
+      };
+      const a = loadSess();
+      a.unshift(sess);
+      const ok = saveSess(a);
+      if (ok) {
+        sessSaved = true;
+        toast('Session saved');
+      } else {
+        toast('Save failed — export CSV to recover data');
+      }
     } catch(e) {
       toast('Save error — export CSV to recover data');
     }
