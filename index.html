@@ -156,7 +156,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
     <div class="perm-note">
       iOS: Settings → Safari → Motion &amp; Orientation Access<br/>
       Add to Home Screen for full-screen use · Works offline<br/>
-      <span style="color:rgba(255,255,255,.18)">v2.4</span>
+      <span style="color:rgba(255,255,255,.18)">v2.5</span>
     </div>
   </div>
 </div>
@@ -314,14 +314,10 @@ const DB = 'scull_v3';
 const AUTOSAVE_DB = 'scull_autosave';
 const loadSess = () => { try { return JSON.parse(localStorage.getItem(DB) || '[]'); } catch { return []; } };
 
-// FIX v2.4: saveSess wrapped in try/catch with slim fallback.
-// v2.3 had bare localStorage.setItem — quota overflow threw uncaught exception
-// mid-stopSess(), preventing renderCtrl() from running → UI freeze + data loss.
 function saveSess(a) {
   try {
     localStorage.setItem(DB, JSON.stringify(a));
   } catch(e) {
-    // Quota exceeded — retry without dbg fields and gpsRawTrace
     try {
       const slim = a.map(s => {
         if (!s.strokes) return s;
@@ -585,9 +581,6 @@ const PERIOD_MIN_MS = 1200;
 const PERIOD_MAX_MS = 6000;
 const REFRACTORY_MIN_MS = 600;
 const MAX_DRIVE_MS = 2800;
-// FIX v2.2: MIN_DRIVE_MS raised 80→300ms
-// Ghost strokes (drive<300ms) inflated stroke count ~25% vs Garmin truth.
-// Real drive phase: r45≈400ms, r30≈600ms, r20≈900ms. 300ms gives safe margin.
 const MIN_DRIVE_MS = 300;
 
 let jerkThreshBase   = cal.jerkThresh;
@@ -661,7 +654,7 @@ let catchLast = null, catchPeakSess = null, catchAvg8 = null, catchConsistency =
 let charValsArr = [];
 let strokeChar = 50;
 let distPerStroke = 0, dpsValsArr = [], maxDPS = 0;
-let prevStrokeDist = 0, prevStrokeDistT = 0; // FIX v2.2: haversine dist-delta DPS
+let prevStrokeDist = 0, prevStrokeDistT = 0;
 const MAX_STROKE_TS = 4;
 const strokeTs = [];
 let runLossPct = null, runLossMs = null, runEfficiency = null, effScore = null;
@@ -718,9 +711,6 @@ function onStrokeFinish(now, driveDur) {
   catchAvg8 = catchLast;
   if (catchPeakSess === null || catchSlope > catchPeakSess) catchPeakSess = catchSlope;
 
-  // FIX v2.2: continuous rolling jerk-threshold adaptation; floor raised 60%→100% of base
-  // v2.1 used !adaptReady guard — fired once, then threshold stuck at 3.0 m/s³ all session.
-  // That caused persistent ghost strokes. Now re-adapts every stroke with exponential smoothing.
   if (catchValsArr.length >= 5) {
     const m = catchValsArr.reduce((a, b) => a + b, 0) / catchValsArr.length;
     const sd = Math.sqrt(catchValsArr.reduce((s, v) => s + (v - m) ** 2, 0) / catchValsArr.length);
@@ -752,10 +742,6 @@ function onStrokeFinish(now, driveDur) {
   const intervalS = strokeTs.length >= 2
     ? (strokeTs[strokeTs.length - 1] - strokeTs[strokeTs.length - 2]) / 1000 : 0;
 
-  // FIX v2.2: DPS from haversine distance-delta — matches Garmin method exactly.
-  // v2.1 used median(EMA-speed) × intervalS which lagged during acceleration phases
-  // and underestimated DPS by ~15% vs Garmin truth (app 7.6m vs Garmin 9.0m/stroke).
-  // FIX v2.3: capture dpsRaw BEFORE updating prevStrokeDist (was always 0 in v2.2)
   const dpsRawDelta = prevStrokeDistT > 0 ? +(distance - prevStrokeDist).toFixed(2) : 0;
 
   if (intervalS > 0.8 && intervalS < 8 && prevStrokeDistT > 0) {
@@ -887,15 +873,6 @@ function handleMotion(e) {
 
 /* ════════════════════════════════════════
    GPS / PACE / VELOCITY
-   ─────────────────────────────────────
-   v2.2: GPS_EMA_ALPHA raised 0.20→0.28.
-   v2.3: EMA hard-reset after GPS gap >3s.
-   Analysis (Garmin FIT truth): GPS dropouts
-   left EMA frozen → pace reading 3:54 when
-   truth was 2:06; hard-reset + pace buffer
-   flush gives <15s recovery vs >60s before.
-   Freshness guard: pace→0 if no GPS >6s.
-   Hard speed cap: 8 m/s. Spike guard: 2.5×.
 ════════════════════════════════════════ */
 let pace = 0;
 const PACE_MAX = 600;
@@ -904,24 +881,18 @@ let vAnchor = 0, vAnchorT = 0;
 const velocityWindow = [];
 const VEL_WINDOW_MS = 10000;
 
-// FIX v2.2: EMA alpha raised 0.20→0.28; spike guard handles outliers
-// FIX v2.3: gpsLastValidT tracks GPS update recency for gap detection
 let gpsSpeedEma = -1;
-let gpsLastValidT = 0; // FIX v2.3: ms timestamp of last valid GPS speed reading
-const GPS_EMA_ALPHA = 0.28; // was 0.35→0.20→0.28
-const GPS_GAP_RESET_MS = 3000; // FIX v2.3: gaps >3s trigger EMA hard-reset
+let gpsLastValidT = 0;
+const GPS_EMA_ALPHA = 0.28;
+const GPS_GAP_RESET_MS = 3000;
 
 function pushVelocity(t, v) {
   const gapMs = gpsLastValidT > 0 ? t - gpsLastValidT : 0;
   gpsLastValidT = t;
   if (gpsSpeedEma < 0 || gapMs > GPS_GAP_RESET_MS) {
-    // FIX v2.3: hard-reset EMA after GPS gap — prevents stale EMA persisting through dropout.
-    // Analysis showed pace reading 3:54 when truth was 2:06, caused by EMA frozen during
-    // a ~15s GPS gap then smoothing too slowly back to real speed.
     gpsSpeedEma = v;
-    if (gapMs > GPS_GAP_RESET_MS) paceReadings.length = 0; // flush stale median buffer too
+    if (gapMs > GPS_GAP_RESET_MS) paceReadings.length = 0;
   } else {
-    // spike guard — reject/cap readings >2.5× current EMA
     const vCapped = (gpsSpeedEma > 0.5 && v > gpsSpeedEma * 2.5) ? gpsSpeedEma * 2.5 : v;
     gpsSpeedEma = GPS_EMA_ALPHA * vCapped + (1 - GPS_EMA_ALPHA) * gpsSpeedEma;
   }
@@ -930,10 +901,6 @@ function pushVelocity(t, v) {
   while (velocityWindow.length > 1 && velocityWindow[0].t < cut) velocityWindow.shift();
 }
 
-/* ── Run Loss ─────────────────────────────────────────
-   FIX v2.1: require only 2 GPS points (was 3).
-   FIX v2.1: guard vmax > 1.0 m/s.
-─────────────────────────────────────────────────────── */
 function computeRunLoss(now, strokeIntervalS) {
   const windowMs = strokeIntervalS > 0
     ? strokeIntervalS * 1200
@@ -964,7 +931,7 @@ function handlePos(pos) {
 
   if (running && !paused && spd != null && spd >= 0 && spd < 8) {
     vAnchor = spd; vAnchorT = now;
-    pushVelocity(now, spd); // FIX v2.3: gap detection inside pushVelocity
+    pushVelocity(now, spd);
     sessGpsRawTrace.push({ t: Date.now(), rawSpd: +spd.toFixed(3), emaSpd: +gpsSpeedEma.toFixed(3), acc: +(pos.coords.accuracy || 0).toFixed(1) });
   }
 
@@ -989,8 +956,6 @@ function handlePos(pos) {
     } else { paceReadings.length = 0; pace = 0; }
   }
 
-  // FIX v2.3: pace freshness guard — invalidate displayed pace if GPS speed absent >6s.
-  // Analysis: GPS dropouts leave EMA frozen at stale value; pace should go to --:-- not lie.
   if (running && !paused && gpsLastValidT > 0 && (now - gpsLastValidT) > 6000) {
     pace = 0;
   }
@@ -1010,7 +975,7 @@ function handleGpsErr(err) {
 let running = false, paused = false, elapsed = 0;
 let distance = 0, lapStartDist = 0, lapStartTime = 0;
 let laps = [], sessStart = null, sessStrokes = [], sessPaceTrace = [];
-let sessSaved = false; // FIX v2.4: prevents double-save prompt in resetSess
+let sessSaved = false;
 let timerInt = null, autosaveInt = null, wakeLock = null;
 
 /* ════════════════════════════════════════
@@ -1151,12 +1116,9 @@ function stopSess() {
     try {
       const ap = sessPaceTrace.length > 0 ? Math.round(sessPaceTrace.reduce((a, b) => a + b, 0) / sessPaceTrace.length) : 0;
       const ar = sessStrokes.length > 0 ? Math.round(sessStrokes.reduce((a, b) => a + b.rate, 0) / sessStrokes.length) : 0;
-      // FIX v2.4: use reduce for maxRate — spread on large array risks stack overflow
       const maxRate = sessStrokes.reduce((m, s) => s.rate > m ? s.rate : m, 0);
       const avg = (arr, k) => { const v = arr.map(x => x[k]).filter(v => v != null && !isNaN(v)); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
       const ac = (() => { const v = sessStrokes.map(x => x.catchConsistency).filter(v => v != null && !isNaN(v)); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; })();
-      // FIX v2.4: snapshot strokes array by value — prevents sessStrokes.length=0 in
-      // resetSess mutating the stored reference before analysis tab reads it
       const strokesSnap = sessStrokes.map(s => ({ ...s }));
       addSess({
         id: Date.now().toString(), startTime: sessStart, endTime: Date.now(), duration: elapsed,
@@ -1186,9 +1148,6 @@ function stopSess() {
 }
 
 function resetSess() {
-  // FIX v2.4: only prompt to save if session has data AND hasn't already been saved by stopSess.
-  // v2.3 checked sessStrokes.length which is still >0 after stopSess → showed "Save again?" dialog
-  // → duplicate sessions on Yes, or confusing prompt on No.
   if (elapsed > 10 && sessStrokes.length > 0 && !sessSaved) {
     if (confirm('Save this session before resetting?')) {
       stopSess();
@@ -1210,8 +1169,8 @@ function resetSess() {
   laps = []; sessStrokes.length = 0; sessPaceTrace.length = 0; sessGpsTrace.length = 0; sessGpsRawTrace.length = 0;
   strokeTs.length = 0; paceReadings.length = 0;
   velocityWindow.length = 0; vAnchor = 0; vAnchorT = 0;
-  prevStrokeDist = 0; prevStrokeDistT = 0; // FIX v2.2
-  gpsLastValidT = 0; // FIX v2.3
+  prevStrokeDist = 0; prevStrokeDistT = 0;
+  gpsLastValidT = 0;
   fsmState = FS.IDLE; catchPeakJerk = 0; lastCatchAbsT = 0; strokesDetected = 0;
   jerkThreshActive = jerkThreshBase; adaptReady = false;
   acBuf.length = 0; acLastUpdate = 0;
@@ -1530,7 +1489,7 @@ async function handleGPX(e, sessionId) {
 }
 
 /* ════════════════════════════════════════
-   INLINE FIT BINARY PARSER  (v2.2)
+   INLINE FIT BINARY PARSER  (v2.5)
 ════════════════════════════════════════ */
 function parseFITInline(buffer) {
   const u8 = new Uint8Array(buffer);
@@ -1644,7 +1603,7 @@ function parseFITInline(buffer) {
         const avgSR  = fd[13];
         const avgSpd = isValid(avgSR, 2) ? avgSR / 1000
                      : (lapDist > 0 && lapTime > 0 ? lapDist / lapTime : 0);
-        const cal    = isValid(fd[11], 2) ? fd[11] : null;
+        const cal_l  = isValid(fd[11], 2) ? fd[11] : null;
         const strokRaw = fd[10] || fd[23] || fd[32] || null;
         const strokes  = (strokRaw && strokRaw < 0xFFFFFFFF) ? strokRaw : null;
         const sdRaw    = fd[90];
@@ -1655,7 +1614,7 @@ function parseFITInline(buffer) {
           n: laps.length + 1,
           time: Math.round(lapTime), dist: Math.round(lapDist),
           pace: lapTime > 0 && lapDist > 0 ? (lapTime / lapDist) * 500 : 0,
-          avgHr, maxHr, cal,
+          avgHr, maxHr, cal: cal_l,
           garminStrokes: strokes,
           garminAvgSpm: avgCad,
           avgStrokeDist: strokeDist
@@ -1673,18 +1632,43 @@ function parseFITInline(buffer) {
         cur.dDist = +dDist.toFixed(2);
         const strokes = cur.cadence != null ? cur.cadence * dtS / 60 : null;
         cur.dps = strokes > 0.05 ? +(dDist / strokes).toFixed(2) : null;
+        // FIX v2.5: per-point speed from distance delta; tight dt guard for 1 Hz GPS.
+        // FR955 rowing mode populates enhanced_speed (fd[108]) with a stroke-mechanics
+        // estimate (~1.9 m/s) rather than GPS speed (~4.0 m/s). The cumulative distance
+        // field is GPS-accurate — derive speed from that instead.
+        if (dtS < 3) cur.derivedSpd = +(dDist / dtS).toFixed(3);
       }
     }
   }
 
-  if (!hr.length && !speedTrace.length && !cadenceTrace.length)
+  // FIX v2.5: Build speedTrace from cumulative-distance deltas, not FIT speed field.
+  // Apply 5-point centred rolling average to suppress 1 Hz GPS quantisation noise.
+  // Falls back to raw FIT speed field if no distance data is available.
+  const _WIN = 5, _HALF = 2;
+  const derivedSpeedTrace = [];
+  for (let i = 0; i < cadenceTrace.length; i++) {
+    const vals = [];
+    for (let j = Math.max(0, i - _HALF); j <= Math.min(cadenceTrace.length - 1, i + _HALF); j++) {
+      if (cadenceTrace[j].derivedSpd != null) vals.push(cadenceTrace[j].derivedSpd);
+    }
+    if (vals.length >= 2) {
+      const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+      if (avg >= 0.3 && avg < 8) {
+        cadenceTrace[i].spd = +avg.toFixed(3); // update so debug CSV shows correct speed
+        derivedSpeedTrace.push({ t: cadenceTrace[i].t, spd: +avg.toFixed(3) });
+      }
+    }
+  }
+  const _speedTrace = derivedSpeedTrace.length ? derivedSpeedTrace : speedTrace;
+
+  if (!hr.length && !_speedTrace.length && !cadenceTrace.length)
     throw new Error('No usable data found in FIT file');
 
   return {
     hr,
-    speedTrace:   speedTrace.length   ? speedTrace   : null,
-    cadenceTrace: cadenceTrace.length ? cadenceTrace : null,
-    laps:         laps.length         ? laps         : null,
+    speedTrace:   _speedTrace.length   ? _speedTrace   : null,
+    cadenceTrace: cadenceTrace.length  ? cadenceTrace  : null,
+    laps:         laps.length          ? laps          : null,
     fitData: true
   };
 }
@@ -1815,7 +1799,7 @@ function exportDebugCSV(s) {
   rows.push(['cal_jerk_thresh_ms3', n(s.calThresh)]);
   rows.push(['stroke_count', n(s.strokeCount)]);
   rows.push(['distance_m', n(s.distance)]);
-  rows.push(['app_version', 'v2.4']);
+  rows.push(['app_version', 'v2.5']);
   rows.push(['gps_ema_alpha', '0.28']);
   rows.push(['gps_gap_reset_ms', '3000']);
   rows.push(['gps_freshness_guard_ms', '6000']);
@@ -1930,7 +1914,7 @@ function exportDebugCSV(s) {
 
 /* ── service worker ── */
 if ('serviceWorker' in navigator) {
-  const sw = `const C='scull-v12';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
+  const sw = `const C='scull-v13';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
   navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw], { type: 'application/javascript' }))).catch(() => {});
 }
 
