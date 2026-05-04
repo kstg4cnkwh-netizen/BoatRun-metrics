@@ -717,7 +717,7 @@ function onStrokeFinish(now, driveDur) {
     const target = Math.max(jerkThreshBase, m * 0.50 - sd * 0.35);  
       jerkThreshActive = adaptReady  
         ? Math.max(jerkThreshBase * 0.8, 0.80 * jerkThreshActive + 0.20 * target)
-        : Math.max(jerkThreshBase * 0.8, target);",   
+        : Math.max(jerkThreshBase * 0.8, target);   
     if (!adaptReady) {
       adaptReady = true;
       if (strokesDetected >= 4) {
@@ -1116,7 +1116,7 @@ function resumeSess() {
       gpsSpeedEma = -1; 
         timerInt = setInterval(() => { elapsed++; updateUI(); }, 1000);  
           requestAnimationFrame(renderCtrl);
-                      }",
+                      }
     "resumeSess clear pace/EMA")
 
 function stopSess() {
