@@ -148,7 +148,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
     <div class="perm-body">
       Real-time GPS pace &amp; distance<br/>
       Stroke rate · Catch slope · Stroke characteristic<br/>
-      Run loss · Efficiency score · Session recording<br/><br/>
+      Run loss · Impulse · Session recording<br/><br/>
       Phone may be mounted in <strong style="color:#fff">any orientation</strong>.<br/>
       The app auto-detects the rowing axis.
     </div>
@@ -242,10 +242,10 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
       </div>
       <div class="tile">
         <div class="tile-val-wrap">
-          <div class="tval-r23 dim" id="t-efficiency">--</div>
+          <div class="tval-r23 dim" id="t-impulse">--</div>
           <div class="sub-micro">higher = better</div>
         </div>
-        <div class="tlbl">Efficiency score</div>
+        <div class="tlbl">Impulse</div>
       </div>
       <div class="tile tile-cfg" id="cfg-bot-tile">
         <div class="tile-val-wrap">
@@ -315,47 +315,27 @@ const AUTOSAVE_DB = 'scull_autosave';
 const loadSess = () => { try { return JSON.parse(localStorage.getItem(DB) || '[]'); } catch { return []; } };
 
 function saveSess(a) {
-  // attempt 1: full data
-  try { localStorage.setItem(DB, JSON.stringify(a)); return true; } catch(e) {}
-
-  // attempt 2: strip dbg + gpsRawTrace from ALL sessions (including new)
   try {
-    const slim = a.map(s => {
-      if (!s.strokes) return s;
-      return { ...s,
-        strokes: s.strokes.map(({ dbg, ...rest }) => rest),
-        gpsRawTrace: undefined
-      };
-    });
-    localStorage.setItem(DB, JSON.stringify(slim));
-    toast('Storage full — debug data trimmed');
-    return true;
-  } catch(e2) {}
-
-  // attempt 3: slim + drop oldest sessions until it fits or only 1 remains
-  try {
-    let pruned = a.map(s => {
-      if (!s.strokes) return s;
-      return { ...s,
-        strokes: s.strokes.map(({ dbg, ...rest }) => rest),
-        gpsRawTrace: undefined
-      };
-    });
-    while (pruned.length > 1) {
-      pruned = pruned.slice(0, pruned.length - 1);
+    localStorage.setItem(DB, JSON.stringify(a));
+  } catch(e) {
+    try {
+      const slim = a.map(s => {
+        if (!s.strokes) return s;
+        return { ...s,
+          strokes: s.strokes.map(({ dbg, ...rest }) => rest),
+          gpsRawTrace: undefined
+        };
+      });
+      localStorage.setItem(DB, JSON.stringify(slim));
+      toast('Storage full — debug data trimmed');
+    } catch(e2) {
+      toast('Storage full — oldest session removed');
       try {
+        const pruned = a.slice(0, Math.max(1, a.length - 1));
         localStorage.setItem(DB, JSON.stringify(pruned));
-        toast('Storage full — oldest session removed');
-        return true;
-      } catch(e3) {}
+      } catch(e3) { /* give up gracefully */ }
     }
-    // last resort: just the newest session, fully slimmed
-    localStorage.setItem(DB, JSON.stringify(pruned));
-    toast('Storage full — only current session kept');
-    return true;
-  } catch(e4) {}
-
-  return false; // total failure
+  }
 }
 
 function addSess(s) {
@@ -380,7 +360,7 @@ function saveInProgress() {
       strokeCount, catchPeakSess, catchAvg8, laps,
       strokes: sessStrokes, paceTrace: sessPaceTrace, gpsTrace: sessGpsTrace,
       avgDPS: dpsValsArr.length ? dpsValsArr.reduce((a,b)=>a+b,0)/dpsValsArr.length : null,
-      avgRunLoss: runLossPct, avgEffScore: effScore,
+      avgRunLoss: runLossPct, avgImpulse : null,
       _autosave: true, _savedAt: Date.now()
     };
     localStorage.setItem(AUTOSAVE_DB, JSON.stringify(snap));
@@ -677,7 +657,7 @@ let distPerStroke = 0, dpsValsArr = [], maxDPS = 0;
 let prevStrokeDist = 0, prevStrokeDistT = 0;
 const MAX_STROKE_TS = 4;
 const strokeTs = [];
-let runLossPct = null, runLossMs = null, runEfficiency = null, effScore = null;
+let runLossPct = null, runLossMs = null, runEfficiency = null;
 
 const CATCH_TS_BUF = 7;
 const catchTsBuf = [];
@@ -696,6 +676,16 @@ function rateFromMedianIntervals() {
     ? (intervals[mid - 1] + intervals[mid]) / 2
     : intervals[mid];
   return 60000 / med;
+}
+
+function computeDriveImpulse(samples) {
+  let impulse = 0;
+  for (let i = 1; i < samples.length; i++) {
+    const dt = (samples[i].t - samples[i-1].t) / 1000;
+    if (dt <= 0 || dt > 0.1) continue;
+    if (samples[i].v > 0) impulse += samples[i].v * dt;
+  }
+  return impulse > 0 ? +impulse.toFixed(4) : null;
 }
 
 function onStrokeFinish(now, driveDur) {
@@ -778,11 +768,7 @@ function onStrokeFinish(now, driveDur) {
 
   computeRunLoss(now, intervalS);
 
-  if (runLossPct != null && distPerStroke > 0 && strokeRate > 0) {
-    const baseEff = distPerStroke * (1 - runLossPct / 100);
-    const rateFactor = Math.exp(-Math.pow((strokeRate - 28) / 10, 2));
-    effScore = baseEff * rateFactor;
-  } else effScore = null;
+  const driveImpulse = computeDriveImpulse(driveAccSamples);
 
   const catchIntervalMs = catchTsBuf.length >= 2
     ? catchTsBuf[catchTsBuf.length - 1] - catchTsBuf[catchTsBuf.length - 2] : null;
@@ -794,7 +780,7 @@ function onStrokeFinish(now, driveDur) {
     t: Date.now(), catchPeak: catchSlope, char: strokeChar,
     rate: strokeRate, pace: pace > 0 ? pace : null,
     dist: distance, dps: distPerStroke,
-    runLossPct, runLossMs, runEfficiency, effScore, catchConsistency,
+    runLossPct, runLossMs, runEfficiency, driveImpulse, catchConsistency,
     dbg: {
       intervalMs: catchIntervalMs ? Math.round(catchIntervalMs) : null,
       driveDurMs: Math.round(driveDur),
@@ -1041,9 +1027,11 @@ function updateUI() {
     rlm.textContent = runLossMs != null ? runLossMs.toFixed(2) + ' m/s' : '';
   } else { rle.textContent = '--%'; rle.className = 'tval-r23 dim'; rlm.textContent = ''; }
 
-  const efe = document.getElementById('t-efficiency');
-  if (effScore != null && effScore > 0 && on) { efe.textContent = effScore.toFixed(1); efe.className = 'tval-r23'; }
+  const efe = document.getElementById('t-impulse');
+  const lastImpulse = sessStrokes.length > 0 ? sessStrokes[sessStrokes.length - 1].driveImpulse : null;
+  if (lastImpulse != null && on) { efe.textContent = lastImpulse.toFixed(2); efe.className = 'tval-r23'; }
   else { efe.textContent = '--'; efe.className = 'tval-r23 dim'; }
+
 
   updateCfgTile('top'); updateCfgTile('bot');
 }
@@ -1148,7 +1136,7 @@ function stopSess() {
       const avg = (arr, k) => { const v = arr.map(x => x[k]).filter(v => v != null && !isNaN(v)); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
       const ac = (() => { const v = sessStrokes.map(x => x.catchConsistency).filter(v => v != null && !isNaN(v)); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; })();
       const strokesSnap = sessStrokes.map(s => ({ ...s }));
-      const sess = {
+      addSess({
         id: Date.now().toString(), startTime: sessStart, endTime: Date.now(), duration: elapsed,
         distance: Math.round(distance), avgPace: ap, avgRate: ar, maxRate,
         catchPeakSess, catchAvg8, strokeCount,
@@ -1158,22 +1146,15 @@ function stopSess() {
         avgCatch: avg(sessStrokes, 'catchPeak'),
         avgChar: avg(sessStrokes, 'char'),
         avgConsistency: ac,
-        avgEffScore: avg(sessStrokes, 'effScore'),
+        avgImpulse: avg(sessStrokes, 'driveImpulse'),
         strokes: strokesSnap, paceTrace: sessPaceTrace.slice(),
         gpsTrace: sessGpsTrace.slice(), gpsRawTrace: sessGpsRawTrace.slice(),
         hrTrace: null, laps: laps.slice(),
         calNoiseFloor: cal.noiseFloor, calThresh: cal.jerkThresh,
         detectedAxis: selAxis
-      };
-      const a = loadSess();
-      a.unshift(sess);
-      const ok = saveSess(a);
-      if (ok) {
-        sessSaved = true;
-        toast('Session saved');
-      } else {
-        toast('Save failed — export CSV to recover data');
-      }
+      });
+      sessSaved = true;
+      toast('Session saved');
     } catch(e) {
       toast('Save error — export CSV to recover data');
     }
@@ -1200,7 +1181,7 @@ function resetSess() {
   catchLast = null; catchPeakSess = null; catchAvg8 = null;
   catchValsArr.length = 0; catchConsistency = null;
   strokeChar = 50; charValsArr.length = 0;
-  runLossPct = null; runLossMs = null; runEfficiency = null; effScore = null;
+  runLossPct = null; runLossMs = null; runEfficiency = null;
   laps = []; sessStrokes.length = 0; sessPaceTrace.length = 0; sessGpsTrace.length = 0; sessGpsRawTrace.length = 0;
   strokeTs.length = 0; paceReadings.length = 0;
   velocityWindow.length = 0; vAnchor = 0; vAnchorT = 0;
@@ -1389,7 +1370,7 @@ function showDetail(id) {
     <div class="sgrid">
       <div class="sbox"><span class="sbox-v">${s.avgDPS ? s.avgDPS.toFixed(1) : '—'}</span><span class="sbox-l">Dist / Stroke</span><span class="sbox-u">m</span></div>
       <div class="sbox ${s.avgRunLoss != null && s.avgRunLoss < 10 ? 'g' : s.avgRunLoss != null && s.avgRunLoss < 20 ? 'a' : 'r'}"><span class="sbox-v">${s.avgRunLoss != null ? Math.round(s.avgRunLoss) + '%' : '—'}</span><span class="sbox-l">Run Loss</span></div>
-      <div class="sbox"><span class="sbox-v">${s.avgEffScore != null ? s.avgEffScore.toFixed(1) : '—'}</span><span class="sbox-l">Efficiency</span></div>
+      <div class="sbox"><span class="sbox-v">${s.avgImpulse != null ? s.avgImpulse.toFixed(1) : '—'}</span><span class="sbox-l">Impulse</span></div>
     </div>
     <div class="sgrid">
       <div class="sbox"><span class="sbox-v">${s.avgChar ? Math.round(s.avgChar) : '—'}</span><span class="sbox-l">Stroke Char</span><span class="sbox-u">%</span></div>
@@ -1409,7 +1390,7 @@ function showDetail(id) {
       <div class="chart-card b"><div class="chart-lbl"><span>Catch Slope</span><span>m/s³</span></div><canvas id="a-catch" class="acanvas"></canvas></div>
       <div class="chart-card a"><div class="chart-lbl"><span>Stroke Rate</span><span>str/min</span></div><canvas id="a-rate" class="acanvas"></canvas></div>
       <div class="chart-card"><div class="chart-lbl"><span>Run Loss</span><span>%</span></div><canvas id="a-runloss" class="acanvas"></canvas></div>
-      <div class="chart-card"><div class="chart-lbl"><span>Efficiency Score</span></div><canvas id="a-eff" class="acanvas"></canvas></div>
+      <div class="chart-card"><div class="chart-lbl"><span>Impulse</span></div><canvas id="a-eff" class="acanvas"></canvas></div>
       <div class="chart-card"><div class="chart-lbl"><span>Dist / Stroke</span><span>m</span></div><canvas id="a-dps" class="acanvas"></canvas></div>
       <div class="chart-card"><div class="chart-lbl"><span>Stroke Characteristic</span><span>%</span></div><canvas id="a-char" class="acanvas"></canvas></div>` : ''}
     ${s.laps && s.laps.length > 0 ? `<div class="chart-card" style="border-color:#ddd">
@@ -1433,7 +1414,7 @@ function showDetail(id) {
       drawChart('a-catch', s.strokes.map(x => x.catchPeak), '#1a5276', false);
       drawChart('a-rate', s.strokes.map(x => x.rate), '#f39c12', false);
       drawChart('a-runloss', s.strokes.map(x => x.runLossPct || 0), '#c0392b', false);
-      drawChart('a-eff', s.strokes.map(x => x.effScore || 0), '#27ae60', false);
+      drawChart('a-eff', s.strokes.map(x => x.driveImpulse || 0), '#27ae60', false);
       drawChart('a-dps', s.strokes.map(x => x.dps || 0), '#1a5276', false, 20);
       drawChart('a-char', s.strokes.map(x => x.char || 0), '#f39c12', false);
     }
@@ -1790,13 +1771,13 @@ function exportCSV(s) {
   rows.push(['avg_rate_spm', n(s.avgRate)]); rows.push(['max_rate_spm', n(s.maxRate)]);
   rows.push(['catch_peak_sess_ms3', n(s.catchPeakSess)]); rows.push(['avg_catch_ms3', f1(s.avgCatch)]);
   rows.push(['avg_dps_m', f1(s.avgDPS)]); rows.push(['avg_run_loss_pct', f1(s.avgRunLoss)]);
-  rows.push(['avg_efficiency_vmin_vmax', f3(s.avgEfficiency)]); rows.push(['avg_efficiency_score', f1(s.avgEffScore)]);
+  rows.push(['avg_efficiency_vmin_vmax', f3(s.avgEfficiency)]); rows.push(['avg_impulse', f2(s.avgImpulse)]);
   rows.push(['avg_stroke_char_pct', f1(s.avgChar)]); rows.push(['avg_catch_consistency_stdev', f1(s.avgConsistency)]);
   rows.push(['detected_axis', s.detectedAxis || '?']);
   rows.push(['cal_noise_floor_ms2', n(s.calNoiseFloor)]); rows.push(['cal_jerk_thresh_ms3', n(s.calThresh)]);
   rows.push([]); rows.push(['STROKE DATA']);
-  rows.push(['stroke', 'timestamp', 'catch_jerk_ms3', 'stroke_char_pct', 'catch_consistency_stdev', 'stroke_rate_spm', 'pace_s_per_500m', 'distance_m', 'dist_per_stroke_m', 'run_loss_pct', 'run_loss_ms', 'run_efficiency_vmin_vmax', 'efficiency_score']);
-  if (s.strokes) s.strokes.forEach((r, i) => rows.push([i + 1, new Date(r.t).toISOString(), f1(r.catchPeak), n(r.char), f1(r.catchConsistency), n(r.rate), r.pace > 0 ? f1(r.pace) : '', f1(r.dist), f1(r.dps), f1(r.runLossPct), f2(r.runLossMs), f3(r.runEfficiency), f1(r.effScore)]));
+  rows.push(['stroke', 'timestamp', 'catch_jerk_ms3', 'stroke_char_pct', 'catch_consistency_stdev', 'stroke_rate_spm', 'pace_s_per_500m', 'distance_m', 'dist_per_stroke_m', 'run_loss_pct', 'run_loss_ms', 'run_efficiency_vmin_vmax', 'drive_impulse']);
+  if (s.strokes) s.strokes.forEach((r, i) => rows.push([i + 1, new Date(r.t).toISOString(), f1(r.catchPeak), n(r.char), f1(r.catchConsistency), n(r.rate), r.pace > 0 ? f1(r.pace) : '', f1(r.dist), f1(r.dps), f1(r.runLossPct), f2(r.runLossMs), f3(r.runEfficiency), f2(r.driveImpulse)]));
   rows.push([]);
   if (s.laps && s.laps.length) { rows.push(['LAPS']); rows.push(['lap', 'distance_m', 'time_s', 'pace_s_per_500m', 'stroke_rate_spm']); s.laps.forEach(l => rows.push([l.n, l.dist, l.time, l.pace > 0 ? f1(l.pace) : '', n(l.rate)])); rows.push([]); }
   if (s.garminLaps && s.garminLaps.length) { rows.push(['GARMIN LAPS']); rows.push(['lap', 'distance_m', 'time_s', 'pace_s_per_500m', 'avg_hr_bpm', 'max_hr_bpm', 'calories', 'strokes', 'avg_spm', 'avg_stroke_dist_m']); s.garminLaps.forEach(l => rows.push([l.n, l.dist, l.time, l.pace > 0 ? f1(l.pace) : '', n(l.avgHr), n(l.maxHr), n(l.cal), n(l.garminStrokes), n(l.garminAvgSpm), l.avgStrokeDist || ''])); rows.push([]); }
@@ -1842,7 +1823,7 @@ function exportDebugCSV(s) {
     'drive_dur_ms','catch_jerk_raw_ms3','catch_jerk_avg_ms3','jerk_thresh_ms3',
     'stroke_char_pct','catch_consistency_sigma',
     'pace_s500m','gps_ema_ms','dps_raw_m','dps_avg_m','dps_sample_n',
-    'run_loss_pct','run_loss_delta_ms','run_efficiency','eff_score',
+    'run_loss_pct','run_loss_delta_ms','run_efficiency_vmin_vmax','drive_impulse',
     'axis','axis_locked','cumul_dist_m']);
   if (s.strokes) s.strokes.forEach((r, i) => {
     const d = r.dbg || {};
@@ -1851,7 +1832,7 @@ function exportDebugCSV(s) {
       n(d.driveDurMs), f1(d.catchJerkRaw), f1(r.catchPeak), f2(d.jerkThresh),
       n(r.char), f1(r.catchConsistency),
       r.pace>0?f1(r.pace):'', f3(d.gpsEma), f2(d.dpsRaw), f1(r.dps), n(d.dpsN),
-      f1(r.runLossPct), f2(r.runLossMs), f3(r.runEfficiency), f1(r.effScore),
+      f1(r.runLossPct), f2(r.runLossMs), f3(r.runEfficiency), f2(r.driveImpulse),
       d.selAxis||'', d.axisLocked?'1':'0', f1(r.dist)]);
   });
   rows.push([]);
