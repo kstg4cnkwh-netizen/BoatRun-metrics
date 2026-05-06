@@ -956,7 +956,7 @@ function handlePos(pos) {
         pace = vals.length % 2 === 0 ? (vals[mid - 1] + vals[mid]) / 2 : vals[mid];
         sessPaceTrace.push(pace);
       }
-    } else { paceReadings.length = 0; pace = 0; }
+    } else if (spd < 0.3) { paceReadings.length = 0; pace = 0; } //============================================================= } else { paceReadings.length = 0; pace = 0; }
   }
 
   if (running && !paused && gpsLastValidT > 0 && (now - gpsLastValidT) > 6000) {
