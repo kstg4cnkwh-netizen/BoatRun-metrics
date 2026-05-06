@@ -682,6 +682,8 @@ function onStrokeFinish(now, driveDur) {
 
   const catchSlope = Math.round(Math.abs(catchPeakJerk));
   if (catchSlope < 2) return;
+// In onStrokeFinish, before catchValsArr.push:
+  if (catchSlope < jerkThreshBase * 1.5) return; // reject implausibly weak catches
 
   const peakOffset = drivePeakAccT - driveStartT;
   const rawChar = driveDur > 0
