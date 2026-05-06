@@ -579,7 +579,7 @@ let drivePeakAcc = 0, drivePeakAccT = 0;
 
 const PERIOD_MIN_MS = 1200;
 const PERIOD_MAX_MS = 6000;
-const REFRACTORY_MIN_MS = 900;
+const REFRACTORY_MIN_MS = 1000;
 const MAX_DRIVE_MS = 2800;
 const MIN_DRIVE_MS = 300;
 
@@ -701,7 +701,7 @@ function onStrokeFinish(now, driveDur) {
 
   catchTsBuf.push(driveStartT);
   if (catchTsBuf.length > CATCH_TS_BUF) catchTsBuf.shift();
-  lastCatchAbsT = driveStartT;
+  lastCatchAbsT = now;
 
   const medRate = rateFromMedianIntervals();
   if (medRate > 0) {
@@ -714,6 +714,8 @@ function onStrokeFinish(now, driveDur) {
     }
   }
   strokesDetected++;
+  
+  if (catchSlope < jerkThreshBase * 1.5) return; // reject implausibly weak catches
 
   catchValsArr.push(catchSlope);
   if (catchValsArr.length > 8) catchValsArr.shift();
@@ -886,6 +888,7 @@ const paceReadings = [];
 let vAnchor = 0, vAnchorT = 0;
 const velocityWindow = [];
 const VEL_WINDOW_MS = 10000;
+let gpsWasStopped = false;
 
 let gpsSpeedEma = -1;
 let gpsLastValidT = 0;
@@ -895,18 +898,45 @@ const GPS_GAP_RESET_MS = 3000;
 function pushVelocity(t, v) {
   const gapMs = gpsLastValidT > 0 ? t - gpsLastValidT : 0;
   gpsLastValidT = t;
-  if (gpsSpeedEma < 0 || gapMs > GPS_GAP_RESET_MS) {
+if (gpsSpeedEma < 0 || gapMs > GPS_GAP_RESET_MS) {
     gpsSpeedEma = v;
+    gpsWasStopped = false;
     if (gapMs > GPS_GAP_RESET_MS) paceReadings.length = 0;
-  } else {
+} else if (gpsWasStopped && v > 1.0) {
+    // First valid rowing speed after a stop — reset immediately
+    gpsSpeedEma = v;
+    gpsWasStopped = false;
+    paceReadings.length = 0; // clear stale slow readings too
+} else {
+    if (v < 0.3) gpsWasStopped = true;
     const vCapped = (gpsSpeedEma > 0.5 && v > gpsSpeedEma * 2.5) ? gpsSpeedEma * 2.5 : v;
     gpsSpeedEma = GPS_EMA_ALPHA * vCapped + (1 - GPS_EMA_ALPHA) * gpsSpeedEma;
-  }
+}
   velocityWindow.push({ t, v: gpsSpeedEma });
   const cut = t - VEL_WINDOW_MS;
   while (velocityWindow.length > 1 && velocityWindow[0].t < cut) velocityWindow.shift();
 }
 
+// Add state variable near the top
+let gpsWasStopped = false;
+
+// In pushVelocity(), replace the else block:
+if (gpsSpeedEma < 0 || gapMs > GPS_GAP_RESET_MS) {
+    gpsSpeedEma = v;
+    gpsWasStopped = false;
+    if (gapMs > GPS_GAP_RESET_MS) paceReadings.length = 0;
+} else if (gpsWasStopped && v > 1.0) {
+    // First valid rowing speed after a stop — reset immediately
+    gpsSpeedEma = v;
+    gpsWasStopped = false;
+    paceReadings.length = 0; // clear stale slow readings too
+} else {
+    if (v < 0.3) gpsWasStopped = true;
+    const vCapped = (gpsSpeedEma > 0.5 && v > gpsSpeedEma * 2.5) ? gpsSpeedEma * 2.5 : v;
+    gpsSpeedEma = GPS_EMA_ALPHA * vCapped + (1 - GPS_EMA_ALPHA) * gpsSpeedEma;
+}
+
+  
 function computeRunLoss(now, strokeIntervalS) {
   const windowMs = strokeIntervalS > 0
     ? strokeIntervalS * 1200
@@ -959,9 +989,9 @@ function handlePos(pos) {
         pace = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
         sessPaceTrace.push(pace);
       }
-    } else { paceReadings.length = 0; pace = 0; }
+    } else if (spd < 0.3) { paceReadings.length = 0; pace = 0; }
   }
-
+  
   if (running && !paused && gpsLastValidT > 0 && (now - gpsLastValidT) > 6000) {
     pace = 0;
   }
