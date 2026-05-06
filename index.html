@@ -578,7 +578,7 @@ let drivePeakAcc = 0, drivePeakAccT = 0;
 
 const PERIOD_MIN_MS = 1200;
 const PERIOD_MAX_MS = 6000;
-const REFRACTORY_MIN_MS = 600;
+const REFRACTORY_MIN_MS = 1000;
 const MAX_DRIVE_MS = 2800;
 const MIN_DRIVE_MS = 300;
 
@@ -879,7 +879,7 @@ const paceReadings = [];
 let vAnchor = 0, vAnchorT = 0;
 const velocityWindow = [];
 const VEL_WINDOW_MS = 10000;
-
+let gpsWasStopped = false; //==============================
 let gpsSpeedEma = -1;
 let gpsLastValidT = 0;
 const GPS_EMA_ALPHA = 0.28;
@@ -890,11 +890,18 @@ function pushVelocity(t, v) {
   gpsLastValidT = t;
   if (gpsSpeedEma < 0 || gapMs > GPS_GAP_RESET_MS) {
     gpsSpeedEma = v;
+    gpsWasStopped = false;
     if (gapMs > GPS_GAP_RESET_MS) paceReadings.length = 0;
-  } else {
+} else if (gpsWasStopped && v > 1.0) {
+    // First valid rowing speed after a stop — reset immediately
+    gpsSpeedEma = v;
+    gpsWasStopped = false;
+    paceReadings.length = 0; // clear stale slow readings too
+} else {
+    if (v < 0.3) gpsWasStopped = true;
     const vCapped = (gpsSpeedEma > 0.5 && v > gpsSpeedEma * 2.5) ? gpsSpeedEma * 2.5 : v;
     gpsSpeedEma = GPS_EMA_ALPHA * vCapped + (1 - GPS_EMA_ALPHA) * gpsSpeedEma;
-  }
+}
   velocityWindow.push({ t, v: gpsSpeedEma });
   const cut = t - VEL_WINDOW_MS;
   while (velocityWindow.length > 1 && velocityWindow[0].t < cut) velocityWindow.shift();
