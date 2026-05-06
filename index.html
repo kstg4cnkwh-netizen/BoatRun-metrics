@@ -156,7 +156,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
     <div class="perm-note">
       iOS: Settings → Safari → Motion &amp; Orientation Access<br/>
       Add to Home Screen for full-screen use · Works offline<br/>
-      <span style="color:rgba(255,255,255,.18)">v2.8</span>
+      <span style="color:rgba(255,255,255,.18)">v2.9</span>
     </div>
   </div>
 </div>
@@ -582,6 +582,8 @@ const PERIOD_MAX_MS = 6000;
 const REFRACTORY_MIN_MS = 1000; //V2.8 up from 900
 const MAX_DRIVE_MS = 2800;
 const MIN_DRIVE_MS = 300;
+const POST_DRIVE_LOCKOUT_MS = 500; //v2.9 
+let lastDriveEndT = 0; //v2.9
 
 let jerkThreshBase   = cal.jerkThresh;
 let jerkThreshActive = cal.jerkThresh;
@@ -604,7 +606,9 @@ function runFSM(now, fastSmooth, jerk) {
   switch (fsmState) {
     case FS.IDLE:
     case FS.RECOVERY:
-      if (jerk > jerkThreshActive && fastSmooth > accThreshBase && timeSinceCatch > refractory) {
+      if (jerk > jerkThreshActive && fastSmooth > accThreshBase
+          && timeSinceCatch > refractory
+          && (now - lastDriveEndT) > POST_DRIVE_LOCKOUT_MS) {   // ← add this v2.9
         fsmState = FS.CATCH;
         catchStartT = now;
         catchPeakJerk = jerk;
@@ -635,6 +639,7 @@ function runFSM(now, fastSmooth, jerk) {
       const driveDur = now - driveStartT;
       if ((fastSmooth < 0 && driveDur > MIN_DRIVE_MS) || driveDur > MAX_DRIVE_MS) {
         onStrokeFinish(now, driveDur);
+        lastDriveEndT = now; //v2.9 add
         fsmState = FS.RECOVERY;
       }
       break;
@@ -958,7 +963,7 @@ function handlePos(pos) {
   lastPos = cur;
 
   if (running && !paused && spd != null) {
-    if (spd > 0.5 && spd < 8) {
+    if (spd > 0.5 && spd < 8 && !gpsWasStopped) {   // ← add && !gpsWasStopped
       const raw = 500 / spd;
       if (raw < PACE_MAX) {
         paceReadings.push(raw);
@@ -1523,7 +1528,7 @@ async function handleGPX(e, sessionId) {
 }
 
 /* ════════════════════════════════════════
-   INLINE FIT BINARY PARSER  (v2.8)
+   INLINE FIT BINARY PARSER  (v2.9)
 ════════════════════════════════════════ */
 function parseFITInline(buffer) {
   const u8 = new Uint8Array(buffer);
@@ -1828,7 +1833,7 @@ function exportDebugCSV(s) {
   rows.push(['cal_jerk_thresh_ms3', n(s.calThresh)]);
   rows.push(['stroke_count', n(s.strokeCount)]);
   rows.push(['distance_m', n(s.distance)]);
-  rows.push(['app_version', 'v2.8']);
+  rows.push(['app_version', 'v2.9']);
   rows.push(['gps_ema_alpha', '0.28']);
   rows.push(['gps_gap_reset_ms', '3000']);
   rows.push(['gps_freshness_guard_ms', '6000']);
