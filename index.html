@@ -156,7 +156,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
     <div class="perm-note">
       iOS: Settings → Safari → Motion &amp; Orientation Access<br/>
       Add to Home Screen for full-screen use · Works offline<br/>
-      <span style="color:rgba(255,255,255,.18)">v2.7</span>
+      <span style="color:rgba(255,255,255,.18)">v2.8</span>
     </div>
   </div>
 </div>
@@ -579,7 +579,7 @@ let drivePeakAcc = 0, drivePeakAccT = 0;
 
 const PERIOD_MIN_MS = 1200;
 const PERIOD_MAX_MS = 6000;
-const REFRACTORY_MIN_MS = 900;
+const REFRACTORY_MIN_MS = 1000; //V2.8 up from 900
 const MAX_DRIVE_MS = 2800;
 const MIN_DRIVE_MS = 300;
 
@@ -693,6 +693,8 @@ function onStrokeFinish(now, driveDur) {
 
   const catchSlope = Math.round(Math.abs(catchPeakJerk));
   if (catchSlope < 2) return;
+  // In onStrokeFinish, before catchValsArr.push:
+  if (catchSlope < jerkThreshBase * 1.5) return; // V2.8 reject implausibly weak catches
 
   const peakOffset = drivePeakAccT - driveStartT;
   const rawChar = driveDur > 0
@@ -886,7 +888,7 @@ const paceReadings = [];
 let vAnchor = 0, vAnchorT = 0;
 const velocityWindow = [];
 const VEL_WINDOW_MS = 10000;
-
+let gpsWasStopped = false; // v2.8 addition
 let gpsSpeedEma = -1;
 let gpsLastValidT = 0;
 const GPS_EMA_ALPHA = 0.28;
@@ -895,10 +897,17 @@ const GPS_GAP_RESET_MS = 3000;
 function pushVelocity(t, v) {
   const gapMs = gpsLastValidT > 0 ? t - gpsLastValidT : 0;
   gpsLastValidT = t;
-  if (gpsSpeedEma < 0 || gapMs > GPS_GAP_RESET_MS) {
+  if (gpsSpeedEma < 0 || gapMs > GPS_GAP_RESET_MS) { //V2.8 addition ========
     gpsSpeedEma = v;
+    gpsWasStopped = false;
     if (gapMs > GPS_GAP_RESET_MS) paceReadings.length = 0;
+  } else if (gpsWasStopped && v > 1.0) {
+    // First valid rowing speed after a stop — reset immediately
+    gpsSpeedEma = v;
+    gpsWasStopped = false;
+    paceReadings.length = 0; // clear stale slow readings too
   } else {
+    if (v < 0.3) gpsWasStopped = true;
     const vCapped = (gpsSpeedEma > 0.5 && v > gpsSpeedEma * 2.5) ? gpsSpeedEma * 2.5 : v;
     gpsSpeedEma = GPS_EMA_ALPHA * vCapped + (1 - GPS_EMA_ALPHA) * gpsSpeedEma;
   }
@@ -959,7 +968,7 @@ function handlePos(pos) {
         pace = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
         sessPaceTrace.push(pace);
       }
-    } else { paceReadings.length = 0; pace = 0; }
+    } else if (spd < 0.3) { paceReadings.length = 0; pace = 0; } //=====================} else { paceReadings.length = 0; pace = 0; }
   }
 
   if (running && !paused && gpsLastValidT > 0 && (now - gpsLastValidT) > 6000) {
@@ -1514,7 +1523,7 @@ async function handleGPX(e, sessionId) {
 }
 
 /* ════════════════════════════════════════
-   INLINE FIT BINARY PARSER  (v2.7)
+   INLINE FIT BINARY PARSER  (v2.8)
 ════════════════════════════════════════ */
 function parseFITInline(buffer) {
   const u8 = new Uint8Array(buffer);
@@ -1819,7 +1828,7 @@ function exportDebugCSV(s) {
   rows.push(['cal_jerk_thresh_ms3', n(s.calThresh)]);
   rows.push(['stroke_count', n(s.strokeCount)]);
   rows.push(['distance_m', n(s.distance)]);
-  rows.push(['app_version', 'v2.7']);
+  rows.push(['app_version', 'v2.8']);
   rows.push(['gps_ema_alpha', '0.28']);
   rows.push(['gps_gap_reset_ms', '3000']);
   rows.push(['gps_freshness_guard_ms', '6000']);
