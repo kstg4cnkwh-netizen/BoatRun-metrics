@@ -1462,7 +1462,10 @@ function drawChart(id, data, color, invertY, yMax, points, yMin=null) {
   const ctx = c.getContext('2d'); ctx.clearRect(0, 0, W, H);
   const mn = Math.min(...data), mx = yMax != null ? yMax : Math.max(...data);
   const range = mx - mn || 1, pad = 4;
-  // Reference line at 50 for a-char
+  const sy = v => invertY ? pad + (((v - mn) / range) * (H - pad * 2)) : (H - pad) - (((v - mn) / range) * (H - pad * 2));
+  ctx.strokeStyle = '#f0f0f0'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 3; i++) { const y = pad + i * (H - pad * 2) / 3; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+    // Reference line at 50 for a-char
 if (id === 'a-char') {
   const refVal = 50;
 
@@ -1484,9 +1487,6 @@ if (id === 'a-char') {
     ctx.setLineDash([]);
   }
 }
-  const sy = v => invertY ? pad + (((v - mn) / range) * (H - pad * 2)) : (H - pad) - (((v - mn) / range) * (H - pad * 2));
-  ctx.strokeStyle = '#f0f0f0'; ctx.lineWidth = 1;
-  for (let i = 0; i <= 3; i++) { const y = pad + i * (H - pad * 2) / 3; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
   if (points) {
     const r = Math.max(2, 3 * dpr);
     ctx.fillStyle = color;
