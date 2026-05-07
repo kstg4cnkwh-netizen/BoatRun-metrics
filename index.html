@@ -1427,10 +1427,10 @@ function showDetail(id) {
     if (s.strokes && s.strokes.length > 2) {
       drawChart('a-catch', s.strokes.map(x => x.catchPeak), '#1a5276', false, null, true);
       drawChart('a-rate', s.strokes.map(x => x.rate), '#f39c12', false);
-      drawChart('a-runloss', s.strokes.map(x => x.runLossPct || 0), '#c0392b', false, null, true);
+      drawChart('a-runloss', s.strokes.map(x => x.runLossPct || 0), '#c0392b', false, 30, true);
       drawChart('a-eff', s.strokes.map(x => x.driveImpulse || 0), '#27ae60', false, null, true);
       drawChart('a-dps', s.strokes.map(x => x.dps || 0), '#1a5276', false, 20);
-      drawChart('a-char', s.strokes.map(x => x.char || 0), '#f39c12', false, null, true);
+      drawChart('a-char', s.strokes.map(x => x.char || 0), '#f39c12', false, 70, true, 30);
     }
     if (s.hrTrace && s.hrTrace.length > 2) drawChart('a-hr', s.hrTrace.map(x => x.hr), '#c0392b', false);
     if (s.garminSpeedTrace && s.garminSpeedTrace.length > 2) {
@@ -1454,7 +1454,7 @@ function showDetail(id) {
 /* ════════════════════════════════════════
    CHARTS
 ════════════════════════════════════════ */
-function drawChart(id, data, color, invertY, yMax, points) {
+function drawChart(id, data, color, invertY, yMax, points, yMin=null) {
   const c = document.getElementById(id); if (!c || data.length < 2) return;
   const dpr = window.devicePixelRatio || 1;
   const W = c.offsetWidth * dpr, H = c.offsetHeight * dpr;
@@ -1462,6 +1462,28 @@ function drawChart(id, data, color, invertY, yMax, points) {
   const ctx = c.getContext('2d'); ctx.clearRect(0, 0, W, H);
   const mn = Math.min(...data), mx = yMax != null ? yMax : Math.max(...data);
   const range = mx - mn || 1, pad = 4;
+  // Reference line at 50 for a-char
+if (id === 'a-char') {
+  const refVal = 50;
+
+  if (refVal >= mn && refVal <= mx) {
+    const y =
+      invertY
+        ? pad + (((refVal - mn) / range) * (H - pad * 2))
+        : (H - pad) - (((refVal - mn) / range) * (H - pad * 2));
+
+    ctx.strokeStyle = '#ffffff88';
+    ctx.lineWidth = 1 * dpr;
+    ctx.setLineDash([6 * dpr, 4 * dpr]);
+
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(W, y);
+    ctx.stroke();
+
+    ctx.setLineDash([]);
+  }
+}
   const sy = v => invertY ? pad + (((v - mn) / range) * (H - pad * 2)) : (H - pad) - (((v - mn) / range) * (H - pad * 2));
   ctx.strokeStyle = '#f0f0f0'; ctx.lineWidth = 1;
   for (let i = 0; i <= 3; i++) { const y = pad + i * (H - pad * 2) / 3; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
