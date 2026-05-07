@@ -942,7 +942,7 @@ function computeRunLoss(now, strokeIntervalS) {
   }
   if (vmax < 1.0 || vmin >= vmax) { runLossPct = null; runLossMs = null; runEfficiency = null; return; }
   runLossMs = +(vmax - vmin).toFixed(2);
-  runLossPct = Math.round((vmax - vmin) / vmax * 100);
+  runLossPct = +(((vmax - vmin) / vmax) * 100).toFixed(1);
   runEfficiency = +(vmin / vmax).toFixed(3);
 }
 
