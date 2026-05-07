@@ -848,7 +848,10 @@ function computeAutocorrelationRate(now) {
   if (raw < SPM_MIN || raw > SPM_MAX) return;
 
   acConf = Math.min(1, bestR);
-  acRate = acRate === 0 ? Math.round(raw) : Math.round(0.35 * raw + 0.65 * acRate);
+  //acRate = acRate === 0 ? Math.round(raw) : Math.round(0.35 * raw + 0.65 * acRate);
+  const smooth = acRate === 0 ? raw : (0.35 * raw + 0.65 * acRate);
+  // snap to 0.5 SPM
+  acRate = Math.round(smooth * 2) / 2;
 
   if (running && !paused && (now - lastCatchAbsT) > 4000) {
     strokeRate = acRate;
