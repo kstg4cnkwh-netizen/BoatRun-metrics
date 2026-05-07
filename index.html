@@ -1465,20 +1465,22 @@ function drawChart(id, data, color, invertY, yMax, points, yMin=null) {
   const sy = v => invertY ? pad + (((v - mn) / range) * (H - pad * 2)) : (H - pad) - (((v - mn) / range) * (H - pad * 2));
   ctx.strokeStyle = '#f0f0f0'; ctx.lineWidth = 1;
   for (let i = 0; i <= 3; i++) { const y = pad + i * (H - pad * 2) / 3; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
-    // Reference line at 50 for a-char
+// Dashed reference line at 50 for a-char
 if (id === 'a-char') {
   const y = sy(50);
 
-  ctx.strokeStyle = '#ffffffcc';
-  ctx.lineWidth = 1.5 * dpr;
-  ctx.setLineDash([6 * dpr, 4 * dpr]);
+  ctx.save();
+
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 2 * dpr;
+  ctx.setLineDash([8 * dpr, 6 * dpr]);
 
   ctx.beginPath();
   ctx.moveTo(0, y);
   ctx.lineTo(W, y);
   ctx.stroke();
 
-  ctx.setLineDash([]);
+  ctx.restore();
 }
   if (points) {
     const r = Math.max(2, 3 * dpr);
