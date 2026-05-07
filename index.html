@@ -1012,7 +1012,8 @@ function updateUI() {
   else { pel.textContent = '--:--'; pel.className = 'tval tval-primary dim'; }
 
   const rel = document.getElementById('t-rate');
-  if (on && strokeRate > 0) { rel.textContent = strokeRate; rel.className = 'tval tval-primary'; }
+  // if (on && strokeRate > 0) { rel.textContent = strokeRate; rel.className = 'tval tval-primary'; }
+  if (on && strokeRate > 0) { rel.textContent = strokeRate % 1 === 0 ? strokeRate : strokeRate.toFixed(1); rel.className = 'tval tval-primary'; }
   else { rel.textContent = '--'; rel.className = 'tval tval-primary dim'; }
 
   const dpsel = document.getElementById('t-dps');
