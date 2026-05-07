@@ -712,13 +712,17 @@ function onStrokeFinish(now, driveDur) {
 
   const medRate = rateFromMedianIntervals();
   if (medRate > 0) {
+    let blended;
+
     if (strokeRate === 0) {
-      strokeRate = Math.round(medRate);
+      blended = medRate;
     } else if (acConf > 0.35 && acRate > 0) {
-      strokeRate = Math.round(0.65 * medRate + 0.35 * acRate);
+      blended = 0.65 * medRate + 0.35 * acRate;
     } else {
-      strokeRate = Math.round(0.45 * medRate + 0.55 * strokeRate);
+      blended = 0.45 * medRate + 0.55 * strokeRate;
     }
+    // snap to 0.5 SPM
+    strokeRate = Math.round(blended * 2) / 2;
   }
   strokesDetected++;
 
