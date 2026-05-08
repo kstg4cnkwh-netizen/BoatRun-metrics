@@ -763,7 +763,7 @@ function onStrokeFinish(now, driveDur) {
 
   strokeTs.push(driveStartT);
   if (strokeTs.length > MAX_STROKE_TS) strokeTs.shift();
-  let rdi = null;
+  rdi = null;
 
   if (strokeTs.length >= 2) {
     const prevCatchT = strokeTs[strokeTs.length - 2];
@@ -1055,15 +1055,24 @@ function updateUI() {
   if (on && distPerStroke > 0) { dpsel.textContent = distPerStroke.toFixed(1); dpsel.className = 'tval tval-primary'; }
   else { dpsel.textContent = '--'; dpsel.className = 'tval tval-primary dim'; }
 
-  const needle = document.getElementById('cbar-needle'); // actually rdi now
+  const needle = document.getElementById('cbar-needle');
   const charNumEl = document.getElementById('t-char-num');
   const charBadgeEl = document.getElementById('char-badge');
-  needle.style.left = rdi;
-  if (on && strokeCount > 0) {
-    charNumEl.textContent = rdi; charNumEl.className = 'char-num';
-    charBadgeEl.textContent = charLabel(rdi); needle.style.background = '#000';
-  } else { charNumEl.textContent = '--'; charNumEl.className = 'char-num dim'; charBadgeEl.textContent = '—'; needle.style.background = '#ccc'; }
-
+  if (on && strokeCount > 0 && rdi != null) {
+    // map -1..1 → 0..100%
+    const pct = ((rdi + 1) / 2) * 100;
+    needle.style.left = pct + '%';
+    charNumEl.textContent = rdi.toFixed(2);
+    charNumEl.className = 'char-num';
+    charBadgeEl.textContent = charLabel(rdi);
+    needle.style.background = '#000';
+  } else {
+    needle.style.left = '50%';
+    charNumEl.textContent = '--';
+    charNumEl.className = 'char-num dim';
+    charBadgeEl.textContent = '—';
+    needle.style.background = '#ccc';
+  }
   const CATCH_SCALE = 90;
   const ce = document.getElementById('t-catch');
   if (catchLast !== null) {
@@ -1428,10 +1437,9 @@ function showDetail(id) {
       <div class="sbox"><span class="sbox-v">${s.avgImpulse != null ? s.avgImpulse.toFixed(1) : '—'}</span><span class="sbox-l">Impulse</span></div>
     </div>
     <div class="sgrid">
-      <div class="sbox"><span class="sbox-v">${s.avgChar ? Math.round(s.avgChar) : '—'}</span><span class="sbox-l">Stroke Char</span><span class="sbox-u">%</span></div>
-      <div class="sbox"><span class="sbox-v">${s.avgRdi ? s.avgRdi.toFixed(2) : '—'}</span><span class="sbox-l">Recovery Drive Index</span>
-      <div class="sbox"><span class="sbox-v">${s.avgEfficiency ? (s.avgEfficiency * 100).toFixed(1) + '%' : '—'}</span><span class="sbox-l">Run Eff</span><span class="sbox-u">vmin/vmax</span></div>
-    </div>
+      <div class="sbox"><span class="sbox-v">${s.avgRdi ? Math.round(s.avgRdi) : '—'}</span><span class="sbox-l">Recovery Drive Index</span><span class="sbox-u">%</span></div>
+      <div class="sbox"><span class="sbox-v">${s.avgConsistency ? s.avgConsistency.toFixed(1) : '—'}</span><span class="sbox-l">Consistency</span><span class="sbox-u">σ m/s³</span></div>
+      <div class="sbox"><span class="sbox-v">${s.avgEfficiency ? (s.avgEfficiency * 100).toFixed(1) + '%' : '—'}</span><span class="sbox-l">Run Eff</span><span class="sbox-u">vmin/vmax</span></div>    </div>
     ${s.calNoiseFloor != null ? `<div style="font-size:9px;color:#aaa;text-align:center;margin-bottom:6px;letter-spacing:.06em">CAL · noise ${s.calNoiseFloor} m/s² · jerk threshold ${s.calThresh} m/s³</div>` : ''}
     ${s.garminLaps && s.garminLaps.length > 0 ? `<div class="chart-card" style="border-color:#8e44ad">
       <div class="chart-lbl"><span style="color:#8e44ad">Garmin Laps</span></div>
