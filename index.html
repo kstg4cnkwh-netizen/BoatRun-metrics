@@ -1437,7 +1437,7 @@ function showDetail(id) {
       <div class="sbox"><span class="sbox-v">${s.avgImpulse != null ? s.avgImpulse.toFixed(1) : '—'}</span><span class="sbox-l">Impulse</span></div>
     </div>
     <div class="sgrid">
-      <div class="sbox"><span class="sbox-v">${s.avgRdi ? Math.round(s.avgRdi) : '—'}</span><span class="sbox-l">Recovery Drive Index</span><span class="sbox-u">%</span></div>
+      <div class="sbox"><span class="sbox-v">${s.avgRdi ? s.avgRdi.toFixed(2) : '—'}</span><span class="sbox-l">Recovery Drive Index</span><span class="sbox-u">Higher = longer recovery</span></div>
       <div class="sbox"><span class="sbox-v">${s.avgConsistency ? s.avgConsistency.toFixed(1) : '—'}</span><span class="sbox-l">Consistency</span><span class="sbox-u">σ m/s³</span></div>
       <div class="sbox"><span class="sbox-v">${s.avgEfficiency ? (s.avgEfficiency * 100).toFixed(1) + '%' : '—'}</span><span class="sbox-l">Run Eff</span><span class="sbox-u">vmin/vmax</span></div>    </div>
     ${s.calNoiseFloor != null ? `<div style="font-size:9px;color:#aaa;text-align:center;margin-bottom:6px;letter-spacing:.06em">CAL · noise ${s.calNoiseFloor} m/s² · jerk threshold ${s.calThresh} m/s³</div>` : ''}
@@ -1455,8 +1455,9 @@ function showDetail(id) {
       <div class="chart-card"><div class="chart-lbl"><span>Run Loss</span><span>%</span></div><canvas id="a-runloss" class="acanvas"></canvas></div>
       <div class="chart-card"><div class="chart-lbl"><span>Impulse</span></div><canvas id="a-eff" class="acanvas"></canvas></div>
       <div class="chart-card"><div class="chart-lbl"><span>Dist / Stroke</span><span>m</span></div><canvas id="a-dps" class="acanvas"></canvas></div>
-      <div class="chart-card"><div class="chart-lbl"><span>Stroke Characteristic</span><span>%</span></div><canvas id="a-char" class="acanvas"></canvas></div>` : ''}
-    ${s.laps && s.laps.length > 0 ? `<div class="chart-card" style="border-color:#ddd">
+      <div class="chart-card"><div class="chart-lbl"><span>Stroke Characteristic</span><span>%</span></div><canvas id="a-char" class="acanvas"></canvas></div>
+      <div class="chart-card"><div class="chart-lbl"><span>Recovery Drive Index</span><span>-1 to 1</span></div><canvas id="a-rdi" class="acanvas"></canvas></div>` : ''}
+      ${s.laps && s.laps.length > 0 ? `<div class="chart-card" style="border-color:#ddd">
       <div class="chart-lbl"><span>Laps</span></div>
       <table class="lap-tbl"><tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>Rate</th></tr>
       ${(() => { const best = s.laps.length > 1 ? s.laps.reduce((b, l) => l.pace < b.pace ? l : b, s.laps[0]) : null; return s.laps.map(l => `<tr class="${best && l.n === best.n ? 'best' : ''}"><td>${l.n}</td><td>${l.dist}m</td><td>${fmt(l.time)}</td><td>${l.pace > 0 ? fmt(l.pace) : '—'}</td><td>${l.rate}</td></tr>`).join(''); })()}
@@ -1479,7 +1480,7 @@ function showDetail(id) {
       drawChart('a-runloss', s.strokes.map(x => x.runLossPct || 0), '#c0392b', false, 30, true);
       drawChart('a-eff', s.strokes.map(x => x.driveImpulse || 0), '#27ae60', false, null, true);
       drawChart('a-dps', s.strokes.map(x => x.dps || 0), '#1a5276', false, 20);
-      drawChart('a-char', s.strokes.map(x => x.char || 0), '#f39c12', false, 70, true, 30);
+      drawChart('a-char', s.strokes.map(x => x.char || 0), '#f39c12', false, 1, false, -1);
     }
     if (s.hrTrace && s.hrTrace.length > 2) drawChart('a-hr', s.hrTrace.map(x => x.hr), '#c0392b', false);
     if (s.garminSpeedTrace && s.garminSpeedTrace.length > 2) {
@@ -1514,22 +1515,6 @@ function drawChart(id, data, color, invertY, yMax, points, yMin=null) {
   const sy = v => invertY ? pad + (((v - mn) / range) * (H - pad * 2)) : (H - pad) - (((v - mn) / range) * (H - pad * 2));
   ctx.strokeStyle = '#f0f0f0'; ctx.lineWidth = 1;
   for (let i = 0; i <= 3; i++) { const y = pad + i * (H - pad * 2) / 3; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
-// Dashed reference line at 50 for a-char
-if (id === 'a-char') {
-  const v = 50;
-  if (v >= mn && v <= mx) {
-    const y = sy(v);
-    ctx.save();
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2 * dpr;
-    ctx.setLineDash([8 * dpr, 6 * dpr]);
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(W, y);
-    ctx.stroke();
-    ctx.restore();
-  }
-}
   if (points) {
     const r = Math.max(2, 3 * dpr);
     ctx.fillStyle = color;
