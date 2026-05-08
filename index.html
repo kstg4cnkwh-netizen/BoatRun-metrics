@@ -144,7 +144,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div id="screen-perm" class="screen active">
   <div class="perm-inner">
     <div class="perm-icon">🚣</div>
-    <div class="perm-title">SCULL METRICS</div>
+    <div class="perm-title">ROWING METRICS</div>
     <div class="perm-body">
       Real-time GPS pace &amp; distance<br/>
       Stroke rate · Catch slope · Stroke characteristic<br/>
@@ -1847,7 +1847,10 @@ function exportCSV(s) {
     d.getFullYear() + '-' +
     String(d.getMonth() + 1).padStart(2, '0') + '-' +
     String(d.getDate()).padStart(2, '0');
-  a.download = `scull_${localDate}_${hh}-${mm}.csv`;
+  const pad = n => String(n).padStart(2,'0');
+  const hh = pad(d.getHours());
+  const mm = pad(d.getMinutes());
+  a.download = `RowSess_${localDate}_${hh}${mm}.csv`;
   a.click(); toast('CSV exported');
 }
 
@@ -1923,7 +1926,10 @@ function exportDebugCSV(s) {
     d.getFullYear() + '-' +
     String(d.getMonth() + 1).padStart(2, '0') + '-' +
     String(d.getDate()).padStart(2, '0');
-  a.download = `scull_${localDate}_${hh}-${mm}.csv`;
+  const pad = n => String(n).padStart(2,'0');
+  const hh = pad(d.getHours());
+  const mm = pad(d.getMinutes());
+  a.download = `RowSess_Debug_${localDate}_${hh}${mm}.csv`;
   a.click();
   toast('Debug CSV exported');
 }
