@@ -1847,7 +1847,7 @@ function exportCSV(s) {
     d.getFullYear() + '-' +
     String(d.getMonth() + 1).padStart(2, '0') + '-' +
     String(d.getDate()).padStart(2, '0');
-  a.download = `scull_${localDate}_${s.id}.csv`;
+  a.download = `scull_${localDate}_${hh}-${mm}.csv`;
   a.click(); toast('CSV exported');
 }
 
@@ -1923,7 +1923,7 @@ function exportDebugCSV(s) {
     d.getFullYear() + '-' +
     String(d.getMonth() + 1).padStart(2, '0') + '-' +
     String(d.getDate()).padStart(2, '0');
-  a.download = `scull_debug_${localDate}_${s.id}.csv`;
+  a.download = `scull_${localDate}_${hh}-${mm}.csv`;
   a.click();
   toast('Debug CSV exported');
 }
