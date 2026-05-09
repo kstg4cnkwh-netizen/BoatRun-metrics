@@ -1491,12 +1491,12 @@ function showDetail(id) {
     });
     if (s.paceTrace && s.paceTrace.length > 2) drawChart('a-pace', s.paceTrace, '#27ae60', true);
     if (s.strokes && s.strokes.length > 2) {
-      drawChart('a-catch', s.strokes.map(x => x.catchPeak), '#1a5276', false, null, true);
+      drawChart('a-catch', s.strokes.map(x => x.catchPeak), '#1a5276', false, 100, true);
       drawChart('a-rate', s.strokes.map(x => x.rate), '#f39c12', false);
-      drawChart('a-runloss', s.strokes.map(x => x.runLossPct || 0), '#c0392b', false, 30, true);
+      drawChart('a-runloss', s.strokes.map(x => x.runLossPct || 0), '#c0392b', false, 20, true);
       drawChart('a-eff', s.strokes.map(x => x.driveImpulse || 0), '#27ae60', false, null, true);
       drawChart('a-dps', s.strokes.map(x => x.dps || 0), '#1a5276', false, 20);
-      drawChart('a-char', s.strokes.map(x => x.char || 0), '#f39c12', false, 70, true, 30);
+      drawChart('a-char', s.strokes.map(x => x.char || 0), '#f39c12', false, 75, true, 25);
       drawChart('a-rdi', s.strokes.map(x => x.rdi || 0), '#8e44ad', false, 1, true, -1);
     }
     if (s.hrTrace && s.hrTrace.length > 2) drawChart('a-hr', s.hrTrace.map(x => x.hr), '#c0392b', false);
