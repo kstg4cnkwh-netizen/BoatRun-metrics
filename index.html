@@ -1450,7 +1450,7 @@ function showDetail(id) {
     <div class="sgrid">
       <div class="sbox"><span class="sbox-v">${s.avgDPS ? s.avgDPS.toFixed(1) : '—'}</span><span class="sbox-l">Dist / Stroke</span><span class="sbox-u">m</span></div>
       <div class="sbox ${s.avgRunLoss != null && s.avgRunLoss < 10 ? 'g' : s.avgRunLoss != null && s.avgRunLoss < 20 ? 'a' : 'r'}"><span class="sbox-v">${s.avgRunLoss != null ? Math.round(s.avgRunLoss) + '%' : '—'}</span><span class="sbox-l">Run Loss</span></div>
-      <div class="sbox"><span class="sbox-v">${s.avgImpulse != null ? s.avgImpulse.toFixed(1) : '—'}</span><span class="sbox-l">Impulse</span></div>
+      <div class="sbox"><span class="sbox-v">${s.avgImpulse != null ? s.avgImpulse.toFixed(2) : '—'}</span><span class="sbox-l">Impulse</span></div>
     </div>
     <div class="sgrid">
       <div class="sbox"><span class="sbox-v">${s.avgRdi ? s.avgRdi.toFixed(2) : '—'}</span><span class="sbox-l">Recovery Drive Index</span><span class="sbox-u">Higher = longer recovery</span></div>
