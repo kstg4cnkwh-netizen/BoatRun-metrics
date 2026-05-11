@@ -701,7 +701,6 @@ function onStrokeFinish(now, driveDur) {
 
   const catchSlope = Math.round(Math.abs(catchPeakJerk));
   if (catchSlope < 2) return;
-  // In onStrokeFinish, before catchValsArr.push:
   if (catchSlope < jerkThreshBase * 1.5) return; // V2.8 reject implausibly weak catches
 
   const peakOffset = drivePeakAccT - driveStartT;
@@ -721,8 +720,11 @@ function onStrokeFinish(now, driveDur) {
       blended = medRate;
     } else if (acConf > 0.50 && acRate > 0) { //V2.10: gate 0.35→0.50
       // Sub-harmonic guard: AC locked onto ~2× stroke rate → fold back
-      const acRateSafe = (acRate > medRate * 1.35 && acConf < 0.75) //V2.10
-        ? acRate / 2 : acRate;
+      const acTooHigh = acRate > medRate * 1.35 && acConf < 0.75;
+      const acTooLow  = medRate > 0 && acRate < medRate * 0.72;  // v2.11 — locked on double period
+      const acRateSafe = acTooHigh ? acRate / 2
+        : acTooLow  ? medRate   // discard r_ac, fall back to FSM
+        : acRate;
       blended = 0.65 * medRate + 0.35 * acRateSafe;
     } else {
       blended = 0.45 * medRate + 0.55 * strokeRate;
@@ -885,7 +887,7 @@ function computeAutocorrelationRate(now) {
 
   // V2.10: Sub-harmonic guard — discard if raw >> FSM rate
   const rateRef = strokeRate > 0 ? strokeRate : (acRate > 0 ? acRate : 0);
-  if (rateRef > 0 && raw > rateRef * 1.40 && bestR < 0.65) {
+  if (rateRef > 0 && raw > rateRef * 0.72 && bestR < 0.65) {
     // AC locked on double-rate harmonic; decay confidence, skip update
     acConf = Math.max(0, acConf * 0.5);
     return;
@@ -946,18 +948,29 @@ const GPS_GAP_RESET_MS = 3000;
 
 function pushVelocity(t, v) {
   const gapMs = gpsLastValidT > 0 ? t - gpsLastValidT : 0;
+  let gpsBlackoutHeld = false; // v2.11 — suppress EMA decay during GPS dropout while rowing
+
   gpsLastValidT = t;
   if (gpsSpeedEma < 0 || gapMs > GPS_GAP_RESET_MS) { //V2.8 addition ========
     gpsSpeedEma = v;
     gpsWasStopped = false;
     if (gapMs > GPS_GAP_RESET_MS) paceReadings.length = 0;
-  } else if (gpsWasStopped && v > 1.0) {
+  } else if (gpsWasStopped && v > 0.5) {
     // First valid rowing speed after a stop — reset immediately
     gpsSpeedEma = v;
     gpsWasStopped = false;
     paceReadings.length = 0; // clear stale slow readings too
   } else {
-    if (v < 0.3) gpsWasStopped = true;
+    if (v < 0.3) {
+        gpsWasStopped = true;
+        // v2.11: don't let EMA decay to zero during a GPS blackout while actively rowing
+        if ((t - lastCatchAbsT) < 4000 && gpsSpeedEma > 0.5) {
+            gpsBlackoutHeld = true;
+            return;
+        }
+    } else {
+        gpsBlackoutHeld = false;
+    }
     const vCapped = (gpsSpeedEma > 0.5 && v > gpsSpeedEma * 2.5) ? gpsSpeedEma * 2.5 : v;
     gpsSpeedEma = GPS_EMA_ALPHA * vCapped + (1 - GPS_EMA_ALPHA) * gpsSpeedEma;
   }
