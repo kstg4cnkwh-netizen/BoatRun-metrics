@@ -1032,12 +1032,17 @@ function handlePos(pos) {
     });
   }
 
-  const cur = { lat: pos.coords.latitude, lon: pos.coords.longitude, t: Date.now() };
-  if (running && !paused && lastPos) {
-    const d = haversine(lastPos, cur);
-    if (d >= 0.3 && d < 30) { distance += d; cur.dist = distance; sessGpsTrace.push(cur); }
-  }
-  lastPos = cur;
+  const lat = pos.coords.latitude;
+const lon = pos.coords.longitude;
+const cur = { lat, lon, t: Date.now() };
+if (running && !paused && lastPos &&
+    lat != null && lon != null &&
+    lastPos.lat != null && lastPos.lon != null) {
+  const d = haversine(lastPos, cur);
+  if (d >= 0.3 && d < 30) { distance += d; cur.dist = distance; sessGpsTrace.push(cur); }
+}
+lastPos = cur;
+
 
   if (running && !paused && spd != null) {
   if (spd > 0.5 && spd < 8 && !gpsWasStopped) {
