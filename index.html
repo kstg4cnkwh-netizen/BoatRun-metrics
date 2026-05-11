@@ -1045,7 +1045,8 @@ lastPos = cur;
 
 
   if (running && !paused && spd != null) {
-  if (spd > 0.5 && spd < 8) {
+  console.log('GPS spd:', spd, 'pace:', pace, 'gema:', gpsSpeedEma); 
+    if (spd > 0.5 && spd < 8) {
     if (gpsSpeedEma > 0 && spd > gpsSpeedEma * 2.0) {
       paceReadings.length = 0;  // piece start — flush stale slow readings
     }
