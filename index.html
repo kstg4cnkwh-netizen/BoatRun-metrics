@@ -267,6 +267,10 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
       <button class="tab active" id="tab-live-ls"><span class="tab-icon">📡</span><span class="tab-txt">LIVE</span></button>
       <button class="tab" id="tab-anal-ls"><span class="tab-icon">📊</span><span class="tab-txt">ANALYSIS</span></button>
     </div>
+    <div id="debug-overlay" style="position:fixed;bottom:0;left:0;right:0;
+background:rgba(0,0,0,0.8);color:lime;font-size:11px;
+padding:4px;z-index:9999;white-space:pre;"></div>
+
   </div>
 </div>
 
@@ -292,6 +296,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div class="toast" id="toast"></div>
 <input type="file" id="fit-input" accept=".tcx,.gpx,.fit" style="display:none"/>
 
+
 <script>
 'use strict';
 
@@ -306,6 +311,14 @@ const charLabel = v => v < 22 ? 'EARLY DRIVE' : v < 40 ? 'FRONT LOADED' : v < 60
 function toast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
 
 if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
+const dbgLog = [];
+function clog(...args) {
+  const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+  dbgLog.push(msg);
+  if (dbgLog.length > 20) dbgLog.shift();
+  const el = document.getElementById('debug-overlay');
+  if (el) el.textContent = dbgLog.slice(-6).join('\n');
+}
 
 /* ════════════════════════════════════════
    STORAGE
@@ -1045,7 +1058,8 @@ lastPos = cur;
 
 
   if (running && !paused && spd != null) {
-  console.log('GPS spd:', spd, 'pace:', pace, 'gema:', gpsSpeedEma); 
+  clog('spd:', spd, 'pace:', pace, 'gema:', gpsSpeedEma);
+
     if (spd > 0.5 && spd < 8) {
     if (gpsSpeedEma > 0 && spd > gpsSpeedEma * 2.0) {
       paceReadings.length = 0;  // piece start — flush stale slow readings
