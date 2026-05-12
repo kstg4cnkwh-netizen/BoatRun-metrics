@@ -276,7 +276,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
     <span class="scnt" id="scnt">0 sessions</span>
   </div>
   <button id="drive-btn" onclick="toggleDrive()">⊞ Drive</button>
-   <span id="drive-dot" style="display:none;width:7px;height:7px;
+   <span id="drive-dot" style="display:none;width:10px;height:10px;
 border-radius:50%;background:#27ae60;display:inline-block;margin-left:4px;"></span>
   <div id="alist-view" class="scroll">
     <div class="slist" id="slist">
@@ -361,11 +361,41 @@ function addSess(s) {
 function toggleDrive() {
   if (!DriveSync.isSignedIn()) {
     DriveSync.signIn()
-      .then(() => toast('Drive linked'))
+      .then(() => { toast('Drive linked'); return flushQueue(); })
       .catch(() => toast('Drive sign-in cancelled'));
   } else {
     if (confirm('Unlink Google Drive?')) DriveSync.signOut();
   }
+}
+
+// ── Pending queue ─────────────────────────────────────────────────────────
+const PENDING_KEY = 'scull_drive_pending';
+
+function queuePending(id) {
+  try {
+    const q = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
+    if (!q.includes(id)) { q.push(id); localStorage.setItem(PENDING_KEY, JSON.stringify(q)); }
+  } catch(e) {}
+}
+
+async function flushQueue() {
+  if (!DriveSync.isSignedIn()) return;
+  try {
+    const q = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
+    if (!q.length) return;
+    const sessions = loadSess();
+    let uploaded = 0;
+    for (const id of q) {
+      const s = sessions.find(x => x.id === id);
+      if (!s) continue;
+      try {
+        await DriveSync.upload(s);
+        uploaded++;
+      } catch(e) {}
+    }
+    localStorage.removeItem(PENDING_KEY);
+    if (uploaded) toast(`✓ ${uploaded} session${uploaded>1?'s':''} synced to Drive`);
+  } catch(e) {}
 }
 
 const delSess = id => saveSess(loadSess().filter(s => s.id !== id));
