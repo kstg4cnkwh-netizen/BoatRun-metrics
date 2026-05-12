@@ -273,11 +273,10 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div id="screen-analysis" class="screen">
   <div class="ahdr">
     <span class="ahdr-title">SESSION HISTORY</span>
-    <span id="drive-dot" style="display:none;width:10px;height:10px;
-      border-radius:50%;background:#27ae60;display:inline-block;margin-left:4px;"></span>
+    <button type="button" id="drive-btn" onclick="driveSignIn()">⊞ Drive</button>
+    <span id="drive-dot" style="display:none;width:7px;height:7px;background:#3affb4;border-radius:50%;display:inline-block;margin-left:4px;"></span>
     <span class="scnt" id="scnt">0 sessions</span>
   </div>
-  <button id="drive-btn" onclick="toggleDrive()">⊞ Drive</button>
   <div id="alist-view" class="scroll">
     <div class="slist" id="slist">
       <div class="no-sess" id="no-sess">No sessions yet.<br/>Start rowing to record your first session.</div>
@@ -316,6 +315,29 @@ if (screen.orientation && screen.orientation.lock) screen.orientation.lock('land
 const DB = 'scull_v3';
 const AUTOSAVE_DB = 'scull_autosave';
 const loadSess = () => { try { return JSON.parse(localStorage.getItem(DB) || '[]'); } catch { return []; } };
+
+async function driveSignIn() {
+  // Save current screen state before popup opens
+  const activeScreen = document.querySelector('.screen.active')?.id;
+  sessionStorage.setItem('_preauth_screen', activeScreen || '');
+  
+  try {
+    await DriveSync.init();
+    await DriveSync.signIn();
+    toast('✓ Drive linked');
+    updateDriveUI(true);
+  } catch(e) {
+    if (e.message !== 'popup_closed') toast('Drive error: ' + e.message);
+  } finally {
+    // Restore screen state after popup closes
+    const screen = sessionStorage.getItem('_preauth_screen');
+    if (screen) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(screen)?.classList.add('active');
+      sessionStorage.removeItem('_preauth_screen');
+    }
+  }
+}
 
 function saveSess(a) {
   try {
@@ -1604,9 +1626,8 @@ function showDetail(id) {
   e.preventDefault();
   e.stopPropagation();
   try {
-    toast('Connecting to Drive…');
-    await DriveSync.init();
-    if (!DriveSync.isSignedIn()) await DriveSync.signIn();
+    await driveSignIn();
+    if (!DriveSync.isSignedIn()) return; // user cancelled
     toast('Uploading…');
     await DriveSync.upload(s);
     try {
@@ -1618,6 +1639,7 @@ function showDetail(id) {
     toast('Drive sync failed: ' + err.message);
   }
 });
+
 
 
     document.getElementById('del-btn').addEventListener('click', () => {
