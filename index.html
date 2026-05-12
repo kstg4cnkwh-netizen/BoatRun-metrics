@@ -344,31 +344,31 @@ function saveSess(a) {
 // localStorage write is synchronous (unchanged).
 // Drive upload is fire-and-forget — never blocks the UI.
 function addSess(s) {
-try {
-const a = loadSess();
-a.unshift(s);
-saveSess(a);
-} catch(e) { /* ignore */ }
+  try {
+    const a = loadSess();
+    a.unshift(s);
+    saveSess(a);
+  } catch(e) { /* ignore */ }
 
-if (DriveSync.isSignedIn()) {
-DriveSync.upload(s)
-.then(() => toast(‘✓ Saved to Drive’))
-.catch(err => {
-console.warn(‘Drive upload failed:’, err);
-toast(‘Drive sync failed — saved locally’);
-});
-}
+  if (DriveSync.isSignedIn()) {
+    DriveSync.upload(s)
+      .then(() => toast('✓ Saved to Drive'))
+      .catch(err => {
+        console.warn('Drive upload failed:', err);
+        toast('Drive sync failed — saved locally');
+      });
+  }
 }
 
 // Call this from the Drive button in settings/header.
 function toggleDrive() {
   if (!DriveSync.isSignedIn()) {
     DriveSync.signIn()
-    .then(() => toast(‘Drive linked’))
-    .catch(() => toast(‘Drive sign-in cancelled’));
-    } else {
-    if (confirm(‘Unlink Google Drive?’)) DriveSync.signOut();
-    }
+      .then(() => toast('Drive linked'))
+      .catch(() => toast('Drive sign-in cancelled'));
+  } else {
+    if (confirm('Unlink Google Drive?')) DriveSync.signOut();
+  }
 }
 
 const delSess = id => saveSess(loadSess().filter(s => s.id !== id));
