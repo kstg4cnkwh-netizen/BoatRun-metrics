@@ -352,13 +352,13 @@ function checkOAuthReturn() {
   if (!raw) return;
   sessionStorage.removeItem('_oauth_token');
   try {
-    const { token, expires, screen } = JSON.parse(raw);
+    const { token, expires } = JSON.parse(raw);
     DriveSync._injectToken(token, expires);
-    // Restore screen
-    if (screen) {
-      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-      document.getElementById(screen)?.classList.add('active');
-    }
+    // Restore to analysis list
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-analysis')?.classList.add('active');
+    renderAnalysisList();
+    requestAnimationFrame(renderCtrl);
     toast('✓ Drive linked');
     flushQueue();
   } catch(e) {
@@ -1667,9 +1667,6 @@ function showDetail(id) {
         driveSignIn(); // navigates away
       }
     });
-
-
-
 
     document.getElementById('del-btn').addEventListener('click', () => {
       if (confirm('Delete this session?')) {
