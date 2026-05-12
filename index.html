@@ -289,13 +289,14 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
     <button class="tab active" id="tab-anal-an"><span class="tab-icon">📊</span>ANALYSIS</button>
   </div>
 </div>
-<div id="debug-overlay" style="position:fixed;bottom:0;left:0;right:0;
+
+    <div class="toast" id="toast"></div>
+    <input type="file" id="fit-input" accept=".tcx,.gpx,.fit" style="display:none"/>
+    <div id="debug-overlay" style="position:fixed;bottom:0;left:0;right:0;
 background:rgba(0,0,0,0.8);color:lime;font-size:11px;
 padding:4px;z-index:9999;white-space:pre;"></div>
 
-<div class="toast" id="toast"></div>
-<input type="file" id="fit-input" accept=".tcx,.gpx,.fit" style="display:none"/>
-
+</body>
 
 <script>
 'use strict';
@@ -317,8 +318,15 @@ function clog(...args) {
   dbgLog.push(msg);
   if (dbgLog.length > 20) dbgLog.shift();
   const el = document.getElementById('debug-overlay');
-  if (el) el.textContent = dbgLog.slice(-6).join('\n');
+  if (el) {
+    el.textContent = dbgLog.slice(-6).join('\n');
+  } else {
+    alert('overlay missing'); // ← temp: confirms clog fires but div not found
+  }
 }
+
+  clog('app loaded');
+
 
 /* ════════════════════════════════════════
    STORAGE
