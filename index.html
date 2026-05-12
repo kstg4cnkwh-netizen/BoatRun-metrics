@@ -379,24 +379,23 @@ function queuePending(id) {
 }
 
 async function flushQueue() {
-  if (!DriveSync.isSignedIn()) return;
   try {
     const q = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
     if (!q.length) return;
+    // Sign in if needed
+    if (!DriveSync.isSignedIn()) await DriveSync.signIn();
     const sessions = loadSess();
     let uploaded = 0;
     for (const id of q) {
       const s = sessions.find(x => x.id === id);
       if (!s) continue;
-      try {
-        await DriveSync.upload(s);
-        uploaded++;
-      } catch(e) {}
+      try { await DriveSync.upload(s); uploaded++; } catch(e) { console.error('upload failed', e); }
     }
     localStorage.removeItem(PENDING_KEY);
     if (uploaded) toast(`✓ ${uploaded} session${uploaded>1?'s':''} synced to Drive`);
-  } catch(e) {}
+  } catch(e) { toast('Drive sync failed: ' + e.message); }
 }
+
 
 const delSess = id => saveSess(loadSess().filter(s => s.id !== id));
 
@@ -1573,6 +1572,7 @@ function showDetail(id) {
       </table></div>` : ''}
     <button class="exp-btn" id="exp-btn">⬇ Export CSV</button>
     <button class="exp-btn" id="dbg-btn" style="background:#2e4057;margin-top:4px">⬇ Debug CSV</button>
+    <button onclick="flushQueue()">↑ Sync to Drive</button>
     <button class="del-btn" id="del-btn">Delete Session</button>
     <div style="height:20px"></div>`;
 
