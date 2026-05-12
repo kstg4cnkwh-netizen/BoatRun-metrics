@@ -60,14 +60,17 @@ const DriveSync = (() => {
   }
 
   // ── Auth ────────────────────────────────────────────────────────────────
-  function signIn() {
-    return new Promise((resolve, reject) => {
-      if (isSignedIn()) { resolve(accessToken); return; }
-      pendingResolve = resolve;
-      pendingReject  = reject;
-      tokenClient.requestAccessToken({ prompt: '' });
-    });
-  }
+  // REPLACE the existing signIn() with:
+async function signIn() {
+  if (!tokenClient) await init();
+  return new Promise((resolve, reject) => {
+    if (isSignedIn()) { resolve(accessToken); return; }
+    pendingResolve = resolve;
+    pendingReject  = reject;
+    tokenClient.requestAccessToken({ prompt: 'select_account' });
+  });
+}
+
 
   function signOut() {
     if (accessToken) {
@@ -86,10 +89,13 @@ const DriveSync = (() => {
   }
 
   // ── Drive REST helpers ──────────────────────────────────────────────────
-  async function _ensureToken() {
-    if (!isSignedIn()) await signIn();
-    if (!accessToken) throw new Error('Not authenticated');
-  }
+  // REPLACE the existing _ensureToken() with:
+async function _ensureToken() {
+  if (!tokenClient) await init();
+  if (!isSignedIn()) await signIn();
+  if (!accessToken) throw new Error('Not authenticated');
+}
+
 
   async function _req(method, path, { params, jsonBody } = {}) {
     await _ensureToken();
