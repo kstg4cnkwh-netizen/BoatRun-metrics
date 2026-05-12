@@ -943,12 +943,13 @@ const VEL_WINDOW_MS = 10000;
 let gpsWasStopped = false; // v2.8 addition
 let gpsSpeedEma = -1;
 let gpsLastValidT = 0;
+let gpsBlackoutHeld = false;
 const GPS_EMA_ALPHA = 0.28;
 const GPS_GAP_RESET_MS = 3000;
 
 function pushVelocity(t, v) {
   const gapMs = gpsLastValidT > 0 ? t - gpsLastValidT : 0;
-  let gpsBlackoutHeld = false; // v2.11 — suppress EMA decay during GPS dropout while rowing
+  gpsBlackoutHeld = false; // v2.11 — suppress EMA decay during GPS dropout while rowing
 
   gpsLastValidT = t;
   if (gpsSpeedEma < 0 || gapMs > GPS_GAP_RESET_MS) { //V2.8 addition ========
