@@ -359,6 +359,9 @@ async function driveSignIn() {
 }
 
 function checkOAuthReturn() {
+  // Force fresh page on next back/forward navigation
+  window.addEventListener('unload', () => {});
+  
   const hash = new URLSearchParams(window.location.hash.slice(1));
   const token = hash.get('access_token');
   if (!token) return;
@@ -2162,7 +2165,11 @@ if ('serviceWorker' in navigator) {
 }
 
 /* ── init ── */
-checkOAuthReturn();
+
+window.addEventListener('pageshow', (e) => {
+  checkOAuthReturn();
+});
+
 wireCfgTiles(); updateCfgTile('top'); updateCfgTile('bot');
 checkAutosave();
 window.addEventListener('online', () => flushQueue());
