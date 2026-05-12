@@ -1002,50 +1002,27 @@ const sessGpsTrace = [];
 const sessGpsRawTrace = [];
 
 function handlePos(pos) {
-  const acc = pos.coords.accuracy || 0;
-  const gpsPill = document.getElementById('p-gps');
-  if (acc < 8) {
-    gpsPill.className = 'pill pill-on';
-    gpsPill.textContent = 'GPS ' + Math.round(acc) + 'm';
-  } else if (acc < 25) {
-    gpsPill.className = 'pill pill-warn';
-    gpsPill.textContent = 'GPS ' + Math.round(acc) + 'm';
-  } else {
-    gpsPill.className = 'pill pill-err';
-    gpsPill.textContent = 'GPS ' + Math.round(acc) + 'm';
-  }
-
+  document.getElementById('p-gps').className = 'pill pill-on';
+  document.getElementById('p-gps').textContent = 'GPS';
+  
   const spd = pos.coords.speed;
   const now = performance.now();
 
   if (running && !paused && spd != null && spd >= 0 && spd < 8) {
     vAnchor = spd; vAnchorT = now;
     pushVelocity(now, spd);
-    sessGpsRawTrace.push({
-      t: Date.now(),
-      rawSpd: spd != null ? +spd.toFixed(3) : null,
-      emaSpd: +gpsSpeedEma.toFixed(3),
-      acc: +(pos.coords.accuracy || 0).toFixed(1),
-      fixAge: Math.round(Date.now() - pos.timestamp),  // stale fix detector
-      heading: pos.coords.heading != null ? +pos.coords.heading.toFixed(1) : null,
-      blackout: gpsBlackoutHeld ? 1 : 0
-    });
+    sessGpsRawTrace.push({ t: Date.now(), rawSpd: +spd.toFixed(3), emaSpd: +gpsSpeedEma.toFixed(3), acc: +(pos.coords.accuracy || 0).toFixed(1) });
   }
 
-  const lat = pos.coords.latitude;
-  const lon = pos.coords.longitude;
-  const cur = { lat, lon, t: Date.now() };
-  if (running && !paused && lastPos &&
-    lat != null && lon != null &&
-    lastPos.lat != null && lastPos.lon != null) {
-      const d = haversine(lastPos, cur);
-      if (d >= 0.3 && d < 30) { distance += d; cur.dist = distance; sessGpsTrace.push(cur); }
-    }
+  const cur = { lat: pos.coords.latitude, lon: pos.coords.longitude, t: Date.now() };
+  if (running && !paused && lastPos) {
+    const d = haversine(lastPos, cur);
+    if (d >= 0.3 && d < 30) { distance += d; cur.dist = distance; sessGpsTrace.push(cur); }
+  }
   lastPos = cur;
 
-
   if (running && !paused && spd != null) {
-  if (spd > 0.5 && spd < 8) {
+  if (spd > 0.5 && spd < 8 && !gpsWasStopped) {
     if (gpsSpeedEma > 0 && spd > gpsSpeedEma * 2.0) {
       paceReadings.length = 0;  // piece start — flush stale slow readings
     }
@@ -1060,11 +1037,11 @@ function handlePos(pos) {
         : sorted[mid];
       sessPaceTrace.push(pace);
     }
-    } else if (spd < 0.3) {
-      paceReadings.length = 0;
-      pace = 0;
-    }
+  } else if (spd < 0.3) {
+    paceReadings.length = 0;
+    pace = 0;
   }
+}
 
   if (running && !paused && gpsLastValidT > 0 && (now - gpsLastValidT) > 6000) {
     pace = 0;
