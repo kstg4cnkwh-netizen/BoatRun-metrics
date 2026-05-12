@@ -353,10 +353,7 @@ function addSess(s) {
   if (DriveSync.isSignedIn()) {
     DriveSync.upload(s)
       .then(() => toast('✓ Saved to Drive'))
-      .catch(err => {
-        console.warn('Drive upload failed:', err);
-        toast('Drive sync failed — saved locally');
-      });
+      .catch(() => { queuePending(s.id); toast('Saved locally — Drive sync pending'); });
   }
 }
 
@@ -1390,6 +1387,9 @@ document.getElementById('perm-btn').addEventListener('click', async () => {
   window.addEventListener('devicemotion', handleMotion, { passive: true });
   document.getElementById('p-acc').className = 'pill pill-on';
   document.getElementById('p-acc').textContent = 'ACC';
+  
+  window.addEventListener('online', () => flushQueue());
+  DriveSync.init().then(() => flushQueue()).catch(console.warn);
 
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(pos => {
