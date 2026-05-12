@@ -322,68 +322,46 @@ const DRIVE_CLIENT_ID = '729480414852-kko8e7bi3r38tcg2rf6iiupptagoegpc.apps.goog
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
 async function driveSignIn() {
-  if (IS_IOS) {
-    // Save current screen + intent before navigating away
-    sessionStorage.setItem('_oauth_intent', JSON.stringify({
-      screen: document.querySelector('.screen.active')?.id,
-      action: 'sync'
-    }));
+  return new Promise((resolve, reject) => {
+    // Open OAuth in new tab — main page stays alive, no bfcache issue
+    const REDIRECT = 'https://kstg4cnkwh-netizen.github.io/Scull-metrics/oauth-callback.html';
     const params = new URLSearchParams({
       client_id: DRIVE_CLIENT_ID,
-      redirect_uri: OAUTH_REDIRECT,
+      redirect_uri: REDIRECT,
       response_type: 'token',
       scope: DRIVE_SCOPE,
       include_granted_scopes: 'true'
     });
-    window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params;
-    return;
-  }
+    
+    // Clear any stale token
+    localStorage.removeItem('_oauth_return');
+    
+    const popup = window.open(
+      'https://accounts.google.com/o/oauth2/v2/auth?' + params,
+      '_blank'
+    );
 
-  // Desktop: popup flow
-  const activeScreen = document.querySelector('.screen.active')?.id;
-  sessionStorage.setItem('_preauth_screen', activeScreen || '');
-  try {
-    await DriveSync.init();
-    await DriveSync.signIn();
-    toast('✓ Drive linked');
-  } catch(e) {
-    if (e.message !== 'popup_closed') toast('Drive error: ' + e.message);
-  } finally {
-    const screen = sessionStorage.getItem('_preauth_screen');
-    if (screen) {
-      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-      document.getElementById(screen)?.classList.add('active');
-      sessionStorage.removeItem('_preauth_screen');
-    }
-  }
-}
+    // Poll localStorage for callback result
+    const poll = setInterval(() => {
+      try {
+        const raw = localStorage.getItem('_oauth_return');
+        if (!raw) return;
+        clearInterval(poll);
+        clearTimeout(timeout);
+        localStorage.removeItem('_oauth_return');
+        const { token, expires } = JSON.parse(raw);
+        DriveSync._injectToken(token, expires);
+        toast('✓ Drive linked');
+        resolve();
+      } catch(e) {}
+    }, 300);
 
-function checkOAuthReturn() {
-  // Force fresh page on next back/forward navigation
-  window.addEventListener('unload', () => {});
-  
-  const hash = new URLSearchParams(window.location.hash.slice(1));
-  const token = hash.get('access_token');
-  if (!token) return;
-
-  // Clean the token out of the URL immediately
-  window.history.replaceState({}, '', window.location.pathname);
-
-  // Inject into DriveSync
-  const expiresIn = parseInt(hash.get('expires_in') || '3600');
-  DriveSync._injectToken(token, expiresIn);
-
-  // Restore screen + run pending action
-  const intent = JSON.parse(sessionStorage.getItem('_oauth_intent') || '{}');
-  sessionStorage.removeItem('_oauth_intent');
-
-  if (intent.screen) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(intent.screen)?.classList.add('active');
-  }
-
-  toast('✓ Drive linked');
-  if (intent.action === 'sync') flushQueue();
+    // Timeout after 2 minutes
+    const timeout = setTimeout(() => {
+      clearInterval(poll);
+      reject(new Error('Sign-in timed out'));
+    }, 120000);
+  });
 }
 
 function saveSess(a) {
@@ -2165,11 +2143,6 @@ if ('serviceWorker' in navigator) {
 }
 
 /* ── init ── */
-
-window.addEventListener('pageshow', (e) => {
-  checkOAuthReturn();
-});
-
 wireCfgTiles(); updateCfgTile('top'); updateCfgTile('bot');
 checkAutosave();
 window.addEventListener('online', () => flushQueue());
