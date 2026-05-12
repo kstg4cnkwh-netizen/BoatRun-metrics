@@ -1572,7 +1572,7 @@ function showDetail(id) {
       </table></div>` : ''}
     <button class="exp-btn" id="exp-btn">⬇ Export CSV</button>
     <button class="exp-btn" id="dbg-btn" style="background:#2e4057;margin-top:4px">⬇ Debug CSV</button>
-    <button class="exp-btn" id="sync-btn" style="background:#1a5276;margin-top:4px">↑ Sync to Drive</button>
+    <button type="button" id="sync-btn">↑ Sync</button>
     <button class="del-btn" id="del-btn">Delete Session</button>
     <div style="height:20px"></div>`;
 
@@ -1600,23 +1600,25 @@ function showDetail(id) {
     if (fz) fz.addEventListener('click', () => { const inp = document.getElementById('fit-input'); inp.onchange = ev => handleGPX(ev, s.id); inp.click(); });
     document.getElementById('exp-btn').addEventListener('click', () => exportCSV(s));
     document.getElementById('dbg-btn').addEventListener('click', () => exportDebugCSV(s));
-    document.getElementById('sync-btn').addEventListener('click', async () => {
+    document.getElementById('sync-btn').addEventListener('click', async (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  try {
+    toast('Connecting to Drive…');
+    await DriveSync.init();
+    if (!DriveSync.isSignedIn()) await DriveSync.signIn();
+    toast('Uploading…');
+    await DriveSync.upload(s);
     try {
-      toast('Connecting to Drive…');
-      await DriveSync.init();
-     if (!DriveSync.isSignedIn()) await DriveSync.signIn();
-      toast('Uploading…');
-      await DriveSync.upload(s);
-      // Remove from pending queue if it was there
-      try {
-        const q = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
-        localStorage.setItem(PENDING_KEY, JSON.stringify(q.filter(id => id !== s.id)));
-      } catch(e) {}
-      toast('✓ Saved to Drive');
-    } catch(e) {
-      toast('Drive sync failed: ' + e.message);
-    }
-    });
+      const q = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
+      localStorage.setItem(PENDING_KEY, JSON.stringify(q.filter(id => id !== s.id)));
+    } catch(e) {}
+    toast('✓ Saved to Drive');
+  } catch(err) {
+    toast('Drive sync failed: ' + err.message);
+  }
+});
+
 
     document.getElementById('del-btn').addEventListener('click', () => {
       if (confirm('Delete this session?')) {
