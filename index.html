@@ -309,7 +309,7 @@ const charLabel = v => v < 22 ? 'EARLY DRIVE' : v < 40 ? 'FRONT LOADED' : v < 60
 function toast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
 
 if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
-DriveSync.init().catch(console.warn); //===================================
+
 /* ════════════════════════════════════════
    STORAGE
 ════════════════════════════════════════ */
@@ -1378,6 +1378,7 @@ function wireTabButtons() {
    SENSOR INIT
 ════════════════════════════════════════ */
 document.getElementById('perm-btn').addEventListener('click', async () => {
+  DriveSync.init().catch(console.warn); //===================================
   if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
     try {
       const r = await DeviceMotionEvent.requestPermission();
@@ -1387,7 +1388,7 @@ document.getElementById('perm-btn').addEventListener('click', async () => {
   window.addEventListener('devicemotion', handleMotion, { passive: true });
   document.getElementById('p-acc').className = 'pill pill-on';
   document.getElementById('p-acc').textContent = 'ACC';
-  
+
   window.addEventListener('online', () => flushQueue());
   DriveSync.init().then(() => flushQueue()).catch(console.warn);
 
