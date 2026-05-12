@@ -73,6 +73,17 @@ const DriveSync = (() => {
   }
 
   // ── Auth ────────────────────────────────────────────────────────────────
+  function _injectToken(token, expiresIn) {
+    accessToken = token;
+    tokenExpiry = Date.now() + (expiresIn - 60) * 1000;
+    ensureFolder().catch(() => {});
+    _updateUI(true);
+  }
+
+  // Add to return:
+  return { init, signIn, signOut, isSignedIn, upload, list, fetchSession, ensureFolder, _injectToken };
+
+  
   async function signIn() {
     await init();
     return new Promise((resolve, reject) => {
