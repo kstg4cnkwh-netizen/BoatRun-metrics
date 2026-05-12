@@ -1572,7 +1572,7 @@ function showDetail(id) {
       </table></div>` : ''}
     <button class="exp-btn" id="exp-btn">⬇ Export CSV</button>
     <button class="exp-btn" id="dbg-btn" style="background:#2e4057;margin-top:4px">⬇ Debug CSV</button>
-    <button onclick="flushQueue()">↑ Sync to Drive</button>
+    <button class="exp-btn" id="sync-btn" style="background:#1a5276;margin-top:4px">↑ Sync to Drive</button>
     <button class="del-btn" id="del-btn">Delete Session</button>
     <div style="height:20px"></div>`;
 
@@ -1600,6 +1600,7 @@ function showDetail(id) {
     if (fz) fz.addEventListener('click', () => { const inp = document.getElementById('fit-input'); inp.onchange = ev => handleGPX(ev, s.id); inp.click(); });
     document.getElementById('exp-btn').addEventListener('click', () => exportCSV(s));
     document.getElementById('dbg-btn').addEventListener('click', () => exportDebugCSV(s));
+    document.getElementById('sync-btn').addEventListener('click', () => flushQueue(s));
     document.getElementById('del-btn').addEventListener('click', () => {
       if (confirm('Delete this session?')) {
         delSess(s.id);
