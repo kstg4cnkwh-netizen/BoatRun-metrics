@@ -199,31 +199,6 @@ const DriveSync = (() => {
     }
   }
 
-  // On failed upload, queue the session ID
-  function queuePending(sessionId) {
-    const q = JSON.parse(localStorage.getItem('_drive_queue') || '[]');
-    if (!q.includes(sessionId)) q.push(sessionId);
-    localStorage.setItem('_drive_queue', JSON.stringify(q));
-  }
-
-  // Call this on app init and on 'online' event
-  async function flushQueue() {
-    if (!DriveSync.isSignedIn()) return;
-    const q = JSON.parse(localStorage.getItem('_drive_queue') || '[]');
-    if (!q.length) return;
-    const sessions = loadSess();
-    for (const id of q) {
-      const s = sessions.find(s => s.id === id);
-      if (!s) continue;
-      try {
-        await DriveSync.upload(s);
-        // Remove from queue on success
-        const remaining = JSON.parse(localStorage.getItem('_drive_queue') || '[]');
-        localStorage.setItem('_drive_queue', JSON.stringify(remaining.filter(x => x !== id)));
-      } catch { break; } // stop on first failure, retry next time
-    }
-  }
-
   // ── List sessions on Drive ──────────────────────────────────────────────
   async function list() {
     await _ensureToken();
@@ -255,10 +230,35 @@ const DriveSync = (() => {
     if (dot) { dot.style.display = signedIn ? 'inline-block' : 'none'; }
   }
 
-  // ── Public ──────────────────────────────────────────────────────────────
+    // ── Public ──────────────────────────────────────────────────────────────
   return { init, signIn, signOut, isSignedIn, upload, list, fetchSession, ensureFolder };
 })();
 
+
+/* ════════════════════════════════════════
+   SYNC QUEUE
+════════════════════════════════════════ */
+function queuePending(sessionId) {
+  const q = JSON.parse(localStorage.getItem('_drive_queue') || '[]');
+  if (!q.includes(sessionId)) q.push(sessionId);
+  localStorage.setItem('_drive_queue', JSON.stringify(q));
+}
+
+async function flushQueue() {
+  if (!DriveSync.isSignedIn()) return;
+  const q = JSON.parse(localStorage.getItem('_drive_queue') || '[]');
+  if (!q.length) return;
+  const sessions = loadSess();
+  for (const id of q) {
+    const s = sessions.find(s => s.id === id);
+    if (!s) continue;
+    try {
+      await DriveSync.upload(s);
+      const remaining = JSON.parse(localStorage.getItem('_drive_queue') || '[]');
+      localStorage.setItem('_drive_queue', JSON.stringify(remaining.filter(x => x !== id)));
+    } catch { break; }
+  }
+}
 
 /* ════════════════════════════════════════
    DRIVE SYNC HOOKS
@@ -458,3 +458,51 @@ function _showDrivePicker(files, onSelect) {
   overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
   document.body.appendChild(overlay);
 }
+
+
+/* ════════════════════════════════════════
+   INSERTION GUIDE
+════════════════════════════════════════ */
+/*
+
+1. SCRIPT TAG — add before </body> in scull.html AND analyser.html:
+
+   <script src="drive-sync.js"></script>
+
+   OR inline the entire file contents into each HTML file.
+
+
+2. INIT — in your DOMContentLoaded / app init block:
+
+   DriveSync.init().catch(console.warn);
+
+
+3. DRIVE BUTTON HTML — add wherever suits (settings panel, header):
+
+   <button id="drive-btn" onclick="toggleDrive()">⊞ Drive</button>
+   <span id="drive-dot" style="display:none;width:7px;height:7px;
+     border-radius:50%;background:#27ae60;display:inline-block;margin-left:4px;"></span>
+
+   The button label auto-toggles between "⊞ Drive" and "⊟ Drive".
+   The dot goes green when linked.
+
+
+4. addSess() — replace the existing function with the one above.
+   No other changes to saveSess() / loadSess() needed.
+
+
+5. ANALYSER — add a "Load from Drive" button alongside the CSV import:
+
+   <button onclick="loadFromDrive()">⊞ Load from Drive</button>
+
+   Then ensure renderAnalysis(data, label) is whatever your analyser calls
+   after parseCSV() returns — just swap parseCSV(text) for sessionToAnalyserFmt(session).
+
+
+6. GOOGLE CLOUD CONSOLE — confirm these are set:
+   Authorised JavaScript origins:
+     https://kstg4cnkwh-netizen.github.io
+   Authorised redirect URIs:
+     (none needed for implicit/token flow)
+
+*/
