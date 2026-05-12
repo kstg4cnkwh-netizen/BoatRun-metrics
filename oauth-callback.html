@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Linking Drive…</title></head>
+<body>
+<script>
+const hash = new URLSearchParams(location.hash.slice(1));
+const token = hash.get('access_token');
+const expires = hash.get('expires_in');
+if (token) {
+  localStorage.setItem('_oauth_return', JSON.stringify({
+    token, expires: parseInt(expires || '3600'), ts: Date.now()
+  }));
+}
+window.close();
+</script>
+</body>
+</html>
