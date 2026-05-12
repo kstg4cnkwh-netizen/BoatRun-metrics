@@ -275,6 +275,9 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
     <span class="ahdr-title">SESSION HISTORY</span>
     <span class="scnt" id="scnt">0 sessions</span>
   </div>
+  <button id="drive-btn" onclick="toggleDrive()">⊞ Drive</button>
+   <span id="drive-dot" style="display:none;width:7px;height:7px;
+border-radius:50%;background:#27ae60;display:inline-block;margin-left:4px;"></span>
   <div id="alist-view" class="scroll">
     <div class="slist" id="slist">
       <div class="no-sess" id="no-sess">No sessions yet.<br/>Start rowing to record your first session.</div>
@@ -306,7 +309,7 @@ const charLabel = v => v < 22 ? 'EARLY DRIVE' : v < 40 ? 'FRONT LOADED' : v < 60
 function toast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
 
 if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
-
+DriveSync.init().catch(console.warn); //===================================
 /* ════════════════════════════════════════
    STORAGE
 ════════════════════════════════════════ */
@@ -338,12 +341,34 @@ function saveSess(a) {
   }
 }
 
+// localStorage write is synchronous (unchanged).
+// Drive upload is fire-and-forget — never blocks the UI.
 function addSess(s) {
-  try {
-    const a = loadSess();
-    a.unshift(s);
-    saveSess(a);
-  } catch(e) { /* loadSess failed — ignore */ }
+try {
+const a = loadSess();
+a.unshift(s);
+saveSess(a);
+} catch(e) { /* ignore */ }
+
+if (DriveSync.isSignedIn()) {
+DriveSync.upload(s)
+.then(() => toast(‘✓ Saved to Drive’))
+.catch(err => {
+console.warn(‘Drive upload failed:’, err);
+toast(‘Drive sync failed — saved locally’);
+});
+}
+}
+
+// Call this from the Drive button in settings/header.
+function toggleDrive() {
+  if (!DriveSync.isSignedIn()) {
+    DriveSync.signIn()
+    .then(() => toast(‘Drive linked’))
+    .catch(() => toast(‘Drive sign-in cancelled’));
+    } else {
+    if (confirm(‘Unlink Google Drive?’)) DriveSync.signOut();
+    }
 }
 
 const delSess = id => saveSess(loadSess().filter(s => s.id !== id));
