@@ -107,14 +107,39 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
   .sub-micro{font-size:clamp(7px,1.0dvh,10px);}
   .char-label-sm{font-size:clamp(7px,1.0dvh,10px);}
 }
-.ahdr{background:#1a5276;padding:8px 14px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;}
-.ahdr-title{font-size:10px;letter-spacing:.2em;color:rgba(255,255,255,.6);font-weight:700}
-.scnt{font-size:10px;color:rgba(255,255,255,.35);letter-spacing:.08em}
+/* ── Analysis header ─────────────────────────────────────────────────── */
+.ahdr{background:#1a5276;padding:6px 12px;flex-shrink:0;display:flex;align-items:center;gap:8px;}
+.ahdr-title{font-size:10px;letter-spacing:.2em;color:rgba(255,255,255,.6);font-weight:700;flex:1}
+/* Drive button — large enough to tap on phone */
+.drive-btn{
+  background:rgba(255,255,255,.14);
+  color:rgba(255,255,255,.75);
+  border:1px solid rgba(255,255,255,.25);
+  font-family:'Roboto',sans-serif;
+  font-size:11px;font-weight:700;
+  letter-spacing:.06em;
+  padding:7px 11px;
+  border-radius:4px;
+  cursor:pointer;
+  text-transform:uppercase;
+  touch-action:manipulation;
+  white-space:nowrap;
+  -webkit-user-select:none;user-select:none;
+  min-height:32px;
+}
+.drive-btn:active{filter:brightness(.82);}
+.drive-btn.drive-linked{
+  border-color:rgba(58,255,180,.5);
+  color:#3affb4;
+}
+.scnt{font-size:10px;color:rgba(255,255,255,.35);letter-spacing:.08em;white-space:nowrap}
+/* Sync badge on session cards */
+.sync-badge{font-size:9px;color:#27ae60;font-weight:700;letter-spacing:.04em;margin-left:4px;}
 .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#efefef}
 .slist{padding:8px}
 .scard{background:#fff;border-radius:4px;margin-bottom:6px;padding:12px 14px;cursor:pointer;border-left:4px solid #1a5276;box-shadow:0 1px 3px rgba(0,0,0,.07);}
 .scard:active{background:#f5f5f5}
-.scard-date{font-size:10px;color:#999;margin-bottom:6px;letter-spacing:.04em}
+.scard-date{font-size:10px;color:#999;margin-bottom:6px;letter-spacing:.04em;display:flex;align-items:center;gap:4px;flex-wrap:wrap;}
 .scard-stats{display:flex;gap:14px}
 .scs-v{font-size:19px;font-weight:400;color:#000;display:block}
 .scs-l{font-size:8px;color:#333;letter-spacing:.1em;text-transform:uppercase;display:block}
@@ -285,8 +310,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div id="screen-analysis" class="screen">
   <div class="ahdr">
     <span class="ahdr-title">SESSION HISTORY</span>
-    <button type="button" id="drive-btn" onclick="driveSignIn()">⊞ Drive</button>
-    <span id="drive-dot" style="display:none;width:7px;height:7px;background:#3affb4;border-radius:50%;display:inline-block;margin-left:4px;"></span>
+    <button type="button" id="drive-btn" class="drive-btn" onclick="handleDriveBtnTap()">☁ Drive</button>
     <span class="scnt" id="scnt">0 sessions</span>
   </div>
   <div id="alist-view" class="scroll">
@@ -327,7 +351,9 @@ if (screen.orientation && screen.orientation.lock) screen.orientation.lock('land
 ════════════════════════════════════════ */
 const DB = 'scull_v3';
 const AUTOSAVE_DB = 'scull_autosave';
+const SYNCED_DB = 'scull_drive_synced';  // set of synced session IDs
 const loadSess = () => { try { return JSON.parse(localStorage.getItem(DB) || '[]'); } catch { return []; } };
+const loadSynced = () => { try { return new Set(JSON.parse(localStorage.getItem(SYNCED_DB) || '[]')); } catch { return new Set(); } };
 
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 const DRIVE_CLIENT_ID = '729480414852-kko8e7bi3r38tcg2rf6iiupptagoegpc.apps.googleusercontent.com';
@@ -335,7 +361,6 @@ const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const OAUTH_REDIRECT = 'https://kstg4cnkwh-netizen.github.io/Scull-metrics/';
 
 async function driveSignIn() {
-  // Save which screen we're on
   sessionStorage.setItem('_oauth_screen', document.querySelector('.screen.active')?.id || '');
   const params = new URLSearchParams({
     client_id: DRIVE_CLIENT_ID,
@@ -347,22 +372,65 @@ async function driveSignIn() {
   window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params;
 }
 
+// Called from Drive button in header - toggle sign-in/out
+function handleDriveBtnTap() {
+  if (DriveSync.isSignedIn()) {
+    if (confirm('Unlink Google Drive?')) {
+      DriveSync.signOut();
+      updateDriveBtn();
+      toast('Drive unlinked');
+    }
+  } else {
+    driveSignIn();
+  }
+}
+
+// Keep the Drive button label and style in sync with auth state
+function updateDriveBtn() {
+  const btn = document.getElementById('drive-btn');
+  if (!btn) return;
+  if (DriveSync.isSignedIn()) {
+    btn.textContent = '☁ Linked';
+    btn.classList.add('drive-linked');
+  } else {
+    btn.textContent = '☁ Drive';
+    btn.classList.remove('drive-linked');
+  }
+}
+
+// Mark a session as synced to Drive (persisted in localStorage)
+function markSynced(id) {
+  try {
+    const s = loadSynced();
+    s.add(id);
+    localStorage.setItem(SYNCED_DB, JSON.stringify([...s]));
+  } catch(e) {}
+}
+
+function isSynced(id) {
+  return loadSynced().has(id);
+}
+
 function checkOAuthReturn() {
   const raw = sessionStorage.getItem('_oauth_token');
-  if (!raw) return;
+  if (!raw) return false;
   sessionStorage.removeItem('_oauth_token');
   try {
     const { token, expires } = JSON.parse(raw);
     DriveSync._injectToken(token, expires);
-    // Restore to analysis list
+    // Restore navigation — wire tabs so user can get back to live
+    wireTabButtons();
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById('screen-analysis')?.classList.add('active');
     renderAnalysisList();
     requestAnimationFrame(renderCtrl);
+    updateDriveBtn();
     toast('✓ Drive linked');
     flushQueue();
+    return true;
   } catch(e) {
     toast('Drive auth failed: ' + e.message);
+    return false;
   }
 }
 
@@ -390,8 +458,6 @@ function saveSess(a) {
   }
 }
 
-// localStorage write is synchronous (unchanged).
-// Drive upload is fire-and-forget — never blocks the UI.
 function addSess(s) {
   try {
     const a = loadSess();
@@ -401,19 +467,8 @@ function addSess(s) {
 
   if (DriveSync.isSignedIn()) {
     DriveSync.upload(s)
-      .then(() => toast('✓ Saved to Drive'))
+      .then(() => { markSynced(s.id); updateDriveBtn(); toast('✓ Saved to Drive'); })
       .catch(() => { queuePending(s.id); toast('Saved locally — Drive sync pending'); });
-  }
-}
-
-// Call this from the Drive button in settings/header.
-function toggleDrive() {
-  if (!DriveSync.isSignedIn()) {
-    DriveSync.signIn()
-      .then(() => { toast('Drive linked'); return flushQueue(); })
-      .catch(() => toast('Drive sign-in cancelled'));
-  } else {
-    if (confirm('Unlink Google Drive?')) DriveSync.signOut();
   }
 }
 
@@ -431,20 +486,21 @@ async function flushQueue() {
   try {
     const q = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
     if (!q.length) return;
-    // Sign in if needed
-    if (!DriveSync.isSignedIn()) await DriveSync.signIn();
+    if (!DriveSync.isSignedIn()) return;  // don't prompt sign-in silently
     const sessions = loadSess();
     let uploaded = 0;
     for (const id of q) {
       const s = sessions.find(x => x.id === id);
       if (!s) continue;
-      try { await DriveSync.upload(s); uploaded++; } catch(e) { console.error('upload failed', e); }
+      try { await DriveSync.upload(s); markSynced(id); uploaded++; } catch(e) { console.error('upload failed', e); }
     }
     localStorage.removeItem(PENDING_KEY);
-    if (uploaded) toast(`✓ ${uploaded} session${uploaded>1?'s':''} synced to Drive`);
+    if (uploaded) {
+      toast(`✓ ${uploaded} session${uploaded>1?'s':''} synced to Drive`);
+      renderAnalysisList();  // refresh badges
+    }
   } catch(e) { toast('Drive sync failed: ' + e.message); }
 }
-
 
 const delSess = id => saveSess(loadSess().filter(s => s.id !== id));
 
@@ -679,11 +735,11 @@ let drivePeakAcc = 0, drivePeakAccT = 0;
 
 const PERIOD_MIN_MS = 1200;
 const PERIOD_MAX_MS = 6000;
-const REFRACTORY_MIN_MS = 1100; //V2.10 up from 1000
+const REFRACTORY_MIN_MS = 1100;
 const MAX_DRIVE_MS = 2800;
 const MIN_DRIVE_MS = 300;
-const POST_DRIVE_LOCKOUT_MS = 500; //v2.9 
-let lastDriveEndT = 0; //v2.9
+const POST_DRIVE_LOCKOUT_MS = 500;
+let lastDriveEndT = 0;
 
 let jerkThreshBase   = cal.jerkThresh;
 let jerkThreshActive = cal.jerkThresh;
@@ -700,7 +756,7 @@ function runFSM(now, fastSmooth, jerk) {
 
   const timeSinceCatch = now - lastCatchAbsT;
   const refractory = strokeRate > 0
-    ? Math.max(REFRACTORY_MIN_MS, (60000 / Math.min(strokeRate + 2, SPM_MAX)) * 0.65) //V2.10: 050->0.65
+    ? Math.max(REFRACTORY_MIN_MS, (60000 / Math.min(strokeRate + 2, SPM_MAX)) * 0.65)
     : REFRACTORY_MIN_MS;
 
   switch (fsmState) {
@@ -708,7 +764,7 @@ function runFSM(now, fastSmooth, jerk) {
     case FS.RECOVERY:
       if (jerk > jerkThreshActive && fastSmooth > accThreshBase
           && timeSinceCatch > refractory
-          && (now - lastDriveEndT) > POST_DRIVE_LOCKOUT_MS) {   // ← add this v2.9
+          && (now - lastDriveEndT) > POST_DRIVE_LOCKOUT_MS) {
         fsmState = FS.CATCH;
         catchStartT = now;
         catchPeakJerk = jerk;
@@ -739,7 +795,7 @@ function runFSM(now, fastSmooth, jerk) {
       const driveDur = now - driveStartT;
       if ((fastSmooth < 0 && driveDur > MIN_DRIVE_MS) || driveDur > MAX_DRIVE_MS) {
         onStrokeFinish(now, driveDur);
-        lastDriveEndT = now; //v2.9 add
+        lastDriveEndT = now;
         fsmState = FS.RECOVERY;
       }
       break;
@@ -767,7 +823,7 @@ let runLossPct = null, runLossMs = null, runEfficiency= null;
 const CATCH_TS_BUF = 7;
 const catchTsBuf = [];
 
-let rdi = 0; // Recovery Dominance Index = (Recovery - Drive)/(Recovery + Drive)
+let rdi = 0;
 let rdiValsArr = [];
 
 function rateFromMedianIntervals() {
@@ -801,7 +857,7 @@ function onStrokeFinish(now, driveDur) {
 
   const catchSlope = Math.round(Math.abs(catchPeakJerk));
   if (catchSlope < 2) return;
-  if (catchSlope < jerkThreshBase * 1.5) return; // V2.8 reject implausibly weak catches
+  if (catchSlope < jerkThreshBase * 1.5) return;
 
   const peakOffset = drivePeakAccT - driveStartT;
   const rawChar = driveDur > 0
@@ -815,21 +871,18 @@ function onStrokeFinish(now, driveDur) {
   const medRate = rateFromMedianIntervals();
   if (medRate > 0) {
     let blended;
-
-   if (strokeRate === 0) {
+    if (strokeRate === 0) {
       blended = medRate;
-    } else if (acConf > 0.50 && acRate > 0) { //V2.10: gate 0.35→0.50
-      // Sub-harmonic guard: AC locked onto ~2× stroke rate → fold back
+    } else if (acConf > 0.50 && acRate > 0) {
       const acTooHigh = acRate > medRate * 1.35 && acConf < 0.75;
-      const acTooLow  = medRate > 0 && acRate < medRate * 0.72;  // v2.11 — locked on double period
+      const acTooLow  = medRate > 0 && acRate < medRate * 0.72;
       const acRateSafe = acTooHigh ? acRate / 2
-        : acTooLow  ? medRate   // discard r_ac, fall back to FSM
+        : acTooLow  ? medRate
         : acRate;
       blended = 0.65 * medRate + 0.35 * acRateSafe;
     } else {
       blended = 0.45 * medRate + 0.55 * strokeRate;
     }
-    // snap to 0.5 SPM
     strokeRate = Math.round(blended * 2) / 2;
   }
   strokesDetected++;
@@ -873,16 +926,12 @@ function onStrokeFinish(now, driveDur) {
   if (strokeTs.length >= 2) {
     const prevCatchT = strokeTs[strokeTs.length - 2];
     const currentCatchT = strokeTs[strokeTs.length - 1];
-
     const recovery = (currentCatchT - prevCatchT - driveDur) / 1000;
     const drive = driveDur / 1000;
-
     if (recovery > 0 && drive > 0) {
-      const rdiRaw = (recovery - drive) / (recovery + drive); // recovery dominance index
-
+      const rdiRaw = (recovery - drive) / (recovery + drive);
       rdiValsArr.push(rdiRaw);
       if (rdiValsArr.length > 10) rdiValsArr.shift();
-
       rdi = rdiValsArr.reduce((a, b) => a + b, 0) / rdiValsArr.length;
       rdi = Math.max(-1, Math.min(1, rdi));
     }
@@ -890,12 +939,10 @@ function onStrokeFinish(now, driveDur) {
   const intervalS = strokeTs.length >= 2
     ? (strokeTs[strokeTs.length - 1] - strokeTs[strokeTs.length - 2]) / 1000 : 0;
 
-  // V2.10: Flush AC buffer on rest-recovery — prevents double-rate lock-on
-  const isRestRecovery = intervalS > GPS_GAP_RESET_MS / 1000; // > 3 s
+  const isRestRecovery = intervalS > GPS_GAP_RESET_MS / 1000;
   if (isRestRecovery) {
-    acBuf.length = 0;   // clear stale ring buffer
-    acConf = 0;         // invalidate confidence; blend will ignore r_ac
-    // acRate kept as seed so first real AC update EMA-s from a sane value
+    acBuf.length = 0;
+    acConf = 0;
   }
   const dpsRawDelta = prevStrokeDistT > 0 ? +(distance - prevStrokeDist).toFixed(2) : 0;
 
@@ -985,16 +1032,13 @@ function computeAutocorrelationRate(now) {
   const raw = 60000 / periodMs;
   if (raw < SPM_MIN || raw > SPM_MAX) return;
 
-  // V2.10: Sub-harmonic guard — discard if raw >> FSM rate
   const rateRef = strokeRate > 0 ? strokeRate : (acRate > 0 ? acRate : 0);
   if (rateRef > 0 && raw > rateRef * 0.72 && bestR < 0.65) {
-    // AC locked on double-rate harmonic; decay confidence, skip update
     acConf = Math.max(0, acConf * 0.5);
     return;
   }
   acConf = Math.min(1, bestR);
   const smooth = acRate === 0 ? raw : (0.35 * raw + 0.65 * acRate);
-  // snap to 0.5 SPM
   acRate = Math.round(smooth * 2) / 2;
 
   if (running && !paused && (now - lastCatchAbsT) > 4000) {
@@ -1040,7 +1084,7 @@ const paceReadings = [];
 let vAnchor = 0, vAnchorT = 0;
 const velocityWindow = [];
 const VEL_WINDOW_MS = 10000;
-let gpsWasStopped = false; // v2.8 addition
+let gpsWasStopped = false;
 let gpsSpeedEma = -1;
 let gpsLastValidT = 0;
 let gpsBlackoutHeld = false;
@@ -1049,22 +1093,20 @@ const GPS_GAP_RESET_MS = 3000;
 
 function pushVelocity(t, v) {
   const gapMs = gpsLastValidT > 0 ? t - gpsLastValidT : 0;
-  gpsBlackoutHeld = false; // v2.11 — suppress EMA decay during GPS dropout while rowing
+  gpsBlackoutHeld = false;
 
   gpsLastValidT = t;
-  if (gpsSpeedEma < 0 || gapMs > GPS_GAP_RESET_MS) { //V2.8 addition ========
+  if (gpsSpeedEma < 0 || gapMs > GPS_GAP_RESET_MS) {
     gpsSpeedEma = v;
     gpsWasStopped = false;
     if (gapMs > GPS_GAP_RESET_MS) paceReadings.length = 0;
   } else if (gpsWasStopped && v > 0.5) {
-    // First valid rowing speed after a stop — reset immediately
     gpsSpeedEma = v;
     gpsWasStopped = false;
-    paceReadings.length = 0; // clear stale slow readings too
+    paceReadings.length = 0;
   } else {
     if (v < 0.3) {
         gpsWasStopped = true;
-        // v2.11: don't let EMA decay to zero during a GPS blackout while actively rowing
         if ((t - lastCatchAbsT) < 4000 && gpsSpeedEma > 0.5) {
             gpsBlackoutHeld = true;
             return;
@@ -1102,7 +1144,7 @@ let lastPos = null;
 const sessGpsTrace = [];
 const sessGpsRawTrace = [];
 
-function handlePos(pos) { //New version
+function handlePos(pos) {
   const acc = pos.coords.accuracy || 0;
   const gpsPill = document.getElementById('p-gps');
   if (acc < 8) {
@@ -1127,7 +1169,7 @@ function handlePos(pos) { //New version
       rawSpd: spd != null ? +spd.toFixed(3) : null,
       emaSpd: +gpsSpeedEma.toFixed(3),
       acc: +(pos.coords.accuracy || 0).toFixed(1),
-      fixAge: Math.round(Date.now() - pos.timestamp),  // stale fix detector
+      fixAge: Math.round(Date.now() - pos.timestamp),
       heading: pos.coords.heading != null ? +pos.coords.heading.toFixed(1) : null,
       blackout: gpsBlackoutHeld ? 1 : 0
     });
@@ -1145,23 +1187,22 @@ function handlePos(pos) { //New version
     }
   lastPos = cur;
 
-
   if (running && !paused && spd != null) {
-  if (spd > 0.5 && spd < 8) {
-    if (gpsSpeedEma > 0 && spd > gpsSpeedEma * 2.0) {
-      paceReadings.length = 0;  // piece start — flush stale slow readings
-    }
-    const raw = 500 / spd;
-    if (raw < PACE_MAX) {
-      paceReadings.push(raw);
-      if (paceReadings.length > 10) paceReadings.shift();
-      const sorted = [...paceReadings].sort((a, b) => a - b);
-      const mid = Math.floor(sorted.length / 2);
-      pace = sorted.length % 2 === 0
-        ? (sorted[mid - 1] + sorted[mid]) / 2
-        : sorted[mid];
-      sessPaceTrace.push(pace);
-    }
+    if (spd > 0.5 && spd < 8) {
+      if (gpsSpeedEma > 0 && spd > gpsSpeedEma * 2.0) {
+        paceReadings.length = 0;
+      }
+      const raw = 500 / spd;
+      if (raw < PACE_MAX) {
+        paceReadings.push(raw);
+        if (paceReadings.length > 10) paceReadings.shift();
+        const sorted = [...paceReadings].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        pace = sorted.length % 2 === 0
+          ? (sorted[mid - 1] + sorted[mid]) / 2
+          : sorted[mid];
+        sessPaceTrace.push(pace);
+      }
     } else if (spd < 0.3) {
       paceReadings.length = 0;
       pace = 0;
@@ -1201,7 +1242,6 @@ function updateUI() {
   else { pel.textContent = '--:--'; pel.className = 'tval tval-primary dim'; }
 
   const rel = document.getElementById('t-rate');
-  // if (on && strokeRate > 0) { rel.textContent = strokeRate; rel.className = 'tval tval-primary'; }
   if (on && strokeRate > 0) { rel.textContent = strokeRate % 1 === 0 ? strokeRate : strokeRate.toFixed(1); rel.className = 'tval tval-primary'; }
   else { rel.textContent = '--'; rel.className = 'tval tval-primary dim'; }
 
@@ -1213,7 +1253,6 @@ function updateUI() {
   const charNumEl = document.getElementById('t-char-num');
   const charBadgeEl = document.getElementById('char-badge');
   if (on && strokeCount > 0 && rdi != null) {
-    // map -1..1 → 0..100%
     const pct = ((rdi + 1) / 2) * 100;
     needle.style.left = pct + '%';
     charNumEl.textContent = rdi.toFixed(2);
@@ -1247,7 +1286,6 @@ function updateUI() {
   const lastImpulse = sessStrokes.length > 0 ? sessStrokes[sessStrokes.length - 1].driveImpulse : null;
   if (lastImpulse != null && on) { efe.textContent = lastImpulse.toFixed(2); efe.className = 'tval-r23'; }
   else { efe.textContent = '--'; efe.className = 'tval-r23 dim'; }
-
 
   updateCfgTile('top'); updateCfgTile('bot');
 }
@@ -1440,14 +1478,33 @@ function wireButtons() {
 ════════════════════════════════════════ */
 function showTab(tab) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById('screen-' + tab).classList.add('active');
+
+  if (tab === 'live') {
+    // If sensors haven't been initialised (post-OAuth redirect before perm flow),
+    // drop the user back to the permission screen rather than a blank live view.
+    if (!enterLive._done) {
+      document.getElementById('screen-perm').classList.add('active');
+      return;
+    }
+    document.getElementById('screen-live').classList.add('active');
+  } else {
+    document.getElementById('screen-analysis').classList.add('active');
+    renderAnalysisList();
+  }
+
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  if (tab === 'live') { ['tab-live-ls', 'tab-live-an'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('active'); }); }
-  else { ['tab-anal-ls', 'tab-anal-an'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('active'); }); }
-  if (tab === 'analysis') renderAnalysisList();
+  if (tab === 'live') {
+    ['tab-live-ls', 'tab-live-an'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('active'); });
+  } else {
+    ['tab-anal-ls', 'tab-anal-an'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('active'); });
+  }
 }
 
+// Wire tab buttons — safe to call multiple times (removes then re-adds)
+let _tabsWired = false;
 function wireTabButtons() {
+  if (_tabsWired) return;
+  _tabsWired = true;
   ['tab-live-ls', 'tab-live-an'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('click', () => showTab('live')); });
   ['tab-anal-ls', 'tab-anal-an'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('click', () => showTab('analysis')); });
 }
@@ -1466,8 +1523,9 @@ document.getElementById('perm-btn').addEventListener('click', async () => {
   document.getElementById('p-acc').className = 'pill pill-on';
   document.getElementById('p-acc').textContent = 'ACC';
 
-  DriveSync.init().then(() => flushQueue()).catch(console.warn);
-
+  DriveSync.init().then(() => {
+    if (DriveSync.isSignedIn()) { updateDriveBtn(); flushQueue(); }
+  }).catch(console.warn);
 
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(pos => {
@@ -1525,8 +1583,14 @@ function renderAnalysisList() {
   list.querySelectorAll('.scard').forEach(e => e.remove());
   document.getElementById('no-sess').style.display = sessions.length ? 'none' : 'block';
   sessions.forEach(s => {
+    const synced = isSynced(s.id);
     const el = document.createElement('div'); el.className = 'scard';
-    el.innerHTML = `<div class="scard-date">${fmtDate(s.startTime)}${s.hrTrace ? ' 🫀' : ''}${s.detectedAxis ? ' · AX:' + s.detectedAxis.toUpperCase() : ''}</div>
+    el.innerHTML = `<div class="scard-date">
+        <span>${fmtDate(s.startTime)}</span>
+        ${s.hrTrace ? '<span>🫀</span>' : ''}
+        ${s.detectedAxis ? '<span>AX:' + s.detectedAxis.toUpperCase() + '</span>' : ''}
+        ${synced ? '<span class="sync-badge">☁ synced</span>' : ''}
+      </div>
       <div class="scard-stats">
         <div><span class="scs-v">${(s.distance / 1000).toFixed(2)}</span><span class="scs-l">km</span></div>
         <div><span class="scs-v">${fmtH(s.duration)}</span><span class="scs-l">time</span></div>
@@ -1570,9 +1634,10 @@ function showDetail(id) {
       </div></div><div class="fit-st" id="fit-st"></div>`;
   }
 
+  const syncedNow = isSynced(s.id);
   document.getElementById('detail-content').innerHTML = `
     <button class="dback" id="dback-btn">← All Sessions</button>
-    <div style="font-size:10px;color:#aaa;margin-bottom:10px;letter-spacing:.04em">${fmtDate(s.startTime)}${s.detectedAxis ? ' · Axis: ' + s.detectedAxis.toUpperCase() : ''}</div>
+    <div style="font-size:10px;color:#aaa;margin-bottom:10px;letter-spacing:.04em">${fmtDate(s.startTime)}${s.detectedAxis ? ' · Axis: ' + s.detectedAxis.toUpperCase() : ''}${syncedNow ? ' · <span style="color:#27ae60">☁ synced to Drive</span>' : ''}</div>
     <div class="sgrid">
       <div class="sbox"><span class="sbox-v">${(s.distance / 1000).toFixed(2)}</span><span class="sbox-l">Distance</span><span class="sbox-u">KM</span></div>
       <div class="sbox g"><span class="sbox-v">${s.avgPace > 0 ? fmt(s.avgPace) : '—'}</span><span class="sbox-l">Avg Pace</span><span class="sbox-u">/500M</span></div>
@@ -1621,7 +1686,7 @@ function showDetail(id) {
       </table></div>` : ''}
     <button class="exp-btn" id="exp-btn">⬇ Export CSV</button>
     <button class="exp-btn" id="dbg-btn" style="background:#2e4057;margin-top:4px">⬇ Debug CSV</button>
-    <button class="exp-btn" type="button" id="sync-btn">↑ Sync</button> 
+    <button class="exp-btn" type="button" id="sync-btn" style="background:${syncedNow ? '#27ae60' : '#1a5276'};margin-top:4px">${syncedNow ? '☁ Re-sync to Drive' : '☁ Sync to Drive'}</button>
     <button class="del-btn" id="del-btn">Delete Session</button>
     <div style="height:20px"></div>`;
 
@@ -1650,24 +1715,24 @@ function showDetail(id) {
     document.getElementById('exp-btn').addEventListener('click', () => exportCSV(s));
     document.getElementById('dbg-btn').addEventListener('click', () => exportDebugCSV(s));
     document.getElementById('sync-btn').addEventListener('click', async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
+      e.preventDefault(); e.stopPropagation();
       if (DriveSync.isSignedIn()) {
-        // Already signed in — upload directly
         try {
-          toast('Uploading…');
+          const btn = document.getElementById('sync-btn');
+          if (btn) btn.textContent = 'Uploading…';
           await DriveSync.upload(s);
+          markSynced(s.id);
+          updateDriveBtn();
+          if (btn) { btn.textContent = '☁ Synced ✓'; btn.style.background = '#27ae60'; }
           toast('✓ Saved to Drive');
+          renderAnalysisList();
         } catch(err) { toast('Drive sync failed: ' + err.message); }
       } else {
-        // Queue this session, then redirect to sign in
-        // flushQueue() will upload it after return
         queuePending(s.id);
         sessionStorage.setItem('_oauth_screen', document.querySelector('.screen.active')?.id || '');
-        driveSignIn(); // navigates away
+        driveSignIn();
       }
     });
-
     document.getElementById('del-btn').addEventListener('click', () => {
       if (confirm('Delete this session?')) {
         delSess(s.id);
@@ -1864,7 +1929,6 @@ function parseFITInline(buffer) {
         if (!isValid(elRaw, 4)) continue;
         const lapTime = elRaw / 1000;
         const lapDist = isValid(dRaw, 4) ? dRaw / 100 : 0;
-        // FIX v2.6: field 15=avg_hr, 16=max_hr, 17=avg_cadence (was off-by-one)
         const avgHr  = isValid(fd[15], 1) ? fd[15] : null;
         const maxHr  = isValid(fd[16], 1) ? fd[16] : null;
         const avgCad = isValid(fd[17], 1) ? fd[17] : null;
@@ -1874,7 +1938,6 @@ function parseFITInline(buffer) {
         const cal_l  = isValid(fd[11], 2) ? fd[11] : null;
         const strokRaw = fd[10] || fd[23] || fd[32] || null;
         const strokes  = (strokRaw && strokRaw < 0xFFFFFFFF) ? strokRaw : null;
-        // FIX v2.6: avg_stroke_distance is field 28 (was fd[90])
         const sdRaw = isValid(fd[28], 2) ? fd[28] : null;
         const strokeDist = sdRaw != null && sdRaw > 0
           ? +(sdRaw / 100).toFixed(2)
@@ -2006,7 +2069,7 @@ function parseGPX(text) {
 }
 
 /* ════════════════════════════════════════
-   CSV EXPORT
+   CSV EXPORT  (maintained for debugging)
 ════════════════════════════════════════ */
 function exportCSV(s) {
   const n = v => (v != null && !isNaN(v)) ? v : '';
@@ -2038,14 +2101,9 @@ function exportCSV(s) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([rows.map(r => r.join(',')).join('\n')], { type: 'text/csv' }));
   const d = new Date(s.startTime);
-  const localDate =
-    d.getFullYear() + '-' +
-    String(d.getMonth() + 1).padStart(2, '0') + '-' +
-    String(d.getDate()).padStart(2, '0');
+  const localDate = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   const pad = n => String(n).padStart(2,'0');
-  const hh = pad(d.getHours());
-  const mm = pad(d.getMinutes());
-  a.download = `RowSess_${localDate}_${hh}${mm}.csv`;
+  a.download = `RowSess_${localDate}_${pad(d.getHours())}${pad(d.getMinutes())}.csv`;
   a.click(); toast('CSV exported');
 }
 
@@ -2061,14 +2119,12 @@ function exportDebugCSV(s) {
   const el = t => +((t - t0) / 1000).toFixed(1);
   const rows = [];
 
-  // Environment — single header + single data row
   rows.push(['##ENV']);
   rows.push(['id','start','dur_s','axis','noise_ms2','thresh_ms3','strokes','dist_m','ver','gps_alpha','gap_ms','fresh_ms']);
   rows.push([s.id, new Date(t0).toISOString().slice(0,19)+'Z',
     n(s.duration), s.detectedAxis||'?', n(s.calNoiseFloor), n(s.calThresh),
     n(s.strokeCount), n(s.distance), 'v2.9', '0.28', '3000', '6000']);
 
-  // Stroke debug — elapsed_s only, short column names
   rows.push(['##S']);
   rows.push(['n','t','rate','r_fsm','r_ac','ac_cf','intv','drv',
              'jk_r','jk_a','jk_th','char','cc',
@@ -2085,29 +2141,20 @@ function exportDebugCSV(s) {
       d.selAxis||'', d.axisLocked ? '1' : '0', f1(r.dist), f2(r.rdi)]);
   });
 
-  // GPS speed trace — drop pace columns (500/raw_v, 500/ema_v are trivially derivable)
   if (s.gpsRawTrace && s.gpsRawTrace.length) {
     rows.push(['##GPS']);
     rows.push(['t', 'raw_v', 'ema_v', 'acc', 'fix_age_ms', 'heading', 'blackout']);
     s.gpsRawTrace.forEach(p => rows.push([
-        el(p.t),
-        f3(p.rawSpd),
-        f3(p.emaSpd),
-        f1(p.acc),
-        el(p.fixAge),
-        f1(p.heading),
-        el(p.blackout)
+        el(p.t), f3(p.rawSpd), f3(p.emaSpd), f1(p.acc), el(p.fixAge), f1(p.heading), el(p.blackout)
     ]));
   }
 
-  // HR trace
   if (s.hrTrace && s.hrTrace.length) {
     rows.push(['##HR']);
     rows.push(['t','hr']);
     s.hrTrace.forEach(h => rows.push([el(h.t), h.hr]));
   }
 
-  // Garmin trackpoint trace
   if (s.garminCadenceTrace && s.garminCadenceTrace.length) {
     const hasCad = s.garminCadenceTrace.some(p => p.cadence != null);
     rows.push([`##GAR${hasCad ? '' : '_NOCAD'}`]);
@@ -2122,17 +2169,11 @@ function exportDebugCSV(s) {
   }
 
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob(
-    [rows.map(r => r.join(',')).join('\n')], {type: 'text/csv'}));
+  a.href = URL.createObjectURL(new Blob([rows.map(r => r.join(',')).join('\n')], {type: 'text/csv'}));
   const d = new Date(s.startTime);
-  const localDate =
-    d.getFullYear() + '-' +
-    String(d.getMonth() + 1).padStart(2, '0') + '-' +
-    String(d.getDate()).padStart(2, '0');
+  const localDate = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   const pad = n => String(n).padStart(2,'0');
-  const hh = pad(d.getHours());
-  const mm = pad(d.getMinutes());
-  a.download = `RowSess_Debug_${localDate}_${hh}${mm}.csv`;
+  a.download = `RowSess_Debug_${localDate}_${pad(d.getHours())}${pad(d.getMinutes())}.csv`;
   a.click();
   toast('Debug CSV exported');
 }
@@ -2144,10 +2185,26 @@ if ('serviceWorker' in navigator) {
 }
 
 /* ── init ── */
-DriveSync.init().then(() => checkOAuthReturn()).catch(console.warn);
+// Wire tab buttons immediately so they work even after OAuth redirect
+wireTabButtons();
+
+// On app open: restore Drive auth state, flush any pending uploads
+DriveSync.init()
+  .then(() => {
+    const hadOAuth = checkOAuthReturn();
+    // Auto-flush on normal app open if already signed in
+    if (!hadOAuth && DriveSync.isSignedIn()) {
+      updateDriveBtn();
+      flushQueue().catch(console.warn);
+    }
+  })
+  .catch(console.warn);
+
 wireCfgTiles(); updateCfgTile('top'); updateCfgTile('bot');
 checkAutosave();
-window.addEventListener('online', () => flushQueue());
+window.addEventListener('online', () => {
+  if (DriveSync.isSignedIn()) flushQueue().catch(console.warn);
+});
 </script>
 </body>
 </html>
