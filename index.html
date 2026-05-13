@@ -2145,8 +2145,9 @@ function exportDebugCSV(s) {
     rows.push(['##GPS']);
     rows.push(['t', 'raw_v', 'ema_v', 'acc', 'fix_age_ms', 'heading', 'blackout']);
     s.gpsRawTrace.forEach(p => rows.push([
-        el(p.t), f3(p.rawSpd), f3(p.emaSpd), f1(p.acc), el(p.fixAge), f1(p.heading), el(p.blackout)
+      el(p.t), f3(p.rawSpd), f3(p.emaSpd), f1(p.acc), n(p.fixAge), f1(p.heading), n(p.blackout)
     ]));
+
   }
 
   if (s.hrTrace && s.hrTrace.length) {
