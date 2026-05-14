@@ -119,6 +119,11 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
   #cfg-top-tile{grid-row:4;grid-column:1}
   #cfg-bot-tile{grid-row:4;grid-column:2}
   #tile-runloss{display:none}
+  #live-tabs{flex-direction:row;width:100%;height:auto;border-left:none;border-top:1px solid rgba(255,255,255,.1);padding-right:0;}
+  #live-tabs .tab{padding:6px 0 5px;}
+  #live-tabs .tab-txt{display:inline;}
+  #live-tabs .tab-icon{font-size:14px;}
+  #live-tabs .tab.active{border-left:none;border-top:2px solid #fff;}
   .ctrl-col{display:flex;flex-direction:row;width:100%;gap:4px;padding:5px 5px calc(5px + env(safe-area-inset-bottom));background:#1a5276;flex-shrink:0;box-sizing:border-box;}
   .ctrl-col .btn{flex:1;width:auto;min-width:0;padding:10px 2px;font-size:clamp(9px,2.4vw,13px);letter-spacing:.04em;}
   .tab-bar{width:100%;flex-shrink:0;}
