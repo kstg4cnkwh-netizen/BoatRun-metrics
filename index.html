@@ -976,8 +976,8 @@ function onStrokeFinish(now, driveDur) {
     dbg: {
       intervalMs: catchIntervalMs ? Math.round(catchIntervalMs) : null,
       driveDurMs: Math.round(driveDur),
-      catchJerkRaw: Math.rnd(catchPeakJerk),
-      jerkThresh: Math.rnd(jerkThreshActive),
+      catchJerkRaw: +catchPeakJerk.toFixed(1),
+      jerkThresh: +jerkThreshActive.toFixed(2),
       medRateFsm: medRateRaw > 0 ? +medRateRaw.toFixed(1) : null,
       acRate: acRate > 0 ? acRate : null,
       acConf: +acConf.toFixed(3),
@@ -1630,7 +1630,7 @@ function showDetail(id) {
   const s = loadSess().find(x => x.id === id); if (!s) return;
   document.getElementById('alist-view').style.display = 'none';
   document.getElementById('adetail-view').style.display = 'block';
-  const avgCatch = s.strokes && s.strokes.length > 0 ? Math.rnd(s.strokes.reduce((a, b) => a + b.catchPeak, 0) / s.strokes.length) : '—'; 
+  const avgCatch = s.strokes && s.strokes.length > 0 ? (s.strokes.reduce((a, b) => a + b.catchPeak, 0) / s.strokes.length).toFixed(1) : '—';
 
   let hrHTML = '';
   if (s.hrTrace && s.hrTrace.length > 0) {
@@ -1671,13 +1671,13 @@ function showDetail(id) {
       <div class="sbox"><span class="sbox-v">${s.strokeCount || 0}</span><span class="sbox-l">Strokes</span><span class="sbox-u">TOTAL</span></div>
     </div>
     <div class="sgrid">
-      <div class="sbox"><span class="sbox-v">${s.catchPeakSess != null ? '+' + Math.rnd(s.catchPeakSess) : '—'}</span><span class="sbox-l">Catch Peak</span><span class="sbox-u">M/S³</span></div>
+      <div class="sbox"><span class="sbox-v">${s.catchPeakSess != null ? '+' + s.catchPeakSess.toFixed(1) : '—'}</span><span class="sbox-l">Catch Peak</span><span class="sbox-u">M/S³</span></div>
       <div class="sbox"><span class="sbox-v">${avgCatch !== '—' ? '+' + avgCatch : avgCatch}</span><span class="sbox-l">Catch Avg</span><span class="sbox-u">M/S³</span></div>
       <div class="sbox"><span class="sbox-v">${s.laps ? s.laps.length : 0}</span><span class="sbox-l">Laps</span><span class="sbox-u">SPLITS</span></div>
     </div>
     <div class="sgrid">
       <div class="sbox"><span class="sbox-v">${s.avgDPS ? s.avgDPS.toFixed(1) : '—'}</span><span class="sbox-l">Dist / Stroke</span><span class="sbox-u">m</span></div>
-      <div class="sbox ${s.avgRunLoss != null && s.avgRunLoss < 10 ? 'g' : s.avgRunLoss != null && s.avgRunLoss < 20 ? 'a' : 'r'}"><span class="sbox-v">${s.avgRunLoss != null ? s.avgRunLoss.toFixed(1) + '%' : '—'}</span><span class="sbox-l">Run Loss</span></div>
+      <div class="sbox ${s.avgRunLoss != null && s.avgRunLoss < 10 ? 'g' : s.avgRunLoss != null && s.avgRunLoss < 20 ? 'a' : 'r'}"><span class="sbox-v">${s.avgRunLoss != null ? Math.round(s.avgRunLoss) + '%' : '—'}</span><span class="sbox-l">Run Loss</span></div>
       <div class="sbox"><span class="sbox-v">${s.avgImpulse != null ? s.avgImpulse.toFixed(2) : '—'}</span><span class="sbox-l">Impulse</span></div>
     </div>
     <div class="sgrid">
@@ -2156,7 +2156,7 @@ function exportDebugCSV(s) {
     const d = r.dbg || {};
     rows.push([i+1, el(r.t),
       n(r.rate), f1(d.medRateFsm), n(d.acRate), f3(d.acConf), n(d.intervalMs), n(d.driveDurMs),
-      el(d.catchJerkRaw), el(r.catchPeak), f2(d.jerkThresh),
+      f1(d.catchJerkRaw), f1(r.catchPeak), f2(d.jerkThresh),
       n(r.char), f1(r.catchConsistency),
       r.pace > 0 ? f1(r.pace) : '', f3(d.gpsEma), f2(d.dpsRaw), f1(r.dps), n(d.dpsN),
       f1(r.runLossPct), f2(r.runLossMs), f3(r.runEfficiency), f2(r.driveImpulse),
