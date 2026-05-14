@@ -89,8 +89,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .tab.active{color:#fff;border-top:2px solid #fff}
 .tab-icon{font-size:14px;display:block;margin-bottom:1px}
 .tab-txt{display:inline}
-.btn{flex:1;border:none;border-radius:3px;font-family:'Roboto',sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;padding:clamp(8px,1.8dvh,16px) 4px;font-size:clamp(11px,1.5dvh,14px);touch-action:manipulation;-webkit-user-select:none;user-select:none;}
-.btn:active{filter:brightness(.82);transform:scale(.96)}
+.btn{flex:1;border:none;border-radius:3px;font-family:'Roboto',sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;padding:clamp(8px,1.8dvh,16px)4px;font-size:clamp(14px,2.0dvh,20px);line-height:1.1;touch-action:manipulation;-webkit-user-select:none;user-select:none;display:flex;align-items:center;justify-content:center;text-align:center}
 .btn-start{background:#27ae60;color:#fff}.btn-resume{background:#27ae60;color:#fff}
 .btn-stop{background:#c0392b;color:#fff}.btn-pause{background:#f39c12;color:#fff}
 .btn-lap{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3)}
@@ -278,7 +277,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
           </div></div>
           <div class="char-label-sm" id="char-badge">—</div>
         </div>
-        <div class="tlbl">Recovery Dominance Index</div>
+        <div class="tlbl">Recovery Index</div>
       </div>
       <div class="tile">
         <div class="tile-val-wrap">
@@ -1703,7 +1702,7 @@ function showDetail(id) {
     <div class="sgrid">
       <div class="sbox"><span class="sbox-v">${s.avgDPS ? s.avgDPS.toFixed(1) : '—'}</span><span class="sbox-l">Dist / Stroke</span><span class="sbox-u">m</span></div>
       <div class="sbox"><span class="sbox-v">${s.avgImpulse != null ? s.avgImpulse.toFixed(2) : '—'}</span><span class="sbox-l">Impulse</span></div>
-      <div class="sbox"><span class="sbox-v">${s.avgRdi ? s.avgRdi.toFixed(2) : '—'}</span><span class="sbox-l">Recovery Drive Index</span><span class="sbox-u">Higher = longer recovery</span></div>    
+      <div class="sbox"><span class="sbox-v">${s.avgRdi ? s.avgRdi.toFixed(2) : '—'}</span><span class="sbox-l">Recovery Index</span><span class="sbox-u">Higher = longer recovery</span></div>    
     </div>
     <div class="sgrid">
       <div class="sbox"><span class="sbox-v">${s.avgEfficiency ? (s.avgEfficiency * 100).toFixed(1) + '%' : '—'}</span><span class="sbox-l">Run Eff</span><span class="sbox-u">vmin/vmax</span></div>
@@ -1725,7 +1724,7 @@ function showDetail(id) {
       <div class="chart-card"><div class="chart-lbl"><span>Impulse</span></div><canvas id="a-eff" class="acanvas"></canvas></div>
       <div class="chart-card"><div class="chart-lbl"><span>Dist / Stroke</span><span>m</span></div><canvas id="a-dps" class="acanvas"></canvas></div>
       <div class="chart-card"><div class="chart-lbl"><span>Stroke Characteristic</span><span>%</span></div><canvas id="a-char" class="acanvas"></canvas></div>
-      <div class="chart-card"><div class="chart-lbl"><span>Recovery Drive Index</span><span>-1 to 1</span></div><canvas id="a-rdi" class="acanvas"></canvas></div>` : ''}
+      <div class="chart-card"><div class="chart-lbl"><span>Recovery Index</span><span>-1 to 1</span></div><canvas id="a-rdi" class="acanvas"></canvas></div>` : ''}
       ${s.laps && s.laps.length > 0 ? `<div class="chart-card" style="border-color:#ddd">
       <div class="chart-lbl"><span>Laps</span></div>
       <table class="lap-tbl"><tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>Rate</th></tr>
