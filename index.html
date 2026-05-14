@@ -1090,36 +1090,52 @@ let gpsLastValidT = 0;
 let gpsBlackoutHeld = false;
 const GPS_EMA_ALPHA = 0.28;
 const GPS_GAP_RESET_MS = 3000;
+const GPS_SPIKE_DELTA = 1.5; 
 
 function pushVelocity(t, v) {
   const gapMs = gpsLastValidT > 0 ? t - gpsLastValidT : 0;
-  gpsBlackoutHeld = false;
+  gpsBlackoutHeld = false;  
+  // Trim always 
+  const cut = t - VEL_WINDOW_MS;
+  while (velocityWindow.length > 1 && velocityWindow[0].t < cut) velocityWindow.shift();
 
-  gpsLastValidT = t;
   if (gpsSpeedEma < 0 || gapMs > GPS_GAP_RESET_MS) {
+    gpsLastValidT = t;
     gpsSpeedEma = v;
     gpsWasStopped = false;
     if (gapMs > GPS_GAP_RESET_MS) paceReadings.length = 0;
   } else if (gpsWasStopped && v > 0.5) {
+    gpsLastValidT = t;
     gpsSpeedEma = v;
     gpsWasStopped = false;
     paceReadings.length = 0;
   } else {
     if (v < 0.3) {
-        gpsWasStopped = true;
-        if ((t - lastCatchAbsT) < 4000 && gpsSpeedEma > 0.5) {
-            gpsBlackoutHeld = true;
-            return;
-        }
+      if (gpsSpeedEma < 0.5) {
+          gpsLastValidT = t;
+          gpsWasStopped = true;
+      } else if ((t - lastCatchAbsT) < 4000) {
+          gpsBlackoutHeld = true;
+          return;
+      } else {
+          return;
+      }
     } else {
-        gpsBlackoutHeld = false;
+      gpsLastValidT = t;
+      gpsBlackoutHeld = false;  
     }
-    const vCapped = (gpsSpeedEma > 0.5 && v > gpsSpeedEma * 2.5) ? gpsSpeedEma * 2.5 : v;
-    gpsSpeedEma = GPS_EMA_ALPHA * vCapped + (1 - GPS_EMA_ALPHA) * gpsSpeedEma;
+    // only clamp when EMA is already at rowing speed; start ramp-up is unaffected. 1.5 m/s is max plausible GPS speed jump per sample (m/s)
+    if (v>= 0.3) {  
+      const vCapped = (gpsSpeedEma > 1.0 && v > gpsSpeedEma + GPS_SPIKE_DELTA)
+          ? gpsSpeedEma + GPS_SPIKE_DELTA
+          : v;
+      gpsSpeedEma = GPS_EMA_ALPHA * vCapped + (1 - GPS_EMA_ALPHA) * gpsSpeedEma;
+    }
   }
-  velocityWindow.push({ t, v: gpsSpeedEma });
-  const cut = t - VEL_WINDOW_MS;
-  while (velocityWindow.length > 1 && velocityWindow[0].t < cut) velocityWindow.shift();
+  // Push only if not held:
+  if (!gpsBlackoutHeld) {
+    velocityWindow.push({ t, v: gpsSpeedEma });
+  }
 }
 
 function computeRunLoss(now, strokeIntervalS) {
@@ -1183,14 +1199,16 @@ function handlePos(pos) {
     lat != null && lon != null &&
     lastPos.lat != null && lastPos.lon != null) {
       const d = haversine(lastPos, cur);
-      if (d >= 0.3 && d < 30) { distance += d; cur.dist = distance; sessGpsTrace.push(cur); }
+      if (d >= 0.3 && d < 30 && gpsSpeedEma > 0.5) { distance += d; cur.dist = distance; sessGpsTrace.push(cur); }
     }
   lastPos = cur;
 
   if (running && !paused && spd != null) {
     if (spd > 0.5 && spd < 8) {
-      if (gpsSpeedEma > 0 && spd > gpsSpeedEma * 2.0) {
-        paceReadings.length = 0;
+      // Only clear on confirmed spike when EMA is established at rowing speed;
+      //         avoids clearing during start acceleration where ratio fires legitimately
+      if (gpsSpeedEma > 2.0 && spd > gpsSpeedEma + GPS_SPIKE_DELTA) {
+          paceReadings.length = 0;
       }
       const raw = 500 / spd;
       if (raw < PACE_MAX) {
@@ -1198,9 +1216,13 @@ function handlePos(pos) {
         if (paceReadings.length > 10) paceReadings.shift();
         const sorted = [...paceReadings].sort((a, b) => a - b);
         const mid = Math.floor(sorted.length / 2);
-        pace = sorted.length % 2 === 0
-          ? (sorted[mid - 1] + sorted[mid]) / 2
-          : sorted[mid];
+        // Gate on 300 s/500m (5:00/500m); above that it's not actionable
+        const PACE_DISPLAY_MAX = 300;   // 5:00/500m
+        const rawPace = sorted.length % 2 === 0
+            ? (sorted[mid - 1] + sorted[mid]) / 2
+            : sorted[mid];
+        pace = rawPace <= PACE_DISPLAY_MAX ? rawPace : 0;
+        // pace === 0 should already render as —:— in your UI formatter
         sessPaceTrace.push(pace);
       }
     } else if (spd < 0.3) {
