@@ -108,22 +108,20 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 }
 /* ── Portrait layout ─────────────────────────────────────────────────── */
 @media(orientation:portrait){
-  /* 2-col × 4-row grid */
-  .tile-grid{
-    grid-template-columns:repeat(2,minmax(0,1fr));
-    grid-template-rows:repeat(4,minmax(0,1fr));
-  }
-  /* Explicit placement: Pace|Rate, DPS|RDI, Catch|Impulse, CfgTop|CfgBot */
-  .tile-grid>.tile:nth-child(1){grid-row:1;grid-column:1}   /* pace */
-  .tile-grid>.tile:nth-child(2){grid-row:1;grid-column:2}   /* rate */
-  .tile-grid>.tile:nth-child(3){grid-row:2;grid-column:1}   /* dps */
-  .tile-grid>.tile:nth-child(4){grid-row:2;grid-column:2}   /* rdi */
-  .tile-grid>.tile:nth-child(5){grid-row:3;grid-column:1}   /* catch */
+  .live-body{flex-direction:column;}
+  .tile-grid{flex:1;min-height:0;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(4,minmax(0,1fr));}
+  .tile-grid>.tile:nth-child(1){grid-row:1;grid-column:1}
+  .tile-grid>.tile:nth-child(2){grid-row:1;grid-column:2}
+  .tile-grid>.tile:nth-child(3){grid-row:2;grid-column:1}
+  .tile-grid>.tile:nth-child(4){grid-row:2;grid-column:2}
+  .tile-grid>.tile:nth-child(5){grid-row:3;grid-column:1}
+  .tile-grid>.tile:nth-child(8){grid-row:3;grid-column:2}
   #cfg-top-tile{grid-row:4;grid-column:1}
-  #tile-runloss{display:none}
-  .tile-grid>.tile:nth-child(8){grid-row:3;grid-column:2}   /* impulse */
   #cfg-bot-tile{grid-row:4;grid-column:2}
-  /* Scale fonts down for half-width tiles */
+  #tile-runloss{display:none}
+  .ctrl-col{display:flex;flex-direction:row;width:100%;gap:4px;padding:5px 5px calc(5px + env(safe-area-inset-bottom));background:#1a5276;flex-shrink:0;box-sizing:border-box;}
+  .ctrl-col .btn{flex:1;width:auto;min-width:0;padding:10px 2px;font-size:clamp(9px,2.4vw,13px);letter-spacing:.04em;}
+  .tab-bar{width:100%;flex-shrink:0;}
   .tval-primary{font-size:clamp(28px,7dvh,80px)}
   .tval-r23{font-size:clamp(22px,5.5dvh,64px)}
   .char-num{font-size:clamp(22px,5.5dvh,64px)}
@@ -284,7 +282,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
             <div class="catch-bar-fill" id="catch-fill" style="left:0;width:0"></div>
             <div class="catch-needle" id="catch-needle" style="left:0"></div>
           </div></div>
-          <div class="sub-micro">m/s³ · 0 ──── 45 ──── 90</div>
+          <div class="sub-micro">m/s³ · 0 ──── 25 ──── 50</div>
         </div>
         <div class="tlbl">Catch slope [m/s³]</div>
       </div>
