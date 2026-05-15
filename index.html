@@ -94,6 +94,17 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .btn-stop{background:#c0392b;color:#fff}.btn-pause{background:#f39c12;color:#fff}
 .btn-lap{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3)}
 .btn-reset{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
+/* ── Stroke Curve Panel ──────────────────────────────────────────────────── */
+.curve-panel{flex:1;min-height:0;min-width:0;display:none;flex-direction:column;background:#000;gap:2px;padding:2px;}
+.curve-panel.cpanel-active{display:flex;}
+.curve-canvas-wrap{flex:1;min-height:0;min-width:0;background:#111;border-radius:2px;position:relative;overflow:hidden;}
+#curve-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
+.curve-legend{position:absolute;top:7px;right:10px;display:flex;gap:12px;pointer-events:none;}
+.curve-leg-item{display:flex;align-items:center;gap:5px;font-size:9px;font-weight:700;letter-spacing:.1em;color:rgba(255,255,255,.7);}
+.curve-leg-dot{width:12px;height:3px;border-radius:2px;flex-shrink:0;}
+.curve-tiles{display:flex;gap:2px;flex-shrink:0;height:clamp(72px,22dvh,130px);}
+.curve-tile{flex:1;background:#fff;display:flex;flex-direction:column;overflow:hidden;cursor:pointer;min-width:0;}
+.curve-tile:active{background:#f0f7ff;}
 @media(orientation:landscape){
   .live-body{flex-direction:row;}
   .tval{font-size:clamp(28px,11dvh,120px);}
@@ -137,6 +148,9 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
   .tlbl-primary{font-size:clamp(10px,1.9dvh,16px)}
   .sub-micro{font-size:clamp(8px,1.4dvh,12px)}
   .char-label-sm{font-size:clamp(8px,1.4dvh,12px)}
+  /* Portrait curve tiles: 2×2 grid */
+  .curve-tiles{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;height:clamp(150px,38dvh,220px);}
+  .curve-tile{flex:none;}
 }
 /* ── Analysis header ─────────────────────────────────────────────────── */
 .ahdr{background:#1a5276;padding:6px 12px;flex-shrink:0;display:flex;align-items:center;gap:8px;}
@@ -224,7 +238,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
     <div class="perm-note">
       iOS: Settings → Safari → Motion &amp; Orientation Access<br/>
       Add to Home Screen for full-screen use · Works offline<br/>
-      <span style="color:rgba(255,255,255,.18)">v2.9</span>
+      <span style="color:rgba(255,255,255,.18)">v3.0</span>
     </div>
   </div>
 </div>
@@ -258,7 +272,8 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
     <div class="rec" id="rec-ind" style="display:none"><div class="recdot"></div>REC</div>
   </div>
   <div class="live-body">
-    <div class="tile-grid">
+    <!-- ── Metrics tile grid ── -->
+    <div class="tile-grid" id="tile-grid">
       <div class="tile">
         <div class="tile-val-wrap"><div class="tval tval-primary dim" id="t-pace">--:--</div></div>
         <div class="tlbl tlbl-primary">Pace / 500m</div>
@@ -323,6 +338,52 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
         <div class="tlbl" id="cfg-bot-lbl">Total distance <span class="cfg-hint">▸</span></div>
       </div>
     </div>
+
+    <!-- ── Stroke curve panel ── -->
+    <div class="curve-panel" id="curve-panel">
+      <div class="curve-canvas-wrap">
+        <canvas id="curve-canvas"></canvas>
+        <div class="curve-legend">
+          <div class="curve-leg-item">
+            <div class="curve-leg-dot" style="background:#5dade2"></div>LAST
+          </div>
+          <div class="curve-leg-item">
+            <div class="curve-leg-dot" style="background:#f39c12"></div>AVG 5
+          </div>
+        </div>
+      </div>
+      <div class="curve-tiles" id="curve-tiles">
+        <div class="tile curve-tile" data-cw="0">
+          <div class="tile-val-wrap">
+            <div class="tval-r23 dim" id="ct-0-val">--</div>
+            <div class="sub-micro" id="ct-0-sub">str/min</div>
+          </div>
+          <div class="tlbl" id="ct-0-lbl">Stroke rate ▸</div>
+        </div>
+        <div class="tile curve-tile" data-cw="1">
+          <div class="tile-val-wrap">
+            <div class="tval-r23 dim" id="ct-1-val">--</div>
+            <div class="sub-micro" id="ct-1-sub">m/s³</div>
+          </div>
+          <div class="tlbl" id="ct-1-lbl">Catch slope ▸</div>
+        </div>
+        <div class="tile curve-tile" data-cw="2">
+          <div class="tile-val-wrap">
+            <div class="tval-r23 dim" id="ct-2-val">--</div>
+            <div class="sub-micro" id="ct-2-sub">m</div>
+          </div>
+          <div class="tlbl" id="ct-2-lbl">Dist/stroke ▸</div>
+        </div>
+        <div class="tile curve-tile" data-cw="3">
+          <div class="tile-val-wrap">
+            <div class="tval-r23 dim" id="ct-3-val">--</div>
+            <div class="sub-micro" id="ct-3-sub"></div>
+          </div>
+          <div class="tlbl" id="ct-3-lbl">Impulse ▸</div>
+        </div>
+      </div>
+    </div>
+
     <div class="ctrl-col">
       <button class="btn btn-start"  id="cc-start"  style="display:none">Start</button>
       <button class="btn btn-resume" id="cc-resume" style="display:none">Resume</button>
@@ -333,6 +394,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
     </div>
     <div class="tab-bar" id="live-tabs">
       <button class="tab active" id="tab-live-ls"><span class="tab-icon">📡</span><span class="tab-txt">LIVE</span></button>
+      <button class="tab" id="tab-curve-ls"><span class="tab-icon">〰</span><span class="tab-txt">CURVE</span></button>
       <button class="tab" id="tab-anal-ls"><span class="tab-icon">📊</span><span class="tab-txt">ANALYSIS</span></button>
     </div>
   </div>
@@ -380,7 +442,7 @@ function toast(m) { const t = document.getElementById('toast'); t.textContent = 
 ════════════════════════════════════════ */
 const DB = 'scull_v3';
 const AUTOSAVE_DB = 'scull_autosave';
-const SYNCED_DB = 'scull_drive_synced';  // set of synced session IDs
+const SYNCED_DB = 'scull_drive_synced';
 const loadSess = () => { try { return JSON.parse(localStorage.getItem(DB) || '[]'); } catch { return []; } };
 const loadSynced = () => { try { return new Set(JSON.parse(localStorage.getItem(SYNCED_DB) || '[]')); } catch { return new Set(); } };
 
@@ -401,7 +463,6 @@ async function driveSignIn() {
   window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params;
 }
 
-// Called from Drive button in header - toggle sign-in/out
 function handleDriveBtnTap() {
   if (DriveSync.isSignedIn()) {
     if (confirm('Unlink Google Drive?')) {
@@ -414,7 +475,6 @@ function handleDriveBtnTap() {
   }
 }
 
-// Keep the Drive button label and style in sync with auth state
 function updateDriveBtn() {
   const btn = document.getElementById('drive-btn');
   if (!btn) return;
@@ -427,7 +487,6 @@ function updateDriveBtn() {
   }
 }
 
-// Mark a session as synced to Drive (persisted in localStorage)
 function markSynced(id) {
   try {
     const s = loadSynced();
@@ -447,7 +506,6 @@ function checkOAuthReturn() {
   try {
     const { token, expires } = JSON.parse(raw);
     DriveSync._injectToken(token, expires);
-    // Restore navigation — wire tabs so user can get back to live
     wireTabButtons();
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById('screen-analysis')?.classList.add('active');
@@ -482,7 +540,7 @@ function saveSess(a) {
       try {
         const pruned = a.slice(0, Math.max(1, a.length - 1));
         localStorage.setItem(DB, JSON.stringify(pruned));
-      } catch(e3) { /* give up gracefully */ }
+      } catch(e3) {}
     }
   }
 }
@@ -492,7 +550,7 @@ function addSess(s) {
     const a = loadSess();
     a.unshift(s);
     saveSess(a);
-  } catch(e) { /* ignore */ }
+  } catch(e) {}
 
   if (DriveSync.isSignedIn()) {
     DriveSync.upload(s)
@@ -501,7 +559,6 @@ function addSess(s) {
   }
 }
 
-// ── Pending queue ─────────────────────────────────────────────────────────
 const PENDING_KEY = 'scull_drive_pending';
 
 function queuePending(id) {
@@ -515,7 +572,7 @@ async function flushQueue() {
   try {
     const q = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
     if (!q.length) return;
-    if (!DriveSync.isSignedIn()) return;  // don't prompt sign-in silently
+    if (!DriveSync.isSignedIn()) return;
     const sessions = loadSess();
     let uploaded = 0;
     for (const id of q) {
@@ -526,7 +583,7 @@ async function flushQueue() {
     localStorage.removeItem(PENDING_KEY);
     if (uploaded) {
       toast(`✓ ${uploaded} session${uploaded>1?'s':''} synced to Drive`);
-      renderAnalysisList();  // refresh badges
+      renderAnalysisList();
     }
   } catch(e) { toast('Drive sync failed: ' + e.message); }
 }
@@ -639,7 +696,7 @@ function enterLive() {
     jerkThreshActive = cal.jerkThresh;
     accThreshBase = cal.accThresh;
   }
-  wireButtons(); wireTabButtons(); wireCfgTiles(); renderCtrl(); updateUI();
+  wireButtons(); wireTabButtons(); wireCfgTiles(); wireCurveTiles(); renderCtrl(); updateUI();
 }
 
 /* ════════════════════════════════════════
@@ -835,6 +892,226 @@ function runFSM(now, fastSmooth, jerk) {
 }
 
 /* ════════════════════════════════════════
+   STROKE CURVE
+════════════════════════════════════════ */
+const CURVE_POINTS = 80;
+let lastStrokeCurve = null;          // Float32Array(CURVE_POINTS)
+const strokeCurveHistory = [];       // rolling last 5 normalised curves
+const CURVE_HISTORY_N = 5;
+
+function normalizeStrokeSamples(samples) {
+  if (!samples || samples.length < 4) return null;
+  const out = new Float32Array(CURVE_POINTS);
+  const n = samples.length;
+  for (let i = 0; i < CURVE_POINTS; i++) {
+    const t = i / (CURVE_POINTS - 1) * (n - 1);
+    const lo = Math.floor(t);
+    const hi = Math.min(lo + 1, n - 1);
+    const frac = t - lo;
+    out[i] = samples[lo].v * (1 - frac) + samples[hi].v * frac;
+  }
+  return out;
+}
+
+function avgCurves(curves) {
+  if (!curves.length) return null;
+  const out = new Float32Array(CURVE_POINTS);
+  for (const c of curves) for (let i = 0; i < CURVE_POINTS; i++) out[i] += c[i];
+  for (let i = 0; i < CURVE_POINTS; i++) out[i] /= curves.length;
+  return out;
+}
+
+function renderCurveCanvas() {
+  const canvas = document.getElementById('curve-canvas');
+  if (!canvas) return;
+  const wrap = canvas.parentElement;
+  const W = wrap.clientWidth, H = wrap.clientHeight;
+  if (!W || !H) return;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  // Background grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    const y = H * i / 4;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+  for (let i = 1; i < 4; i++) {
+    const x = W * i / 4;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+
+  const avg5 = strokeCurveHistory.length >= 2 ? avgCurves(strokeCurveHistory) : null;
+
+  if (!lastStrokeCurve && !avg5) {
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.font = `bold 11px Roboto, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText('Row a stroke to see the curve', W / 2, H / 2);
+    return;
+  }
+
+  // Y-range from both curves
+  let yMin = Infinity, yMax = -Infinity;
+  for (const c of [lastStrokeCurve, avg5].filter(Boolean)) {
+    for (const v of c) {
+      if (v < yMin) yMin = v;
+      if (v > yMax) yMax = v;
+    }
+  }
+  const yRange = yMax - yMin || 1;
+  const padT = 18, padB = 18, padH = 6;
+  const sy = v => padT + (1 - (v - yMin) / yRange) * (H - padT - padB);
+  const sx = i => padH + (i / (CURVE_POINTS - 1)) * (W - padH * 2);
+
+  // Zero axis dashed line
+  if (yMin < 0 && yMax > 0) {
+    const y0 = sy(0);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath(); ctx.moveTo(padH, y0); ctx.lineTo(W - padH, y0); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  function drawCurveLine(curve, color, lineWidth, fill) {
+    ctx.beginPath();
+    for (let i = 0; i < CURVE_POINTS; i++) {
+      const x = sx(i), y = sy(curve[i]);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    if (fill) {
+      const baseline = Math.max(padT, Math.min(H - padB, sy(Math.max(yMin, 0))));
+      ctx.lineTo(sx(CURVE_POINTS - 1), baseline);
+      ctx.lineTo(sx(0), baseline);
+      ctx.closePath();
+      ctx.fillStyle = color + '22';
+      ctx.fill();
+      ctx.beginPath();
+      for (let i = 0; i < CURVE_POINTS; i++) {
+        const x = sx(i), y = sy(curve[i]);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+  }
+
+  // Avg 5 behind (filled)
+  if (avg5) drawCurveLine(avg5, '#f39c12', 1.5, true);
+  // Last stroke on top
+  if (lastStrokeCurve) drawCurveLine(lastStrokeCurve, '#5dade2', 2.5, false);
+
+  // Axis value labels
+  ctx.fillStyle = 'rgba(255,255,255,0.38)';
+  ctx.font = `${9}px Roboto, sans-serif`;
+  ctx.textAlign = 'left';
+  ctx.fillText(yMax.toFixed(1), 3, padT - 4);
+  ctx.fillText(yMin.toFixed(1), 3, H - padB + 11);
+
+  // X labels
+  ctx.textAlign = 'center';
+  ctx.fillText('CATCH', sx(0) + 16, H - 3);
+  ctx.fillText('FINISH', sx(CURVE_POINTS - 1) - 16, H - 3);
+  ctx.fillText('acc.x  m/s²', W / 2, padT - 4);
+}
+
+/* ── Curve tiles ─────────────────────────────────────────────────────── */
+const CURVE_TILE_OPTIONS = ['stroke-rate','catch-slope','dps','impulse','run-loss','char','pace'];
+const CURVE_TILE_LABELS  = {
+  'stroke-rate': 'Stroke rate',
+  'catch-slope': 'Catch slope',
+  'dps':         'Dist/stroke',
+  'impulse':     'Impulse',
+  'run-loss':    'Run loss',
+  'char':        'Char %',
+  'pace':        'Pace'
+};
+const CURVE_TILE_SUBS = {
+  'stroke-rate': 'str/min',
+  'catch-slope': 'm/s³',
+  'dps':         'm',
+  'impulse':     '',
+  'run-loss':    '%',
+  'char':        '%',
+  'pace':        '/500m'
+};
+
+let curveTileKeys = (() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('scull_ctiles') || 'null');
+    if (saved && saved.length === 4 && saved.every(k => CURVE_TILE_OPTIONS.includes(k))) return saved;
+  } catch {}
+  return ['stroke-rate', 'catch-slope', 'dps', 'impulse'];
+})();
+
+function curveTileValue(key) {
+  const on = running && !paused;
+  switch (key) {
+    case 'stroke-rate':
+      return { val: (on && strokeRate > 0) ? (strokeRate % 1 === 0 ? strokeRate : strokeRate.toFixed(1)) : '--', dim: !on || !strokeRate };
+    case 'catch-slope':
+      return { val: catchLast !== null ? catchLast : '--', dim: catchLast === null };
+    case 'dps':
+      return { val: (on && distPerStroke > 0) ? distPerStroke.toFixed(1) : '--', dim: !on || !distPerStroke };
+    case 'impulse': {
+      const imp = sessStrokes.length > 0 ? sessStrokes[sessStrokes.length - 1].driveImpulse : null;
+      return { val: (imp != null && on) ? imp.toFixed(2) : '--', dim: !on || imp == null };
+    }
+    case 'run-loss':
+      return { val: (runLossPct != null && on) ? runLossPct + '%' : '--', dim: !on || runLossPct == null };
+    case 'char':
+      return { val: (on && strokeCount > 0) ? strokeChar : '--', dim: !on };
+    case 'pace':
+      return { val: (on && pace > 0) ? fmt(pace) : '--:--', dim: !on || !pace };
+    default:
+      return { val: '--', dim: true };
+  }
+}
+
+function updateCurveTiles() {
+  curveTileKeys.forEach((key, i) => {
+    const { val, dim } = curveTileValue(key);
+    const ve = document.getElementById(`ct-${i}-val`);
+    const se = document.getElementById(`ct-${i}-sub`);
+    const le = document.getElementById(`ct-${i}-lbl`);
+    if (!ve) return;
+    ve.textContent = val;
+    ve.className = 'tval-r23' + (dim ? ' dim' : '');
+    if (se) se.textContent = CURVE_TILE_SUBS[key] || '';
+    if (le) le.textContent = CURVE_TILE_LABELS[key] + ' ▸';
+  });
+}
+
+function wireCurveTiles() {
+  document.querySelectorAll('.curve-tile').forEach(el => {
+    const i = parseInt(el.dataset.cw);
+    el.addEventListener('click', () => {
+      const cur = curveTileKeys[i];
+      const next = CURVE_TILE_OPTIONS[(CURVE_TILE_OPTIONS.indexOf(cur) + 1) % CURVE_TILE_OPTIONS.length];
+      curveTileKeys[i] = next;
+      try { localStorage.setItem('scull_ctiles', JSON.stringify(curveTileKeys)); } catch {}
+      updateCurveTiles();
+    });
+  });
+}
+
+/* ── Curve tab active? ───────────────────────────────────────────────── */
+let activeSubTab = 'live'; // 'live' | 'curve'
+function curveTabActive() {
+  return document.getElementById('screen-live').classList.contains('active') && activeSubTab === 'curve';
+}
+
+/* ════════════════════════════════════════
    STROKE METRICS
 ════════════════════════════════════════ */
 const SPM_MIN = 10, SPM_MAX = 50;
@@ -1017,6 +1294,19 @@ function onStrokeFinish(now, driveDur) {
       axisLocked
     }
   });
+
+  // ── Update stroke curve ───────────────────────────────────────────
+  const normalised = normalizeStrokeSamples(driveAccSamples);
+  if (normalised) {
+    lastStrokeCurve = normalised;
+    strokeCurveHistory.push(normalised);
+    if (strokeCurveHistory.length > CURVE_HISTORY_N) strokeCurveHistory.shift();
+    if (curveTabActive()) {
+      renderCurveCanvas();
+      updateCurveTiles();
+    }
+  }
+
   updateUI();
 }
 
@@ -1119,12 +1409,11 @@ let gpsLastValidT = 0;
 let gpsBlackoutHeld = false;
 const GPS_EMA_ALPHA = 0.28;
 const GPS_GAP_RESET_MS = 3000;
-const GPS_SPIKE_DELTA = 1.5; 
+const GPS_SPIKE_DELTA = 1.5;
 
 function pushVelocity(t, v) {
   const gapMs = gpsLastValidT > 0 ? t - gpsLastValidT : 0;
-  gpsBlackoutHeld = false;  
-  // Trim always 
+  gpsBlackoutHeld = false;
   const cut = t - VEL_WINDOW_MS;
   while (velocityWindow.length > 1 && velocityWindow[0].t < cut) velocityWindow.shift();
 
@@ -1151,17 +1440,15 @@ function pushVelocity(t, v) {
       }
     } else {
       gpsLastValidT = t;
-      gpsBlackoutHeld = false;  
+      gpsBlackoutHeld = false;
     }
-    // only clamp when EMA is already at rowing speed; start ramp-up is unaffected. 1.5 m/s is max plausible GPS speed jump per sample (m/s)
-    if (v>= 0.3) {  
+    if (v >= 0.3) {
       const vCapped = (gpsSpeedEma > 1.0 && v > gpsSpeedEma + GPS_SPIKE_DELTA)
           ? gpsSpeedEma + GPS_SPIKE_DELTA
           : v;
       gpsSpeedEma = GPS_EMA_ALPHA * vCapped + (1 - GPS_EMA_ALPHA) * gpsSpeedEma;
     }
   }
-  // Push only if not held:
   if (!gpsBlackoutHeld) {
     velocityWindow.push({ t, v: gpsSpeedEma });
   }
@@ -1222,7 +1509,6 @@ function handlePos(pos) {
 
   const lat = pos.coords.latitude;
   const lon = pos.coords.longitude;
-  
   const cur = { lat, lon, t: Date.now() };
   if (running && !paused && lastPos &&
     lat != null && lon != null &&
@@ -1234,8 +1520,6 @@ function handlePos(pos) {
 
   if (running && !paused && spd != null) {
     if (spd > 0.5 && spd < 8) {
-      // Only clear on confirmed spike when EMA is established at rowing speed;
-      //         avoids clearing during start acceleration where ratio fires legitimately
       if (gpsSpeedEma > 2.0 && spd > gpsSpeedEma + GPS_SPIKE_DELTA) {
           paceReadings.length = 0;
       }
@@ -1245,13 +1529,11 @@ function handlePos(pos) {
         if (paceReadings.length > 10) paceReadings.shift();
         const sorted = [...paceReadings].sort((a, b) => a - b);
         const mid = Math.floor(sorted.length / 2);
-        // Gate on 300 s/500m (5:00/500m); above that it's not actionable
-        const PACE_DISPLAY_MAX = 300;   // 5:00/500m
+        const PACE_DISPLAY_MAX = 300;
         const rawPace = sorted.length % 2 === 0
             ? (sorted[mid - 1] + sorted[mid]) / 2
             : sorted[mid];
         pace = rawPace <= PACE_DISPLAY_MAX ? rawPace : 0;
-        // pace === 0 should already render as —:— in your UI formatter
         sessPaceTrace.push(pace);
       }
     } else if (spd < 0.3) {
@@ -1339,6 +1621,7 @@ function updateUI() {
   else { efe.textContent = '--'; efe.className = 'tval-r23 dim'; }
 
   updateCfgTile('top'); updateCfgTile('bot');
+  if (curveTabActive()) updateCurveTiles();
 }
 
 /* ════════════════════════════════════════
@@ -1503,6 +1786,10 @@ function resetSess() {
   axisLocked = false; axisAutoDetected = false;
   lastAxisCheck = 0;
   sessStart = null;
+  // Reset curve data
+  lastStrokeCurve = null;
+  strokeCurveHistory.length = 0;
+  if (curveTabActive()) renderCurveCanvas();
   updateUI(); requestAnimationFrame(renderCtrl);
   const pill = document.getElementById('p-axis');
   if (pill) { pill.textContent = 'AX:?'; pill.className = 'pill pill-off'; }
@@ -1530,14 +1817,22 @@ function wireButtons() {
 function showTab(tab) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
 
-  if (tab === 'live') {
-    // If sensors haven't been initialised (post-OAuth redirect before perm flow),
-    // drop the user back to the permission screen rather than a blank live view.
+  if (tab === 'live' || tab === 'curve') {
     if (!enterLive._done) {
       document.getElementById('screen-perm').classList.add('active');
       return;
     }
     document.getElementById('screen-live').classList.add('active');
+    activeSubTab = tab;
+    // Toggle grid vs curve panel
+    const grid = document.getElementById('tile-grid');
+    const cpanel = document.getElementById('curve-panel');
+    if (grid) grid.style.display = tab === 'curve' ? 'none' : '';
+    if (cpanel) cpanel.classList.toggle('cpanel-active', tab === 'curve');
+    if (tab === 'curve') {
+      // Render after a frame so layout is complete
+      requestAnimationFrame(() => { renderCurveCanvas(); updateCurveTiles(); });
+    }
   } else {
     document.getElementById('screen-analysis').classList.add('active');
     renderAnalysisList();
@@ -1546,19 +1841,28 @@ function showTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   if (tab === 'live') {
     ['tab-live-ls', 'tab-live-an'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('active'); });
+  } else if (tab === 'curve') {
+    const el = document.getElementById('tab-curve-ls');
+    if (el) el.classList.add('active');
   } else {
     ['tab-anal-ls', 'tab-anal-an'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('active'); });
   }
 }
 
-// Wire tab buttons — safe to call multiple times (removes then re-adds)
 let _tabsWired = false;
 function wireTabButtons() {
   if (_tabsWired) return;
   _tabsWired = true;
   ['tab-live-ls', 'tab-live-an'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('click', () => showTab('live')); });
   ['tab-anal-ls', 'tab-anal-an'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('click', () => showTab('analysis')); });
+  const curveLs = document.getElementById('tab-curve-ls');
+  if (curveLs) curveLs.addEventListener('click', () => showTab('curve'));
 }
+
+// Redraw canvas on orientation change / resize
+window.addEventListener('resize', () => {
+  if (curveTabActive()) requestAnimationFrame(renderCurveCanvas);
+});
 
 /* ════════════════════════════════════════
    SENSOR INIT
@@ -1701,17 +2005,18 @@ function showDetail(id) {
     <div class="sgrid">
       <div class="sbox"><span class="sbox-v">${s.catchPeakSess != null ? '+' + Math.round(s.catchPeakSess) : '—'}</span><span class="sbox-l">Catch Slope Peak</span><span class="sbox-u">M/S³</span></div>
       <div class="sbox"><span class="sbox-v">${avgCatch !== '—' ? '+' + avgCatch : avgCatch}</span><span class="sbox-l">Catch Slope Avg</span><span class="sbox-u">M/S³</span></div>
-      <div class="sbox"><span class="sbox-v">${s.avgConsistency ? s.avgConsistency.toFixed(1) : '—'}</span><span class="sbox-l">Consistency</span><span class="sbox-u">σ m/s³</span></div>      
+      <div class="sbox"><span class="sbox-v">${s.avgConsistency ? s.avgConsistency.toFixed(1) : '—'}</span><span class="sbox-l">Consistency</span><span class="sbox-u">σ m/s³</span></div>
     </div>
     <div class="sgrid">
       <div class="sbox"><span class="sbox-v">${s.avgDPS ? s.avgDPS.toFixed(1) : '—'}</span><span class="sbox-l">Dist / Stroke</span><span class="sbox-u">m</span></div>
       <div class="sbox"><span class="sbox-v">${s.avgImpulse != null ? s.avgImpulse.toFixed(2) : '—'}</span><span class="sbox-l">Impulse</span></div>
-      <div class="sbox"><span class="sbox-v">${s.avgRdi ? s.avgRdi.toFixed(2) : '—'}</span><span class="sbox-l">Recovery Index</span><span class="sbox-u">Higher = longer recovery</span></div>    
+      <div class="sbox"><span class="sbox-v">${s.avgRdi ? s.avgRdi.toFixed(2) : '—'}</span><span class="sbox-l">Recovery Index</span><span class="sbox-u">Higher = longer recovery</span></div>
     </div>
     <div class="sgrid">
       <div class="sbox"><span class="sbox-v">${s.avgEfficiency ? (s.avgEfficiency * 100).toFixed(1) + '%' : '—'}</span><span class="sbox-l">Run Eff</span><span class="sbox-u">vmin/vmax</span></div>
       <div class="sbox ${s.avgRunLoss != null && s.avgRunLoss < 10 ? 'g' : s.avgRunLoss != null && s.avgRunLoss < 20 ? 'a' : 'r'}"><span class="sbox-v">${s.avgRunLoss != null ? s.avgRunLoss.toFixed(1) + '%' : '—'}</span><span class="sbox-l">Run Loss</span></div>
-      <div class="sbox"><span class="sbox-v">${s.laps ? s.laps.length : 0}</span><span class="sbox-l">Laps</span><span class="sbox-u">SPLITS</span></div>    </div>
+      <div class="sbox"><span class="sbox-v">${s.laps ? s.laps.length : 0}</span><span class="sbox-l">Laps</span><span class="sbox-u">SPLITS</span></div>
+    </div>
     ${s.calNoiseFloor != null ? `<div style="font-size:9px;color:#aaa;text-align:center;margin-bottom:6px;letter-spacing:.06em">CAL · noise ${s.calNoiseFloor} m/s² · jerk threshold ${s.calThresh} m/s³</div>` : ''}
     ${s.garminLaps && s.garminLaps.length > 0 ? `<div class="chart-card" style="border-color:#8e44ad">
       <div class="chart-lbl"><span style="color:#8e44ad">Garmin Laps</span></div>
@@ -2119,7 +2424,7 @@ function parseGPX(text) {
 }
 
 /* ════════════════════════════════════════
-   CSV EXPORT  (maintained for debugging)
+   CSV EXPORT
 ════════════════════════════════════════ */
 function exportCSV(s) {
   const n = v => (v != null && !isNaN(v)) ? v : '';
@@ -2173,7 +2478,7 @@ function exportDebugCSV(s) {
   rows.push(['id','start','dur_s','axis','noise_ms2','thresh_ms3','strokes','dist_m','ver','gps_alpha','gap_ms','fresh_ms']);
   rows.push([s.id, new Date(t0).toISOString().slice(0,19)+'Z',
     n(s.duration), s.detectedAxis||'?', n(s.calNoiseFloor), n(s.calThresh),
-    n(s.strokeCount), n(s.distance), 'v2.9', '0.28', '3000', '6000']);
+    n(s.strokeCount), n(s.distance), 'v3.0', '0.28', '3000', '6000']);
 
   rows.push(['##S']);
   rows.push(['n','t','rate','r_fsm','r_ac','ac_cf','intv','drv',
@@ -2197,7 +2502,6 @@ function exportDebugCSV(s) {
     s.gpsRawTrace.forEach(p => rows.push([
       el(p.t), f3(p.rawSpd), f3(p.emaSpd), f1(p.acc), n(p.fixAge), f1(p.heading), n(p.blackout)
     ]));
-
   }
 
   if (s.hrTrace && s.hrTrace.length) {
@@ -2231,19 +2535,16 @@ function exportDebugCSV(s) {
 
 /* ── service worker ── */
 if ('serviceWorker' in navigator) {
-  const sw = `const C='scull-v14';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
+  const sw = `const C='scull-v15';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
   navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw], { type: 'application/javascript' }))).catch(() => {});
 }
 
 /* ── init ── */
-// Wire tab buttons immediately so they work even after OAuth redirect
 wireTabButtons();
 
-// On app open: restore Drive auth state, flush any pending uploads
 DriveSync.init()
   .then(() => {
     const hadOAuth = checkOAuthReturn();
-    // Auto-flush on normal app open if already signed in
     if (!hadOAuth && DriveSync.isSignedIn()) {
       updateDriveBtn();
       flushQueue().catch(console.warn);
