@@ -386,7 +386,6 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
   </div>
   <div class="tab-bar">
     <button class="tab" id="tab-live-an"><span class="tab-icon">🚣</span>LIVE</button>
-    <button class="tab" id="tab-curve-ls"><span class="tab-icon">📈</span><span class="tab-txt">CURVE</span></button>
     <button class="tab active" id="tab-anal-an"><span class="tab-icon">📊</span>ANALYSIS</button>
   </div>
 </div>
@@ -1442,7 +1441,7 @@ function wireTabButtons() {
   if (_tabsWired) return; _tabsWired = true;
   ['tab-live-ls', 'tab-live-an'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('click', () => showTab('live')); });
   ['tab-anal-ls', 'tab-anal-an'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('click', () => showTab('analysis')); });
-  const curveLs = document.getElementById('tab-curve-ls'); if (curveLs) curveLs.addEventListener('click', () => showTab('curve'));
+  const curve = document.getElementById('tab-curve-ls'); if (curve) curve.addEventListener('click', () => showTab('curve'));
 }
 
 window.addEventListener('resize', () => { if (curveTabActive()) requestAnimationFrame(renderCurveCanvas); });
