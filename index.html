@@ -1102,12 +1102,11 @@ function handlePos(pos) {
       paceDistWindow.push({ t: now, dist: distance });
       const pdCut = now - PACE_DIST_WINDOW_MS;
       while (paceDistWindow.length > 1 && paceDistWindow[0].t < pdCut) paceDistWindow.shift();
-    } 
-  lastPos = cur;
+    }
+  }                            // ← closes the position-delta block here
+  lastPos = cur;               // ← unconditional: always update anchor
 
-  /* FIX P1: position-derived pace. pace = dt/dd * 500 using haversine-accumulated
-   distance, matching Garmin's method. GPS Doppler speed runs 1-3% optimistic;
-   the 10-sample median of 500/spd compounded that bias. */
+  /* FIX P1: position-derived pace */
   if (running && !paused) {
     if (spd != null && spd < 0.3) { paceDistWindow.length = 0; pace = 0; }
     else if (paceDistWindow.length >= 2) {
@@ -1122,10 +1121,9 @@ function handlePos(pos) {
     if (gpsLastValidT > 0 && (now - gpsLastValidT) > 6000) pace = 0;
   }
 
-
-  if (running && !paused && gpsLastValidT > 0 && (now - gpsLastValidT) > 6000) pace = 0;
   updateUI();
 }
+
 
 function handleGpsErr(err) {
   const p = document.getElementById('p-gps'); p.className = 'pill pill-err';
