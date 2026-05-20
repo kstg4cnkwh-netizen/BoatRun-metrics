@@ -10,7 +10,7 @@
 <title>Scull · Metrics v4</title>
 <script>
 (function(){var h=new URLSearchParams(location.hash.slice(1)),t=h.get('access_token');if(!t)return;history.replaceState({},'',location.pathname);sessionStorage.setItem('_oauth_token',JSON.stringify({token:t,expires:parseInt(h.get('expires_in')||'3600')}));})();
-<\/script>
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -340,16 +340,16 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <script>
 'use strict';
 
-/* Storage safety shim — degrades gracefully in sandboxed iframes (Claude preview,
-   private browsing mode, iOS restricted contexts). Wraps localStorage/sessionStorage
-   so any SecurityError becomes a silent no-op rather than crashing the script. */
-const _safeMem = (()=>{const m={};return{getItem:k=>m[k]??null,setItem:(k,v)=>{m[k]=String(v);},removeItem:k=>{delete m[k];},key:i=>Object.keys(m)[i]??null,get length(){return Object.keys(m).length;},clear:()=>{for(const k in m)delete m[k];}};})();
-function _safeStorage(store){try{store.getItem('_t');return store;}catch{return _safeMem;}}
-const _ls=_safeStorage(typeof localStorage!=='undefined'?localStorage:_safeMem);
-const _ss=_safeStorage(typeof sessionStorage!=='undefined'?sessionStorage:_safeMem);
-// Patch all storage references to use safe wrappers
-Object.defineProperty(window,'localStorage',{get:()=>_ls,configurable:true});
-Object.defineProperty(window,'sessionStorage',{get:()=>_ss,configurable:true});
+/* Storage safety shim
+   typeof localStorage !== 'undefined' does NOT prevent SecurityError in sandboxed
+   iframes — the property exists but throws on access. Must use try/catch with
+   bracket notation. We then shadow the globals with const so all code below
+   automatically uses safe versions. No Object.defineProperty needed. */
+const _mem=(()=>{const m={};return{getItem:k=>m[k]??null,setItem:(k,v)=>{m[k]=String(v);},removeItem:k=>{delete m[k];},clear:()=>{for(const k in m)delete m[k];},key:i=>Object.keys(m)[i]??null,get length(){return Object.keys(m).length;}};})();
+let _ls=_mem,_ss=_mem;
+try{window['localStorage'].getItem('');_ls=window['localStorage'];}catch{}
+try{window['sessionStorage'].getItem('');_ss=window['sessionStorage'];}catch{}
+const localStorage=_ls,sessionStorage=_ss;
 
 /* ══════════════════════════════════════════════════
    CONFIG — single source of truth
