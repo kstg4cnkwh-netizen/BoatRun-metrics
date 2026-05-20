@@ -1,5 +1,5 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en-AU">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
@@ -9,17 +9,17 @@
 <meta name="theme-color" content="#1a5276"/>
 <title>Scull · Metrics</title>
 <script>
-(function() {
-  const hash = new URLSearchParams(location.hash.slice(1));
-  const token = hash.get('access_token');
-  if (!token) return;
-  history.replaceState({}, '', location.pathname);
-  sessionStorage.setItem('_oauth_token', JSON.stringify({
-    token,
-    expires: parseInt(hash.get('expires_in') || '3600'),
-    screen: sessionStorage.getItem('_oauth_screen') || ''
+/* OAuth token capture — runs synchronously before any other script */
+(function(){
+  const hash=new URLSearchParams(location.hash.slice(1));
+  const token=hash.get('access_token');
+  if(!token)return;
+  history.replaceState({},'',location.pathname);
+  sessionStorage.setItem('_oauth_token',JSON.stringify({
+    token,expires:parseInt(hash.get('expires_in')||'3600'),
+    screen:sessionStorage.getItem('_oauth_screen')||''
   }));
-})();
+}());
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet"/>
 <style>
@@ -45,10 +45,8 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .sbar-l{display:flex;align-items:center;gap:5px}
 .sbar-title{color:#fff;font-size:10px;font-weight:700;letter-spacing:.1em}
 .pill{font-size:8px;font-weight:700;letter-spacing:.1em;padding:2px 6px;border-radius:2px}
-.pill-on{background:#27ae60;color:#fff}
-.pill-off{background:rgba(255,255,255,.18);color:rgba(255,255,255,.4)}
-.pill-err{background:#c0392b;color:#fff}
-.pill-warn{background:#f39c12;color:#fff}
+.pill-on{background:#27ae60;color:#fff}.pill-off{background:rgba(255,255,255,.18);color:rgba(255,255,255,.4)}
+.pill-err{background:#c0392b;color:#fff}.pill-warn{background:#f39c12;color:#fff}
 .rec{display:flex;align-items:center;gap:4px;color:#fff;font-size:9px;font-weight:700}
 .recdot{width:7px;height:7px;border-radius:50%;background:#e74c3c;animation:blink 1s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
@@ -62,8 +60,15 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .tval-r23{font-family:'Roboto Condensed',sans-serif;font-weight:700;font-size:clamp(28px,11dvh,130px);line-height:1;color:#111;white-space:nowrap;overflow:hidden;max-width:100%;text-align:center;}
 .tval-r23.dim{color:#888}
 .sub-micro{font-size:clamp(7px,1.1dvh,11px);color:#aaa;font-weight:400;text-align:center;line-height:1;white-space:nowrap;overflow:hidden;max-width:100%;}
-.tlbl{background:#1a5276;color:#fff;font-size:clamp(7px,1.2vw,12px);font-weight:400;letter-spacing:.02em;text-align:center;padding:3px 3px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.tlbl-primary{background:#154360;font-weight:700;font-size:clamp(8px,1.4vw,13px);border-top:3px solid #5dade2;padding:4px 3px 3px;}
+/* Tile labels — flex for text + quality pill */
+.tlbl{background:#1a5276;color:#fff;font-size:clamp(7px,1.2vw,12px);font-weight:400;letter-spacing:.02em;padding:3px 5px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:3px;overflow:hidden;}
+.tlbl-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+.tlbl-primary{background:#154360;font-weight:700;font-size:clamp(8px,1.4vw,13px);border-top:3px solid #5dade2;padding:4px 5px 3px;}
+/* Status quality pills inside tile labels */
+.tq{font-size:clamp(6px,0.9vw,8px);font-weight:800;letter-spacing:.08em;padding:2px 5px;border-radius:99px;flex-shrink:0;color:rgba(255,255,255,.38);background:rgba(0,0,0,.18);white-space:nowrap;line-height:1.5;}
+.tq.g{color:rgba(255,255,255,.95);background:rgba(39,174,96,.6);}
+.tq.w{color:#111;background:rgba(243,156,18,.85);}
+.tq.b{color:rgba(255,255,255,.9);background:rgba(192,57,43,.7);}
 .cbar-wrap{width:96%;flex-shrink:0;margin-top:1px;overflow:visible;}
 .cbar-track{position:relative;height:10px;background:#eee;border-radius:5px;overflow:visible;}
 .cbar-zones{position:absolute;inset:0;display:flex;z-index:1;}
@@ -79,7 +84,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .catch-needle{position:absolute;top:-6px;width:8px;height:18px;border-radius:3px;transform:translateX(-50%);transition:left .12s;background:#000;box-shadow:0 2px 8px rgba(0,0,0,.5);}
 .ctrl-col{display:flex;flex-direction:column;gap:4px;background:#1a5276;flex-shrink:0;width:clamp(68px,9.5vw,100px);padding:5px 5px calc(5px + env(safe-area-inset-bottom));}
 .ctrl-col .btn{flex:1;width:100%;padding:0 3px;font-size:clamp(9px,1.1vw,13px);letter-spacing:.04em;}
-#live-tabs{display:flex;flex-direction:column;align-self:stretch;flex-shrink:0;width:clamp(38px,5vw,50px);background:#0f3a54;border-top:none;border-left:1px solid rgba(255,255,255,.1);padding-bottom:env(safe-area-inset-bottom);padding-right:env(safe-area-inset-right);}
+#live-tabs{display:flex;flex-direction:column;align-self:stretch;flex-shrink:0;width:clamp(38px,5vw,50px);background:#0f3a54;border-left:1px solid rgba(255,255,255,.1);padding-bottom:env(safe-area-inset-bottom);padding-right:env(safe-area-inset-right);}
 #live-tabs .tab{flex:1;padding:10px 0;}
 #live-tabs .tab-txt{display:none;}
 #live-tabs .tab-icon{font-size:18px;margin-bottom:0;}
@@ -89,7 +94,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .tab.active{color:#fff;border-top:2px solid #fff}
 .tab-icon{font-size:14px;display:block;margin-bottom:1px}
 .tab-txt{display:inline}
-.btn{flex:1;border:none;border-radius:3px;font-family:'Roboto',sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;padding:clamp(8px,1.8dvh,16px)4px;font-size:clamp(14px,2.0dvh,20px);line-height:1.1;touch-action:manipulation;-webkit-user-select:none;user-select:none;display:flex;align-items:center;justify-content:center;text-align:center}
+.btn{flex:1;border:none;border-radius:3px;font-family:'Roboto',sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;padding:clamp(8px,1.8dvh,16px) 4px;font-size:clamp(14px,2.0dvh,20px);line-height:1.1;touch-action:manipulation;-webkit-user-select:none;user-select:none;display:flex;align-items:center;justify-content:center;text-align:center}
 .btn-start{background:#27ae60;color:#fff}.btn-resume{background:#27ae60;color:#fff}
 .btn-stop{background:#c0392b;color:#fff}.btn-pause{background:#f39c12;color:#fff}
 .btn-lap{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3)}
@@ -114,6 +119,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
   .tlbl-primary{font-size:clamp(8px,1.4vw,12px);}
   .sub-micro{font-size:clamp(7px,1.0dvh,10px);}
   .char-label-sm{font-size:clamp(7px,1.0dvh,10px);}
+  .tq{font-size:clamp(5px,0.8vw,8px);}
 }
 @media(orientation:portrait){
   .live-body{flex-direction:column;}
@@ -128,8 +134,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
   #cfg-bot-tile{grid-row:4;grid-column:2}
   #tile-runloss{display:none}
   #live-tabs{flex-direction:row;width:100%;height:auto;border-left:none;border-top:1px solid rgba(255,255,255,.1);padding-right:0;}
-  #live-tabs .tab{padding:6px 0 5px;}
-  #live-tabs .tab{display:flex;align-items:center;justify-content:center;gap:6px;}
+  #live-tabs .tab{padding:6px 0 5px;display:flex;align-items:center;justify-content:center;gap:6px;}
   #live-tabs .tab-icon{display:inline;font-size:14px;margin:0;}
   #live-tabs .tab.active{border-left:none;border-top:2px solid #fff;}
   .catch-bar-wrap{margin-top:0}
@@ -142,10 +147,11 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
   .tval-primary{font-size:clamp(28px,7dvh,80px)}
   .tval-r23{font-size:clamp(22px,5.5dvh,64px)}
   .char-num{font-size:clamp(22px,5.5dvh,64px)}
-  .tlbl{font-size:clamp(9px,1.6dvh,14px)}
-  .tlbl-primary{font-size:clamp(10px,1.9dvh,16px)}
+  .tlbl{font-size:clamp(9px,1.6dvh,14px);}
+  .tlbl-primary{font-size:clamp(10px,1.9dvh,16px);}
   .sub-micro{font-size:clamp(8px,1.4dvh,12px)}
   .char-label-sm{font-size:clamp(8px,1.4dvh,12px)}
+  .tq{font-size:clamp(7px,1.3dvh,10px);}
   .curve-tiles{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;height:clamp(150px,38dvh,220px);}
   .curve-tile{flex:none;}
 }
@@ -202,19 +208,19 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div id="screen-perm" class="screen active">
   <div class="perm-inner">
     <div class="perm-icon">🚣</div>
-    <div class="perm-title"> METRICS</div>
+    <div class="perm-title">METRICS</div>
     <div class="perm-body">
       Real-time GPS pace &amp; distance<br/>
-      Stroke rate · Catch slope · Stroke characteristic · dps<br/>
-      Run loss · Impulse · Session recording<br/><br/>
+      Stroke rate · Catch slope · Stroke characteristic · DPS<br/>
+      Run loss · Impulse · Recovery Index · Session recording<br/><br/>
       Works in <strong style="color:#fff">Landscape or Portrait</strong>.<br/>
-      The app auto-detects the rowing axis.
+      Auto-detects the rowing axis.
     </div>
     <button class="perm-btn" id="perm-btn">ENABLE SENSORS</button>
     <div class="perm-note">
       iOS: Settings → Safari → Motion &amp; Orientation Access<br/>
       Add to Home Screen for full-screen use · Works offline<br/>
-      <span style="color:rgba(255,255,255,.18)">v3.1</span>
+      <span style="color:rgba(255,255,255,.18)">v4.0</span>
     </div>
   </div>
 </div>
@@ -249,18 +255,22 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
   </div>
   <div class="live-body">
     <div class="tile-grid" id="tile-grid">
+
       <div class="tile">
         <div class="tile-val-wrap"><div class="tval tval-primary dim" id="t-pace">--:--</div></div>
-        <div class="tlbl tlbl-primary">Pace / 500m</div>
+        <div class="tlbl tlbl-primary"><span class="tlbl-txt">Pace / 500m</span><span class="tq" id="q-pace">WAIT</span></div>
       </div>
+
       <div class="tile">
         <div class="tile-val-wrap"><div class="tval tval-primary dim" id="t-rate">--</div></div>
-        <div class="tlbl tlbl-primary">Stroke rate [str/min]</div>
+        <div class="tlbl tlbl-primary"><span class="tlbl-txt">Stroke rate [str/min]</span><span class="tq" id="q-rate">WAIT</span></div>
       </div>
+
       <div class="tile">
         <div class="tile-val-wrap"><div class="tval tval-primary dim" id="t-dps">--</div></div>
-        <div class="tlbl tlbl-primary">Dist / stroke [m]</div>
+        <div class="tlbl tlbl-primary"><span class="tlbl-txt">Dist / stroke [m]</span><span class="tq" id="q-dps">WAIT</span></div>
       </div>
+
       <div class="tile">
         <div class="tile-val-wrap">
           <div class="char-num dim" id="t-char-num">--</div>
@@ -271,8 +281,9 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
           </div></div>
           <div class="char-label-sm" id="char-badge">—</div>
         </div>
-        <div class="tlbl">Recovery Index</div>
+        <div class="tlbl"><span class="tlbl-txt">Recovery Index</span><span class="tq" id="q-rdi">WAIT</span></div>
       </div>
+
       <div class="tile">
         <div class="tile-val-wrap">
           <div class="tval-r23 dim" id="t-catch">--</div>
@@ -282,37 +293,42 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
           </div></div>
           <div class="sub-micro">m/s³ · 0 ──── 50 ──── 100</div>
         </div>
-        <div class="tlbl">Catch slope [m/s³]</div>
+        <div class="tlbl"><span class="tlbl-txt">Catch slope [m/s³]</span><span class="tq" id="q-catch">WAIT</span></div>
       </div>
+
       <div class="tile tile-cfg" id="cfg-top-tile">
         <div class="tile-val-wrap">
           <div class="tval-r23 dim" id="cfg-top-val">--</div>
           <div class="sub-micro" id="cfg-top-sub"></div>
         </div>
-        <div class="tlbl" id="cfg-top-lbl">Total time <span class="cfg-hint">▸</span></div>
+        <div class="tlbl" id="cfg-top-lbl"><span class="tlbl-txt">Total time <span class="cfg-hint">▸</span></span><span class="tq" id="q-top">OFF</span></div>
       </div>
+
       <div class="tile" id="tile-runloss">
         <div class="tile-val-wrap">
-          <div class="tval-r23 dim" id="t-runloss">--%</div>
+          <div class="tval-r23 dim" id="t-runloss">--</div>
           <div class="sub-micro" id="t-runloss-ms"></div>
         </div>
-        <div class="tlbl">Run loss</div>
+        <div class="tlbl"><span class="tlbl-txt">Run loss</span><span class="tq" id="q-rl">WAIT</span></div>
       </div>
+
       <div class="tile">
         <div class="tile-val-wrap">
           <div class="tval-r23 dim" id="t-impulse">--</div>
           <div class="sub-micro">higher = better</div>
         </div>
-        <div class="tlbl">Impulse</div>
+        <div class="tlbl"><span class="tlbl-txt">Impulse</span><span class="tq" id="q-imp">WAIT</span></div>
       </div>
+
       <div class="tile tile-cfg" id="cfg-bot-tile">
         <div class="tile-val-wrap">
           <div class="tval-r23 dim" id="cfg-bot-val">--</div>
           <div class="sub-micro" id="cfg-bot-sub"></div>
         </div>
-        <div class="tlbl" id="cfg-bot-lbl">Total distance <span class="cfg-hint">▸</span></div>
+        <div class="tlbl" id="cfg-bot-lbl"><span class="tlbl-txt">Total distance <span class="cfg-hint">▸</span></span><span class="tq" id="q-bot">OFF</span></div>
       </div>
-    </div>
+
+    </div><!-- /.tile-grid -->
 
     <div class="curve-panel" id="curve-panel">
       <div class="curve-canvas-wrap">
@@ -323,34 +339,10 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
         </div>
       </div>
       <div class="curve-tiles" id="curve-tiles">
-        <div class="tile curve-tile" data-cw="0">
-          <div class="tile-val-wrap">
-            <div class="tval-r23 dim" id="ct-0-val">--</div>
-            <div class="sub-micro" id="ct-0-sub">str/min</div>
-          </div>
-          <div class="tlbl" id="ct-0-lbl">Stroke rate ▸</div>
-        </div>
-        <div class="tile curve-tile" data-cw="1">
-          <div class="tile-val-wrap">
-            <div class="tval-r23 dim" id="ct-1-val">--</div>
-            <div class="sub-micro" id="ct-1-sub">m/s³</div>
-          </div>
-          <div class="tlbl" id="ct-1-lbl">Catch slope ▸</div>
-        </div>
-        <div class="tile curve-tile" data-cw="2">
-          <div class="tile-val-wrap">
-            <div class="tval-r23 dim" id="ct-2-val">--</div>
-            <div class="sub-micro" id="ct-2-sub">m</div>
-          </div>
-          <div class="tlbl" id="ct-2-lbl">Dist/stroke ▸</div>
-        </div>
-        <div class="tile curve-tile" data-cw="3">
-          <div class="tile-val-wrap">
-            <div class="tval-r23 dim" id="ct-3-val">--</div>
-            <div class="sub-micro" id="ct-3-sub"></div>
-          </div>
-          <div class="tlbl" id="ct-3-lbl">Impulse ▸</div>
-        </div>
+        <div class="tile curve-tile" data-cw="0"><div class="tile-val-wrap"><div class="tval-r23 dim" id="ct-0-val">--</div><div class="sub-micro" id="ct-0-sub">str/min</div></div><div class="tlbl" id="ct-0-lbl">Stroke rate ▸</div></div>
+        <div class="tile curve-tile" data-cw="1"><div class="tile-val-wrap"><div class="tval-r23 dim" id="ct-1-val">--</div><div class="sub-micro" id="ct-1-sub">m/s³</div></div><div class="tlbl" id="ct-1-lbl">Catch slope ▸</div></div>
+        <div class="tile curve-tile" data-cw="2"><div class="tile-val-wrap"><div class="tval-r23 dim" id="ct-2-val">--</div><div class="sub-micro" id="ct-2-sub">m</div></div><div class="tlbl" id="ct-2-lbl">Dist/stroke ▸</div></div>
+        <div class="tile curve-tile" data-cw="3"><div class="tile-val-wrap"><div class="tval-r23 dim" id="ct-3-val">--</div><div class="sub-micro" id="ct-3-sub"></div></div><div class="tlbl" id="ct-3-lbl">Impulse ▸</div></div>
       </div>
     </div>
 
@@ -393,1109 +385,1206 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div class="toast" id="toast"></div>
 <input type="file" id="fit-input" accept=".tcx,.gpx,.fit" style="display:none"/>
 
-<script src="drive-sync.js"></script>
 <script>
 'use strict';
 
-/* ════════════════════════════════════════
+/* ═══════════════════════════════════════════════════
+   CONFIG — single source of truth for all constants
+═══════════════════════════════════════════════════ */
+const CONFIG = Object.freeze({
+  gps: {
+    maxAccuracyM:    25,    // GPS positions above this are discarded
+    minSpeedForPace: 0.7,   // m/s below which pace is suppressed
+    maxPaceS:        600,   // 10 min/500m cap
+    minMoveDist:     0.3,   // minimum haversine delta to count (m)
+    speedEmaAlpha:   0.28,  // EMA weight for GPS speed
+    speedMedianN:    7,     // median pre-filter window length
+    spikeMarginMps:  1.5,   // max single-step speed jump allowed
+    gapResetMs:      3000,  // gap before EMA reset
+    velWindowMs:     10000, // velocity history window for run loss
+    paceWindowMs:    12000, // sliding window for pace calculation
+  },
+  motion: {
+    gravityAlpha: 0.965,  // very slow EMA for gravity orientation estimate
+    fastAlpha:    0.22,   // fast EMA for FSM / impulse
+    slowAlpha:    0.12,   // slow EMA for autocorrelation axis detection
+    jerkHistN:    5,      // jerk sliding-window sample count
+    jerkClamp:    300,    // m/s³ clamp
+    axBufMs:      14000,  // axis autocorrelation buffer length
+    acBufMs:      15000,  // stroke-rate autocorrelation buffer length
+    acUpdateMs:   2000,   // min ms between autocorrelation computations
+  },
+  stroke: {
+    periodMinMs:        1200,
+    periodMaxMs:        6000,
+    refractoryMinMs:    1200,
+    maxDriveMs:         2800,
+    minDriveMs:         300,
+    postDriveLockoutMs: 500,
+    dpsMedianN:         8,
+    catchBufN:          7,
+    spmMin:             10,
+    spmMax:             50,
+    restGapS:           5.0,
+  },
+  runLoss: {
+    startAfterCatchMs: 450,   // delay before sampling start speed
+    windowMs:          900,   // sampling window duration
+    maxLossM:          3.5,   // plausibility cap (m/stroke)
+    medianN:           5,     // median filter length
+  },
+  ui: {
+    autosaveMs: 30000,
+    cfgTileMs:  5000,
+  },
+});
+
+/* ═══════════════════════════════════════════════════
    UTILITIES
-════════════════════════════════════════ */
-const fmt = s => { s = Math.max(0, Math.round(s)); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
-const fmtH = s => { s = Math.max(0, Math.round(s)); return `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
-const fmtDate = ts => { const d = new Date(ts); return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + d.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' }); };
-const haversine = (a, b) => { const R = 6371000, dLat = (b.lat - a.lat) * Math.PI / 180, dLon = (b.lon - a.lon) * Math.PI / 180, x = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2; return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x)); };
-const charLabel = v => v < 22 ? 'EARLY DRIVE' : v < 40 ? 'FRONT LOADED' : v < 60 ? 'BALANCED' : v < 78 ? 'LATE DRIVE' : 'BACK LOADED';
-/* FIX F1: rdi-specific badge label (rdi range -1 to 1, not 0-100 like char).
-   Previous code called charLabel(rdi) which always returned 'EARLY DRIVE'. */
-const rdiLabel = v => v < -0.2 ? 'DRIVE DOMINANT' : v < 0.1 ? 'BALANCED' : v < 0.45 ? 'REST FOCUSED' : 'LONG RECOVERY';
-function toast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
+═══════════════════════════════════════════════════ */
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-/* ════════════════════════════════════════
+function median(arr) {
+  const a = arr.filter(Number.isFinite).slice().sort((a, b) => a - b);
+  if (!a.length) return null;
+  const m = Math.floor(a.length / 2);
+  return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
+}
+
+/** Push a finite value and trim the array to `limit` entries. */
+function pushLimit(arr, value, limit) {
+  if (Number.isFinite(value)) arr.push(value);
+  while (arr.length > limit) arr.shift();
+}
+
+const fmt     = s => { s=Math.max(0,Math.round(s)); return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; };
+const fmtH    = s => { s=Math.max(0,Math.round(s)); return `${Math.floor(s/3600)}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; };
+const fmtDate = ts => { const d=new Date(ts); return d.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})+' '+d.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'}); };
+const formatPace = mps => { if(!Number.isFinite(mps)||mps<CONFIG.gps.minSpeedForPace) return '--:--'; const s=500/mps; return s>CONFIG.gps.maxPaceS?'--:--':fmt(s); };
+const haversineM = (a,b) => { const R=6371000,toR=Math.PI/180,dLat=(b.lat-a.lat)*toR,dLon=(b.lon-a.lon)*toR,x=Math.sin(dLat/2)**2+Math.cos(a.lat*toR)*Math.cos(b.lat*toR)*Math.sin(dLon/2)**2; return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x)); };
+const charLabel = v => v<22?'EARLY DRIVE':v<40?'FRONT LOADED':v<60?'BALANCED':v<78?'LATE DRIVE':'BACK LOADED';
+const rdiLabel  = v => v<-0.2?'DRIVE DOMINANT':v<0.1?'BALANCED':v<0.45?'REST FOCUSED':'LONG RECOVERY';
+
+/** Set text and class on a .tq quality pill. cls: 'g' | 'w' | 'b' | '' */
+function setQ(id, label, cls) {
+  const el = document.getElementById(id); if (!el) return;
+  el.textContent = label;
+  el.className = 'tq' + (cls ? ' '+cls : '');
+}
+
+function toast(m) {
+  const t = document.getElementById('toast'); t.textContent = m;
+  t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ═══════════════════════════════════════════════════
    STORAGE
-════════════════════════════════════════ */
-const DB = 'scull_v3';
+═══════════════════════════════════════════════════ */
+const DB          = 'scull_v3';
 const AUTOSAVE_DB = 'scull_autosave';
-const SYNCED_DB = 'scull_drive_synced';
-const loadSess = () => { try { return JSON.parse(localStorage.getItem(DB) || '[]'); } catch { return []; } };
-const loadSynced = () => { try { return new Set(JSON.parse(localStorage.getItem(SYNCED_DB) || '[]')); } catch { return new Set(); } };
+const SYNCED_DB   = 'scull_drive_synced';
+const PENDING_KEY = 'scull_drive_pending';
 
-const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-const DRIVE_CLIENT_ID = '729480414852-kko8e7bi3r38tcg2rf6iiupptagoegpc.apps.googleusercontent.com';
-const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
-const OAUTH_REDIRECT = 'https://kstg4cnkwh-netizen.github.io/Scull-metrics/';
-
-async function driveSignIn() {
-  sessionStorage.setItem('_oauth_screen', document.querySelector('.screen.active')?.id || '');
-  const params = new URLSearchParams({ client_id: DRIVE_CLIENT_ID, redirect_uri: OAUTH_REDIRECT, response_type: 'token', scope: DRIVE_SCOPE, include_granted_scopes: 'true' });
-  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params;
-}
-
-function handleDriveBtnTap() {
-  if (DriveSync.isSignedIn()) {
-    if (confirm('Unlink Google Drive?')) { DriveSync.signOut(); updateDriveBtn(); toast('Drive unlinked'); }
-  } else { driveSignIn(); }
-}
-
-function updateDriveBtn() {
-  const btn = document.getElementById('drive-btn'); if (!btn) return;
-  if (DriveSync.isSignedIn()) { btn.textContent = '☁ Linked'; btn.classList.add('drive-linked'); }
-  else { btn.textContent = '☁ Drive'; btn.classList.remove('drive-linked'); }
-}
-
-function markSynced(id) { try { const s = loadSynced(); s.add(id); localStorage.setItem(SYNCED_DB, JSON.stringify([...s])); } catch(e) {} }
-function isSynced(id) { return loadSynced().has(id); }
-
-function checkOAuthReturn() {
-  const raw = sessionStorage.getItem('_oauth_token'); if (!raw) return false;
-  sessionStorage.removeItem('_oauth_token');
-  try {
-    const { token, expires } = JSON.parse(raw);
-    DriveSync._injectToken(token, expires);
-    wireTabButtons();
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById('screen-analysis')?.classList.add('active');
-    renderAnalysisList(); requestAnimationFrame(renderCtrl); updateDriveBtn(); toast('✓ Drive linked'); flushQueue(); return true;
-  } catch(e) { toast('Drive auth failed: ' + e.message); return false; }
-}
+const loadSess   = () => { try { return JSON.parse(localStorage.getItem(DB)||'[]'); } catch { return []; } };
+const loadSynced = () => { try { return new Set(JSON.parse(localStorage.getItem(SYNCED_DB)||'[]')); } catch { return new Set(); } };
+const markSynced = id => { try { const s=loadSynced(); s.add(id); localStorage.setItem(SYNCED_DB,JSON.stringify([...s])); } catch {} };
+const isSynced   = id => loadSynced().has(id);
+const delSess    = id => saveSess(loadSess().filter(s => s.id !== id));
 
 function saveSess(a) {
-  try { localStorage.setItem(DB, JSON.stringify(a)); } catch(e) {
+  try { localStorage.setItem(DB,JSON.stringify(a)); } catch {
     try {
-      const slim = a.map(s => { if (!s.strokes) return s; return { ...s, strokes: s.strokes.map(({ dbg, ...rest }) => rest), gpsRawTrace: undefined }; });
-      localStorage.setItem(DB, JSON.stringify(slim)); toast('Storage full — debug data trimmed');
-    } catch(e2) {
-      toast('Storage full — oldest session removed');
-      try { const pruned = a.slice(0, Math.max(1, a.length - 1)); localStorage.setItem(DB, JSON.stringify(pruned)); } catch(e3) {}
+      const slim = a.map(s => s.strokes ? {...s,strokes:s.strokes.map(({dbg,...r})=>r),gpsRawTrace:undefined} : s);
+      localStorage.setItem(DB,JSON.stringify(slim)); toast('Storage full — debug data trimmed');
+    } catch {
+      try { localStorage.setItem(DB,JSON.stringify(a.slice(0,Math.max(1,a.length-1)))); toast('Storage full — oldest session removed'); } catch {}
     }
   }
 }
 
 function addSess(s) {
-  try { const a = loadSess(); a.unshift(s); saveSess(a); } catch(e) {}
+  try { const a=loadSess(); a.unshift(s); saveSess(a); } catch {}
   if (DriveSync.isSignedIn()) {
-    DriveSync.upload(s).then(() => { markSynced(s.id); updateDriveBtn(); toast('✓ Saved to Drive'); }).catch(() => { queuePending(s.id); toast('Saved locally — Drive sync pending'); });
+    DriveSync.upload(s)
+      .then(()=>{ markSynced(s.id); updateDriveBtn(); toast('✓ Saved to Drive'); })
+      .catch(()=>{ queuePending(s.id); toast('Saved locally — Drive sync pending'); });
   }
 }
 
-const PENDING_KEY = 'scull_drive_pending';
-function queuePending(id) { try { const q = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); if (!q.includes(id)) { q.push(id); localStorage.setItem(PENDING_KEY, JSON.stringify(q)); } } catch(e) {} }
+function queuePending(id) {
+  try { const q=JSON.parse(localStorage.getItem(PENDING_KEY)||'[]'); if(!q.includes(id)){q.push(id);localStorage.setItem(PENDING_KEY,JSON.stringify(q));} } catch {}
+}
 
 async function flushQueue() {
   try {
-    const q = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); if (!q.length || !DriveSync.isSignedIn()) return;
-    const sessions = loadSess(); let uploaded = 0;
-    for (const id of q) { const s = sessions.find(x => x.id === id); if (!s) continue; try { await DriveSync.upload(s); markSynced(id); uploaded++; } catch(e) {} }
+    const q=JSON.parse(localStorage.getItem(PENDING_KEY)||'[]'); if(!q.length||!DriveSync.isSignedIn()) return;
+    const sessions=loadSess(); let n=0;
+    for (const id of q) { const s=sessions.find(x=>x.id===id); if(!s) continue; try{await DriveSync.upload(s);markSynced(id);n++;}catch{} }
     localStorage.removeItem(PENDING_KEY);
-    if (uploaded) { toast(`✓ ${uploaded} session${uploaded>1?'s':''} synced to Drive`); renderAnalysisList(); }
-  } catch(e) { toast('Drive sync failed: ' + e.message); }
+    if (n) { toast(`✓ ${n} session${n>1?'s':''} synced to Drive`); renderAnalysisList(); }
+  } catch(e) { toast('Drive sync failed: '+e.message); }
 }
 
-const delSess = id => saveSess(loadSess().filter(s => s.id !== id));
+/* ═══════════════════════════════════════════════════
+   DRIVE SYNC (inline — no external dependency)
+═══════════════════════════════════════════════════ */
+const DriveSync = (() => {
+  let _token = null, _exp = 0;
+  const KEY = '_ds_tok';
+  return {
+    _injectToken(token, expiresInS) {
+      _token=token; _exp=Date.now()+expiresInS*1000;
+      try { sessionStorage.setItem(KEY,JSON.stringify({t:_token,e:_exp})); } catch {}
+    },
+    isSignedIn() { return !!_token && Date.now()<_exp; },
+    async init() {
+      try {
+        const raw=sessionStorage.getItem(KEY); if(!raw) return;
+        const {t,e}=JSON.parse(raw);
+        if (Date.now()<e){_token=t;_exp=e;} else sessionStorage.removeItem(KEY);
+      } catch {}
+    },
+    async upload(session) {
+      if (!this.isSignedIn()) throw new Error('Not signed in');
+      const meta={name:`scull_${session.id}.json`,mimeType:'application/json',parents:['appDataFolder']};
+      const form=new FormData();
+      form.append('metadata',new Blob([JSON.stringify(meta)],{type:'application/json'}));
+      form.append('file',    new Blob([JSON.stringify(session)],{type:'application/json'}));
+      const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+        {method:'POST',headers:{Authorization:`Bearer ${_token}`},body:form});
+      if (!r.ok) throw new Error(`Drive upload failed: ${r.status}`);
+    },
+    signOut() { _token=null; _exp=0; try{sessionStorage.removeItem(KEY);}catch{} }
+  };
+})();
 
-function saveInProgress() {
-  if (!running || !sessStart || sessStrokes.length === 0) return;
+const DRIVE_CLIENT_ID = '729480414852-kko8e7bi3r38tcg2rf6iiupptagoegpc.apps.googleusercontent.com';
+const DRIVE_SCOPE     = 'https://www.googleapis.com/auth/drive.file';
+const OAUTH_REDIRECT  = 'https://kstg4cnkwh-netizen.github.io/Scull-metrics/';
+
+function driveSignIn() {
+  sessionStorage.setItem('_oauth_screen',document.querySelector('.screen.active')?.id||'');
+  const p=new URLSearchParams({client_id:DRIVE_CLIENT_ID,redirect_uri:OAUTH_REDIRECT,response_type:'token',scope:DRIVE_SCOPE,include_granted_scopes:'true'});
+  window.location.href='https://accounts.google.com/o/oauth2/v2/auth?'+p;
+}
+function handleDriveBtnTap() {
+  if(DriveSync.isSignedIn()){if(confirm('Unlink Google Drive?')){DriveSync.signOut();updateDriveBtn();toast('Drive unlinked');}}
+  else driveSignIn();
+}
+function updateDriveBtn() {
+  const btn=document.getElementById('drive-btn'); if(!btn) return;
+  DriveSync.isSignedIn()?(btn.textContent='☁ Linked',btn.classList.add('drive-linked')):(btn.textContent='☁ Drive',btn.classList.remove('drive-linked'));
+}
+function checkOAuthReturn() {
+  const raw=sessionStorage.getItem('_oauth_token'); if(!raw) return false;
+  sessionStorage.removeItem('_oauth_token');
   try {
-    const snap = { id: sessStart.toString(), startTime: sessStart, duration: elapsed, distance: Math.round(distance), avgPace: sessPaceTrace.length ? Math.round(sessPaceTrace.reduce((a,b)=>a+b,0)/sessPaceTrace.length) : 0, avgRate: sessStrokes.length ? Math.round(sessStrokes.reduce((a,b)=>a+b.rate,0)/sessStrokes.length) : 0, maxRate: sessStrokes.length ? Math.max(...sessStrokes.map(s=>s.rate)) : 0, strokeCount, catchPeakSess, catchAvg8, laps, strokes: sessStrokes, paceTrace: sessPaceTrace, gpsTrace: sessGpsTrace, avgDPS: dpsValsArr.length ? dpsValsArr.reduce((a,b)=>a+b,0)/dpsValsArr.length : null, avgRunLoss: runLossPct, avgImpulse: null, avgRdi: null, _autosave: true, _savedAt: Date.now() };
-    localStorage.setItem(AUTOSAVE_DB, JSON.stringify(snap));
-  } catch(e) {}
+    const {token,expires}=JSON.parse(raw);
+    DriveSync._injectToken(token,expires);
+    wireTabButtons();
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById('screen-analysis')?.classList.add('active');
+    renderAnalysisList();requestAnimationFrame(renderCtrl);updateDriveBtn();toast('✓ Drive linked');flushQueue();return true;
+  } catch(e) { toast('Drive auth failed: '+e.message); return false; }
 }
 
-function checkAutosave() {
-  try {
-    const raw = localStorage.getItem(AUTOSAVE_DB); if (!raw) return;
-    const snap = JSON.parse(raw); if (!snap || !snap._autosave || !snap.strokeCount) return;
-    const age = Date.now() - snap._savedAt; if (age > 12 * 3600 * 1000) { localStorage.removeItem(AUTOSAVE_DB); return; }
-    const mins = Math.round(snap.duration / 60), km = (snap.distance / 1000).toFixed(2);
-    if (confirm(`Recover autosaved session?\n${km} km · ${mins} min · ${snap.strokeCount} strokes\n(Saved ${Math.round(age/60000)} min ago)`)) {
-      snap._autosave = false; const a = loadSess(); a.unshift(snap); saveSess(a); localStorage.removeItem(AUTOSAVE_DB); alert('Session recovered and saved. View it in Analysis.');
-    } else { localStorage.removeItem(AUTOSAVE_DB); }
-  } catch(e) { localStorage.removeItem(AUTOSAVE_DB); }
-}
-
-/* ════════════════════════════════════════
+/* ═══════════════════════════════════════════════════
    CALIBRATION
-════════════════════════════════════════ */
-const CAL_DB = 'scull_cal_v2';
-let cal = { done: false, noiseFloor: 2.0, jerkThresh: 8.0, accThresh: 0.8, bestAxis: null };
-(() => { try { const c = JSON.parse(localStorage.getItem(CAL_DB)); if (c && c.done) cal = c; } catch {} })();
+═══════════════════════════════════════════════════ */
+const CAL_DB='scull_cal_v2';
+let cal={done:false,noiseFloor:2.0,jerkThresh:8.0,accThresh:0.8,bestAxis:null};
+(()=>{ try{const c=JSON.parse(localStorage.getItem(CAL_DB));if(c?.done)cal=c;}catch{} })();
 
-const CAL_SECS = 8;
-let calSamples = { x: [], y: [], z: [] };
-let calTimer = null, calRunning = false;
+const CAL_SECS=8;
+let calSamples={x:[],y:[],z:[]},calTimer=null,calRunning=false;
 
 function startCalibration() {
-  calSamples = { x: [], y: [], z: [] }; calRunning = true;
-  document.getElementById('cal-start-btn').disabled = true;
-  document.getElementById('cal-skip-btn').disabled = true;
-  document.getElementById('cal-status').textContent = 'Hold still…';
-  document.getElementById('cal-result').textContent = '';
-  let t = 0; const bar = document.getElementById('cal-bar'); bar.style.width = '0%';
-  calTimer = setInterval(() => { t++; bar.style.width = (t / CAL_SECS * 100) + '%'; if (t >= CAL_SECS) { clearInterval(calTimer); calRunning = false; finishCalibration(); } }, 1000);
+  calSamples={x:[],y:[],z:[]};calRunning=true;
+  document.getElementById('cal-start-btn').disabled=true;
+  document.getElementById('cal-skip-btn').disabled=true;
+  document.getElementById('cal-status').textContent='Hold still…';
+  document.getElementById('cal-result').textContent='';
+  let t=0; const bar=document.getElementById('cal-bar'); bar.style.width='0%';
+  calTimer=setInterval(()=>{
+    t++;bar.style.width=(t/CAL_SECS*100)+'%';
+    if(t>=CAL_SECS){clearInterval(calTimer);calRunning=false;finishCalibration();}
+  },1000);
 }
 
 function finishCalibration() {
-  const mins = Object.values(calSamples).map(a => a.length);
-  if (Math.min(...mins) < 20) { document.getElementById('cal-status').textContent = 'Not enough data — using defaults'; setTimeout(enterLive, 1500); return; }
-  const rms = ax => { const a = calSamples[ax]; return Math.sqrt(a.reduce((s, v) => s + v * v, 0) / a.length); };
-  const noises = { x: rms('x'), y: rms('y'), z: rms('z') };
-  const noiseFloor = Math.min(noises.x, noises.y);
-  const jerkT = Math.max(5.0, Math.min(25.0, noiseFloor * 5.0));
-  const accT  = Math.max(0.4, Math.min(2.0,  noiseFloor * 1.5));
-  cal = { done: true, noiseFloor: +noiseFloor.toFixed(3), jerkThresh: +jerkT.toFixed(2), accThresh: +accT.toFixed(2), bestAxis: null };
-  localStorage.setItem(CAL_DB, JSON.stringify(cal));
-  document.getElementById('cal-status').textContent = 'Calibration complete ✓';
-  document.getElementById('cal-result').textContent = `Noise floor ${noiseFloor.toFixed(2)} m/s²  ·  Jerk threshold ${jerkT.toFixed(1)} m/s³`;
-  document.getElementById('p-cal').className = 'pill pill-on';
-  setTimeout(enterLive, 1800);
+  const mins=Object.values(calSamples).map(a=>a.length);
+  if(Math.min(...mins)<20){document.getElementById('cal-status').textContent='Not enough data — using defaults';setTimeout(enterLive,1500);return;}
+  const rms=ax=>{const a=calSamples[ax];return Math.sqrt(a.reduce((s,v)=>s+v*v,0)/a.length);};
+  const noiseFloor=Math.min(rms('x'),rms('y'));
+  const jerkT=clamp(noiseFloor*5.0,5.0,25.0);
+  const accT =clamp(noiseFloor*1.5,0.4,2.0);
+  cal={done:true,noiseFloor:+noiseFloor.toFixed(3),jerkThresh:+jerkT.toFixed(2),accThresh:+accT.toFixed(2),bestAxis:null};
+  localStorage.setItem(CAL_DB,JSON.stringify(cal));
+  document.getElementById('cal-status').textContent='Calibration complete ✓';
+  document.getElementById('cal-result').textContent=`Noise floor ${noiseFloor.toFixed(2)} m/s²  ·  Jerk threshold ${jerkT.toFixed(1)} m/s³`;
+  document.getElementById('p-cal').className='pill pill-on';
+  jerkThreshBase=jerkThreshActive=cal.jerkThresh;
+  accThreshBase=cal.accThresh;
+  setTimeout(enterLive,1800);
 }
 
 function enterLive() {
-  if (enterLive._done) return; enterLive._done = true;
+  if(enterLive._done)return; enterLive._done=true;
   document.getElementById('screen-cal').classList.remove('active');
   document.getElementById('screen-live').classList.add('active');
-  if (cal.done) { document.getElementById('p-cal').className = 'pill pill-on'; jerkThreshBase = cal.jerkThresh; jerkThreshActive = cal.jerkThresh; accThreshBase = cal.accThresh; }
-  wireButtons(); wireTabButtons(); wireCfgTiles(); wireCurveTiles(); renderCtrl(); updateUI();
+  if(cal.done){document.getElementById('p-cal').className='pill pill-on';jerkThreshBase=jerkThreshActive=cal.jerkThresh;accThreshBase=cal.accThresh;}
+  wireButtons();wireTabButtons();wireCfgTiles();wireCurveTiles();renderCtrl();updateUI();
 }
 
-/* ════════════════════════════════════════
+/* ═══════════════════════════════════════════════════
    MULTI-AXIS AUTO-DETECTION
-════════════════════════════════════════ */
-const AXES = ['x', 'y', 'z'];
-let selAxis = 'x', axisLocked = false, axisAutoDetected = false;
-const axSmooth = { x: 0, y: 0, z: 0 }, axFast = { x: 0, y: 0, z: 0 };
-const axBuf = { x: [], y: [], z: [] }, axPrev = { x: 0, y: 0, z: 0 }, axPrevT = { x: 0, y: 0, z: 0 };
-const AX_BUF_MS = 14000, ALPHA_SLOW = 0.12, ALPHA_FAST = 0.22;
+   Uses autocorrelation scoring — selects the axis whose
+   slow-EMA signal shows the strongest periodic structure
+   at rowing frequencies.
+═══════════════════════════════════════════════════ */
+const AXES=['x','y','z'];
+let selAxis='x',axisLocked=false,axisAutoDetected=false,lastAxisCheck=0;
 
-function updateAxes(e, now) {
-  const acc = e.acceleration || e.accelerationIncludingGravity; if (!acc) return;
-  for (const ax of AXES) {
-    const raw = acc[ax] || 0;
-    axFast[ax]   = ALPHA_FAST * raw + (1 - ALPHA_FAST) * axFast[ax];
-    axSmooth[ax] = ALPHA_SLOW * raw + (1 - ALPHA_SLOW) * axSmooth[ax];
-    axBuf[ax].push({ t: now, v: axSmooth[ax] });
-    const cut = now - AX_BUF_MS;
-    while (axBuf[ax].length > 1 && axBuf[ax][0].t < cut) axBuf[ax].shift();
-    if (calRunning) calSamples[ax].push(Math.abs(raw));
+// gravity[k]: very slow EMA used to estimate and remove phone orientation
+const gravity  = {x:0,y:0,z:0};
+// axFast[k]:   fast EMA of gravity-corrected linear accel (for FSM/impulse)
+const axFast   = {x:0,y:0,z:0};
+// axSmooth[k]: slow EMA of gravity-corrected linear accel (for autocorrelation)
+const axSmooth = {x:0,y:0,z:0};
+// axBuf[k]:    rolling time-stamped buffer of axSmooth for axis scoring
+const axBuf    = {x:[],y:[],z:[]};
+
+/**
+ * Update all per-axis EMAs for one motion sample.
+ * Gravity is removed before filtering so orientation changes
+ * do not corrupt the rowing signal.
+ */
+function updateAxes(raw, now) {
+  for (const k of AXES) {
+    if (calRunning) calSamples[k].push(Math.abs(raw[k]));
+
+    // Gravity estimate (very slow EMA ≈ device orientation)
+    gravity[k]=CONFIG.motion.gravityAlpha*gravity[k]+(1-CONFIG.motion.gravityAlpha)*raw[k];
+    const linear=raw[k]-gravity[k];  // gravity-corrected linear accel
+
+    axFast[k]  =CONFIG.motion.fastAlpha  *linear+(1-CONFIG.motion.fastAlpha)  *axFast[k];
+    axSmooth[k]=CONFIG.motion.slowAlpha  *linear+(1-CONFIG.motion.slowAlpha)  *axSmooth[k];
+
+    axBuf[k].push({t:now,v:axSmooth[k]});
+    const cut=now-CONFIG.motion.axBufMs;
+    while(axBuf[k].length>1&&axBuf[k][0].t<cut)axBuf[k].shift();
   }
 }
 
 function scoreAxis(ax) {
-  const buf = axBuf[ax]; if (buf.length < 80) return 0;
-  const vals = buf.map(s => s.v), n = vals.length;
-  const mu = vals.reduce((a, b) => a + b, 0) / n, x = vals.map(v => v - mu);
-  const r0 = x.reduce((s, v) => s + v * v, 0) / n; if (r0 < 0.02) return 0;
-  const dtMs = (buf[n - 1].t - buf[0].t) / Math.max(1, n - 1);
-  const minL = Math.max(2, Math.floor(1200 / dtMs)), maxL = Math.min(Math.floor(6000 / dtMs), Math.floor(n * 0.6));
-  if (minL >= maxL) return 0;
-  let bestR = 0;
-  for (let lag = minL; lag <= maxL; lag++) { let sum = 0; const len = n - lag; for (let i = 0; i < len; i++) sum += x[i] * x[i + lag]; const r = sum / (len * r0); if (r > bestR) bestR = r; }
-  return Math.max(0, bestR) * Math.sqrt(r0);
-}
-
-let lastAxisCheck = 0;
-function maybeDetectAxis(now) {
-  if (axisLocked || now - lastAxisCheck < 4000) return; lastAxisCheck = now;
-  let bAx = selAxis, bScore = -1;
-  for (const ax of AXES) { const sc = scoreAxis(ax); if (sc > bScore) { bScore = sc; bAx = ax; } }
-  if (bScore > 0.03) {
-    if (bAx !== selAxis) { selAxis = bAx; acBuf.length = 0; fsmState = FS.IDLE; prevFastForJerk = 0; prevFastT = 0; jerkThreshActive = jerkThreshBase; catchValsArr.length = 0; adaptReady = false; }
-    axisAutoDetected = true;
+  const buf=axBuf[ax]; if(buf.length<80)return 0;
+  const vals=buf.map(s=>s.v),n=vals.length;
+  const mu=vals.reduce((a,b)=>a+b,0)/n,x=vals.map(v=>v-mu);
+  const r0=x.reduce((s,v)=>s+v*v,0)/n; if(r0<0.02)return 0;
+  const dtMs=(buf[n-1].t-buf[0].t)/Math.max(1,n-1);
+  const minL=Math.max(2,Math.floor(CONFIG.stroke.periodMinMs/dtMs));
+  const maxL=Math.min(Math.floor(CONFIG.stroke.periodMaxMs/dtMs),Math.floor(n*0.6));
+  if(minL>=maxL)return 0;
+  let bestR=0;
+  for(let lag=minL;lag<=maxL;lag++){
+    let sum=0;const len=n-lag;
+    for(let i=0;i<len;i++)sum+=x[i]*x[i+lag];
+    const r=sum/(len*r0);if(r>bestR)bestR=r;
   }
-  const pill = document.getElementById('p-axis'); if (!pill) return;
-  if (axisAutoDetected) { pill.textContent = 'AX:' + selAxis.toUpperCase(); pill.className = axisLocked ? 'pill pill-on' : 'pill pill-warn'; }
-  else { pill.textContent = 'AX:?'; pill.className = 'pill pill-off'; }
+  return Math.max(0,bestR)*Math.sqrt(r0);
 }
 
-/* ════════════════════════════════════════
-   JERK CALCULATION
-════════════════════════════════════════ */
-const JERK_HIST = 5;
-const jerkBuf = [];
-function computeJerk(smooth, now) {
-  jerkBuf.push({ t: now, v: smooth }); if (jerkBuf.length > JERK_HIST) jerkBuf.shift();
-  if (jerkBuf.length < 2) return 0;
-  const dt = (jerkBuf[jerkBuf.length - 1].t - jerkBuf[0].t) / 1000; if (dt < 0.005) return 0;
-  const dv = jerkBuf[jerkBuf.length - 1].v - jerkBuf[0].v;
-  return Math.max(-300, Math.min(300, dv / dt));
+function maybeDetectAxis(now) {
+  if(axisLocked||now-lastAxisCheck<4000)return; lastAxisCheck=now;
+  let bAx=selAxis,bScore=-1;
+  for(const ax of AXES){const sc=scoreAxis(ax);if(sc>bScore){bScore=sc;bAx=ax;}}
+  if(bScore>0.03){
+    if(bAx!==selAxis){selAxis=bAx;acBuf.length=0;fsmState=FS.IDLE;jerkBuf.length=0;jerkThreshActive=jerkThreshBase;catchValsArr.length=0;adaptReady=false;}
+    axisAutoDetected=true;
+  }
+  const pill=document.getElementById('p-axis');if(!pill)return;
+  pill.textContent=axisAutoDetected?'AX:'+selAxis.toUpperCase():'AX:?';
+  pill.className  =axisAutoDetected?(axisLocked?'pill pill-on':'pill pill-warn'):'pill pill-off';
 }
-let prevFastForJerk = 0, prevFastT = 0;
 
-/* ════════════════════════════════════════
-   STROKE FSM
-════════════════════════════════════════ */
-const FS = Object.freeze({ IDLE: 0, CATCH: 1, DRIVE: 2, RECOVERY: 3 });
-let fsmState = FS.IDLE;
-let catchStartT = 0, catchPeakJerk = 0;
-let driveStartT = 0;
-let driveAccSamples = [];
-let drivePeakAcc = 0, drivePeakAccT = 0;
+/* ═══════════════════════════════════════════════════
+   JERK + MOTION STATE
+═══════════════════════════════════════════════════ */
+const jerkBuf=[];  // {t, v: axFast[selAxis]} sliding window
+let lastMotionT=0,motionSamples=0,motionStartedAt=0;
 
-const PERIOD_MIN_MS     = 1200;
-const PERIOD_MAX_MS     = 6000;
-const REFRACTORY_MIN_MS = 1200;
-const MAX_DRIVE_MS      = 2800;
-const MIN_DRIVE_MS      = 300;
-const POST_DRIVE_LOCKOUT_MS = 500;
-let lastDriveEndT = 0;
+/* ═══════════════════════════════════════════════════
+   MOTION HANDLER
+═══════════════════════════════════════════════════ */
+function handleMotion(e) {
+  const now=performance.now();
+  // Prefer accelerationIncludingGravity for software gravity removal
+  const acc=e.accelerationIncludingGravity||e.acceleration;
+  if(!acc)return;
 
-let jerkThreshBase   = cal.jerkThresh;
-let jerkThreshActive = cal.jerkThresh;
-let accThreshBase    = cal.accThresh;
-let adaptReady = false;
-let lastCatchAbsT = 0;
+  if(!motionStartedAt)motionStartedAt=now;
+  const dt=lastMotionT?clamp((now-lastMotionT)/1000,0.004,0.08):0.016;
+  lastMotionT=now; motionSamples++;
 
-function runFSM(now, fastSmooth, jerk) {
-  if (!running || paused) { if (fsmState !== FS.IDLE) fsmState = FS.IDLE; return; }
-  const timeSinceCatch = now - lastCatchAbsT;
-  const refractory = strokeRate > 0
-    ? Math.max(REFRACTORY_MIN_MS, (60000 / Math.min(strokeRate + 2, SPM_MAX)) * 0.65)
-    : REFRACTORY_MIN_MS;
-  switch (fsmState) {
+  const raw={x:Number(acc.x)||0,y:Number(acc.y)||0,z:Number(acc.z)||0};
+  updateAxes(raw,now);
+  maybeDetectAxis(now);
+  if(calRunning)return;
+
+  const fast=axFast[selAxis];
+
+  // Jerk via 5-sample sliding window on fast EMA
+  jerkBuf.push({t:now,v:fast});
+  if(jerkBuf.length>CONFIG.motion.jerkHistN)jerkBuf.shift();
+  let jerk=0;
+  if(jerkBuf.length>=2){
+    const dtJ=(jerkBuf[jerkBuf.length-1].t-jerkBuf[0].t)/1000;
+    if(dtJ>0.005)jerk=(jerkBuf[jerkBuf.length-1].v-jerkBuf[0].v)/dtJ;
+    jerk=clamp(jerk,-CONFIG.motion.jerkClamp,CONFIG.motion.jerkClamp);
+  }
+
+  // Autocorrelation buffer (slow EMA)
+  acBuf.push({t:now,v:axSmooth[selAxis]});
+  const acCut=now-CONFIG.motion.acBufMs;
+  while(acBuf.length>1&&acBuf[0].t<acCut)acBuf.shift();
+
+  if(running&&!paused){
+    catchToCatchSamples.push({t:now,v:axSmooth[selAxis]});
+    computeAutocorrelationRate(now);
+  }
+
+  runFSM(now,fast,jerk);
+}
+
+/* ═══════════════════════════════════════════════════
+   AUTOCORRELATION STROKE RATE
+═══════════════════════════════════════════════════ */
+const acBuf=[];
+let acLastUpdate=0,acRate=0,acConf=0;
+
+function computeAutocorrelationRate(now) {
+  if(acBuf.length<80||now-acLastUpdate<CONFIG.motion.acUpdateMs)return;
+  acLastUpdate=now;
+  const vals=acBuf.map(s=>s.v),n=vals.length;
+  const mu=vals.reduce((a,b)=>a+b,0)/n,x=vals.map(v=>v-mu);
+  const r0=x.reduce((s,v)=>s+v*v,0)/n; if(r0<0.01)return;
+  const dtMs=(acBuf[n-1].t-acBuf[0].t)/Math.max(1,n-1);
+  const minL=Math.max(1,Math.floor(CONFIG.stroke.periodMinMs/dtMs));
+  const maxL=Math.min(Math.floor(CONFIG.stroke.periodMaxMs/dtMs),Math.floor(n*0.6));
+  if(minL>=maxL)return;
+  let bestR=-Infinity,bestLag=minL;
+  for(let lag=minL;lag<=maxL;lag++){
+    let sum=0;const len=n-lag;
+    for(let i=0;i<len;i++)sum+=x[i]*x[i+lag];
+    const r=sum/(len*r0);if(r>bestR){bestR=r;bestLag=lag;}
+  }
+  if(bestR<0.22){acConf=Math.max(0,bestR);return;}
+  const raw=60000/(bestLag*dtMs);
+  if(raw<CONFIG.stroke.spmMin||raw>CONFIG.stroke.spmMax)return;
+  const ref=strokeRate||acRate||0;
+  if(ref>0&&raw>ref*0.72&&bestR<0.65){acConf=Math.max(0,acConf*0.5);return;}
+  acConf=Math.min(1,bestR);
+  acRate=acRate===0?raw:0.35*raw+0.65*acRate;
+  acRate=Math.round(acRate*2)/2;
+  if(running&&!paused&&now-lastCatchAbsT>4000&&acConf>0.40){strokeRate=acRate;updateUI();}
+}
+
+/* ═══════════════════════════════════════════════════
+   STROKE FSM  (IDLE → CATCH → DRIVE → RECOVERY)
+═══════════════════════════════════════════════════ */
+const FS=Object.freeze({IDLE:0,CATCH:1,DRIVE:2,RECOVERY:3});
+let fsmState=FS.IDLE;
+let catchStartT=0,catchPeakJerk=0;
+let driveStartT=0,driveAccSamples=[];
+let drivePeakAcc=0,drivePeakAccT=0;
+let lastDriveEndT=0,lastCatchAbsT=0;
+
+let jerkThreshBase  =cal.jerkThresh||8.0;
+let jerkThreshActive=cal.jerkThresh||8.0;
+let accThreshBase   =cal.accThresh||0.8;
+let adaptReady=false;
+
+function runFSM(now,fast,jerk) {
+  if(!running||paused){if(fsmState!==FS.IDLE)fsmState=FS.IDLE;return;}
+  const timeSinceCatch=now-lastCatchAbsT;
+  const refractory=strokeRate>0
+    ?Math.max(CONFIG.stroke.refractoryMinMs,(60000/Math.min(strokeRate+2,CONFIG.stroke.spmMax))*0.65)
+    :CONFIG.stroke.refractoryMinMs;
+
+  switch(fsmState) {
     case FS.IDLE:
     case FS.RECOVERY:
-      if (jerk > jerkThreshActive && fastSmooth > accThreshBase && timeSinceCatch > refractory && (now - lastDriveEndT) > POST_DRIVE_LOCKOUT_MS) {
-        onNewCatch(); // finalise previous stroke's catch-to-catch curve before resetting drive state
-        fsmState = FS.CATCH; catchStartT = now; catchPeakJerk = jerk;
-        driveAccSamples = [{ t: now, v: fastSmooth }]; drivePeakAcc = fastSmooth; drivePeakAccT = now; jerkBuf.length = 0;
+      if(jerk>jerkThreshActive&&fast>accThreshBase&&timeSinceCatch>refractory&&(now-lastDriveEndT)>CONFIG.stroke.postDriveLockoutMs){
+        onNewCatch();
+        fsmState=FS.CATCH;catchStartT=now;catchPeakJerk=jerk;
+        driveAccSamples=[{t:now,v:fast}];drivePeakAcc=fast;drivePeakAccT=now;
+        jerkBuf.length=0;
       }
-      if (fsmState === FS.RECOVERY && timeSinceCatch > PERIOD_MAX_MS * 1.5) fsmState = FS.IDLE;
+      if(fsmState===FS.RECOVERY&&timeSinceCatch>CONFIG.stroke.periodMaxMs*1.5)fsmState=FS.IDLE;
       break;
     case FS.CATCH:
-      driveAccSamples.push({ t: now, v: fastSmooth });
-      if (fastSmooth > drivePeakAcc) { drivePeakAcc = fastSmooth; drivePeakAccT = now; }
-      if (jerk > catchPeakJerk && (now - catchStartT) < 200) catchPeakJerk = jerk;
-      if ((now - catchStartT) > 75 && jerk < jerkThreshActive * 0.35) { driveStartT = catchStartT; fsmState = FS.DRIVE; }
-      if ((now - catchStartT) > 380 && fastSmooth < accThreshBase * 0.25) fsmState = FS.RECOVERY;
+      driveAccSamples.push({t:now,v:fast});
+      if(fast>drivePeakAcc){drivePeakAcc=fast;drivePeakAccT=now;}
+      if(jerk>catchPeakJerk&&(now-catchStartT)<200)catchPeakJerk=jerk;
+      if((now-catchStartT)>75&&jerk<jerkThreshActive*0.35){driveStartT=catchStartT;fsmState=FS.DRIVE;}
+      if((now-catchStartT)>380&&fast<accThreshBase*0.25)fsmState=FS.RECOVERY;
       break;
     case FS.DRIVE:
-      driveAccSamples.push({ t: now, v: fastSmooth });
-      if (fastSmooth > drivePeakAcc) { drivePeakAcc = fastSmooth; drivePeakAccT = now; }
-      const driveDur = now - driveStartT;
-      if ((fastSmooth < 0 && driveDur > MIN_DRIVE_MS) || driveDur > MAX_DRIVE_MS) {
-        onStrokeFinish(now, driveDur); lastDriveEndT = now; fsmState = FS.RECOVERY;
-      }
+      driveAccSamples.push({t:now,v:fast});
+      if(fast>drivePeakAcc){drivePeakAcc=fast;drivePeakAccT=now;}
+      {const driveDur=now-driveStartT;
+      if((fast<0&&driveDur>CONFIG.stroke.minDriveMs)||driveDur>CONFIG.stroke.maxDriveMs){
+        onStrokeFinish(now,driveDur);lastDriveEndT=now;fsmState=FS.RECOVERY;
+      }}
       break;
     case FS.RECOVERY: break;
   }
 }
 
-/* ════════════════════════════════════════
-   STROKE CURVE
-════════════════════════════════════════ */
-const CURVE_POINTS = 80;
-let lastStrokeCurve = null;          // { data: Float32Array, driveFrac: number }
-const strokeCurveHistory = [];        // [{ data, driveFrac }, …]
-const CURVE_HISTORY_N = 5;
+/* ═══════════════════════════════════════════════════
+   STROKE CURVE  (catch→catch normalised signal)
+═══════════════════════════════════════════════════ */
+const CURVE_POINTS=80;
+let lastStrokeCurve=null;
+const strokeCurveHistory=[];
+const CURVE_HISTORY_N=5;
+let catchToCatchSamples=[],pendingCurveDriveCount=0;
 
-// driveCount = number of raw samples that belong to the drive phase
-function normalizeStrokeSamples(samples, driveCount) {
-  if (!samples || samples.length < 4) return null;
-  const data = new Float32Array(CURVE_POINTS);
-  const n = samples.length;
-  for (let i = 0; i < CURVE_POINTS; i++) {
-    const t = i / (CURVE_POINTS - 1) * (n - 1);
-    const lo = Math.floor(t), hi = Math.min(lo + 1, n - 1), frac = t - lo;
-    data[i] = samples[lo].v * (1 - frac) + samples[hi].v * frac;
+function normalizeStrokeSamples(samples,driveCount){
+  if(!samples||samples.length<4)return null;
+  const data=new Float32Array(CURVE_POINTS),n=samples.length;
+  for(let i=0;i<CURVE_POINTS;i++){
+    const t=i/(CURVE_POINTS-1)*(n-1),lo=Math.floor(t),hi=Math.min(lo+1,n-1),f=t-lo;
+    data[i]=samples[lo].v*(1-f)+samples[hi].v*f;
   }
-  return { data, driveFrac: Math.min(1, Math.max(0, driveCount / n)) };
+  return{data,driveFrac:clamp(driveCount/n,0,1)};
 }
 
-function avgCurves(curves) {
-  if (!curves.length) return null;
-  const out = new Float32Array(CURVE_POINTS);
-  let driveFrac = 0;
-  for (const c of curves) {
-    for (let i = 0; i < CURVE_POINTS; i++) out[i] += c.data[i];
-    driveFrac += c.driveFrac;
-  }
-  for (let i = 0; i < CURVE_POINTS; i++) out[i] /= curves.length;
-  return { data: out, driveFrac: driveFrac / curves.length };
+function avgCurves(curves){
+  if(!curves.length)return null;
+  const out=new Float32Array(CURVE_POINTS);let df=0;
+  for(const c of curves){for(let i=0;i<CURVE_POINTS;i++)out[i]+=c.data[i];df+=c.driveFrac;}
+  for(let i=0;i<CURVE_POINTS;i++)out[i]/=curves.length;
+  return{data:out,driveFrac:df/curves.length};
 }
 
-function renderCurveCanvas() {
-  const canvas = document.getElementById('curve-canvas'); if (!canvas) return;
-  const wrap = canvas.parentElement, W = wrap.clientWidth, H = wrap.clientHeight;
-  if (!W || !H) return;
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
-  const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr); ctx.clearRect(0, 0, W, H);
-
-  const padT = 18, padB = 18, padH = 6;
-  const sx = i => padH + (i / (CURVE_POINTS - 1)) * (W - padH * 2);
-
-  const avg5 = strokeCurveHistory.length >= 2 ? avgCurves(strokeCurveHistory) : null;
-
-  // --- empty state ---
-  if (!lastStrokeCurve && !avg5) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1;
-    for (let i = 1; i < 4; i++) {
-      const y = H * i / 4;
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+/** Called at each new catch — finalises the previous stroke's curve. */
+function onNewCatch(){
+  if(pendingCurveDriveCount>0&&catchToCatchSamples.length>=8){
+    const norm=normalizeStrokeSamples(catchToCatchSamples,pendingCurveDriveCount);
+    if(norm){
+      lastStrokeCurve=norm;strokeCurveHistory.push(norm);
+      if(strokeCurveHistory.length>CURVE_HISTORY_N)strokeCurveHistory.shift();
+      if(curveTabActive()){renderCurveCanvas();updateCurveTiles();}
     }
-    ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.font = 'bold 11px Roboto, sans-serif';
-    ctx.textAlign = 'center'; ctx.fillText('Row a stroke to see the curve', W / 2, H / 2);
-    return;
   }
-
-  // --- y range across all visible curves ---
-  let yMin = Infinity, yMax = -Infinity;
-  for (const c of [lastStrokeCurve, avg5].filter(Boolean)) {
-    for (const v of c.data) { if (v < yMin) yMin = v; if (v > yMax) yMax = v; }
-  }
-  const yRange = yMax - yMin || 1;
-  const sy = v => padT + (1 - (v - yMin) / yRange) * (H - padT - padB);
-
-  // representative driveFrac for shading (prefer last stroke)
-  const driveFrac = (lastStrokeCurve ?? avg5).driveFrac;
-  const xDivide = sx(Math.round(driveFrac * (CURVE_POINTS - 1)));
-
-  // --- phase background shading ---
-  ctx.fillStyle = 'rgba(93,173,226,0.06)';   // drive — cool blue tint
-  ctx.fillRect(padH, padT, xDivide - padH, H - padT - padB);
-  ctx.fillStyle = 'rgba(243,156,18,0.05)';   // recovery — warm amber tint
-  ctx.fillRect(xDivide, padT, W - padH - xDivide, H - padT - padB);
-
-  // --- grid lines ---
-  ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1;
-  for (let i = 1; i < 4; i++) {
-    const y = H * i / 4;
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-  }
-
-  // --- zero line ---
-  if (yMin < 0 && yMax > 0) {
-    const y0 = sy(0);
-    ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1;
-    ctx.setLineDash([4, 6]);
-    ctx.beginPath(); ctx.moveTo(padH, y0); ctx.lineTo(W - padH, y0); ctx.stroke();
-    ctx.setLineDash([]); ctx.restore();
-  }
-
-  // --- drive / recovery divider ---
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,0.30)'; ctx.lineWidth = 1; ctx.setLineDash([3, 5]);
-  ctx.beginPath(); ctx.moveTo(xDivide, padT); ctx.lineTo(xDivide, H - padB);
-  ctx.stroke(); ctx.setLineDash([]); ctx.restore();
-
-  // --- draw curves ---
-  function drawCurveLine(curve, color, lineWidth, fill) {
-    ctx.beginPath();
-    for (let i = 0; i < CURVE_POINTS; i++) {
-      const x = sx(i), y = sy(curve.data[i]);
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    }
-    if (fill) {
-      const baseline = Math.max(padT, Math.min(H - padB, sy(Math.max(yMin, 0))));
-      ctx.lineTo(sx(CURVE_POINTS - 1), baseline); ctx.lineTo(sx(0), baseline); ctx.closePath();
-      ctx.fillStyle = color + '22'; ctx.fill();
-      ctx.beginPath();
-      for (let i = 0; i < CURVE_POINTS; i++) {
-        const x = sx(i), y = sy(curve.data[i]);
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-      }
-    }
-    ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.lineJoin = 'round'; ctx.stroke();
-  }
-
-  if (avg5) drawCurveLine(avg5, '#f39c12', 1.5, true);
-  if (lastStrokeCurve) drawCurveLine(lastStrokeCurve, '#5dade2', 2.5, false);
-
-  // --- y-axis value labels ---
-  ctx.fillStyle = 'rgba(255,255,255,0.38)'; ctx.font = '9px Roboto, sans-serif';
-  ctx.textAlign = 'left';
-  ctx.fillText(yMax.toFixed(1), 3, padT - 4);
-  ctx.fillText(yMin.toFixed(1), 3, H - padB + 11);
-
-  // --- x-axis phase labels ---
-  ctx.font = '9px Roboto, sans-serif';
-  ctx.fillStyle = 'rgba(93,173,226,0.75)';   // drive labels in blue
-  ctx.textAlign = 'left';  ctx.fillText('CATCH',    sx(0) + 2,         H - 3);
-  ctx.textAlign = 'right'; ctx.fillText('FINISH',   xDivide - 3,       H - 3);
-  ctx.fillStyle = 'rgba(243,156,18,0.75)';   // recovery labels in amber
-  ctx.textAlign = 'left';  ctx.fillText('RECOVERY', xDivide + 3,       H - 3);
-  ctx.textAlign = 'right'; ctx.fillText('CATCH',    sx(CURVE_POINTS-1) - 2, H - 3);
-
-  // --- title ---
-  ctx.fillStyle = 'rgba(255,255,255,0.38)'; ctx.textAlign = 'center';
-  ctx.fillText('acc.x  m/s²  ·  catch→catch', W / 2, padT - 4);
+  catchToCatchSamples=[];pendingCurveDriveCount=0;
 }
 
-
-/* ── Curve tiles ── */
-const CURVE_TILE_OPTIONS = ['stroke-rate','catch-slope','dps','impulse','run-loss','char','pace'];
-const CURVE_TILE_LABELS  = { 'stroke-rate': 'Stroke rate', 'catch-slope': 'Catch slope', 'dps': 'Dist/stroke', 'impulse': 'Impulse', 'run-loss': 'Run loss', 'char': 'Char %', 'pace': 'Pace' };
-const CURVE_TILE_SUBS    = { 'stroke-rate': 'str/min', 'catch-slope': 'm/s³', 'dps': 'm', 'impulse': '', 'run-loss': '%', 'char': '%', 'pace': '/500m' };
-
-let curveTileKeys = (() => { try { const saved = JSON.parse(localStorage.getItem('scull_ctiles') || 'null'); if (saved && saved.length === 4 && saved.every(k => CURVE_TILE_OPTIONS.includes(k))) return saved; } catch {} return ['stroke-rate', 'catch-slope', 'dps', 'impulse']; })();
-
-function curveTileValue(key) {
-  const on = running && !paused;
-  switch (key) {
-    case 'stroke-rate': return { val: (on && strokeRate > 0) ? (strokeRate % 1 === 0 ? strokeRate : strokeRate.toFixed(1)) : '--', dim: !on || !strokeRate };
-    case 'catch-slope': return { val: catchLast !== null ? catchLast : '--', dim: catchLast === null };
-    case 'dps': return { val: (on && distPerStroke > 0) ? distPerStroke.toFixed(1) : '--', dim: !on || !distPerStroke };
-    case 'impulse': { const imp = sessStrokes.length > 0 ? sessStrokes[sessStrokes.length - 1].driveImpulse : null; return { val: (imp != null && on) ? imp.toFixed(2) : '--', dim: !on || imp == null }; }
-    case 'run-loss': return { val: (runLossPct != null && on) ? runLossPct + '%' : '--', dim: !on || runLossPct == null };
-    case 'char': return { val: (on && strokeCount > 0) ? strokeChar : '--', dim: !on };
-    case 'pace': return { val: (on && pace > 0) ? fmt(pace) : '--:--', dim: !on || !pace };
-    default: return { val: '--', dim: true };
-  }
-}
-
-function updateCurveTiles() {
-  curveTileKeys.forEach((key, i) => {
-    const { val, dim } = curveTileValue(key);
-    const ve = document.getElementById(`ct-${i}-val`), se = document.getElementById(`ct-${i}-sub`), le = document.getElementById(`ct-${i}-lbl`);
-    if (!ve) return;
-    ve.textContent = val; ve.className = 'tval-r23' + (dim ? ' dim' : '');
-    if (se) se.textContent = CURVE_TILE_SUBS[key] || '';
-    if (le) le.textContent = CURVE_TILE_LABELS[key] + ' ▸';
-  });
-}
-
-function wireCurveTiles() {
-  document.querySelectorAll('.curve-tile').forEach(el => {
-    const i = parseInt(el.dataset.cw);
-    el.addEventListener('click', () => { const cur = curveTileKeys[i], next = CURVE_TILE_OPTIONS[(CURVE_TILE_OPTIONS.indexOf(cur) + 1) % CURVE_TILE_OPTIONS.length]; curveTileKeys[i] = next; try { localStorage.setItem('scull_ctiles', JSON.stringify(curveTileKeys)); } catch {} updateCurveTiles(); });
-  });
-}
-
-let activeSubTab = 'live';
-function curveTabActive() { return document.getElementById('screen-live').classList.contains('active') && activeSubTab === 'curve'; }
-
-/* ════════════════════════════════════════
+/* ═══════════════════════════════════════════════════
    STROKE METRICS
-════════════════════════════════════════ */
-const SPM_MIN = 10, SPM_MAX = 50;
-let strokeRate = 0, strokeCount = 0, strokesDetected = 0;
-let catchValsArr = [];
-let catchLast = null, catchPeakSess = null, catchAvg8 = null, catchConsistency = null;
-let charValsArr = [];
-let strokeChar = 50;
-let distPerStroke = 0, dpsValsArr = [], maxDPS = 0;
-let prevStrokeDist = 0, prevStrokeDistT = 0;
-const MAX_STROKE_TS = 4;
-const strokeTs = [];
-let runLossPct = null, runLossMs = null, runEfficiency = null;
-const CATCH_TS_BUF = 7;
-const catchTsBuf = [];
-let rdi = 0, rdiValsArr = [];
+═══════════════════════════════════════════════════ */
+let strokeRate=0,strokeCount=0,strokesDetected=0;
+let catchValsArr=[],catchLast=null,catchPeakSess=null,catchAvg8=null,catchConsistency=null;
+let charValsArr=[],strokeChar=50;
+let distPerStroke=0,dpsValsArr=[],maxDPS=0;
+let prevStrokeDist=0,prevStrokeDistT=0;
+const MAX_STROKE_TS=4,strokeTs=[];
+const CATCH_TS_BUF=7,catchTsBuf=[];
+let rdi=null,rdiValsArr=[];
 
-// ── catch-to-catch curve accumulation ──
-let catchToCatchSamples = [];
-let pendingCurveDriveCount = 0;
-
-function rateFromMedianIntervals() {
-  if (catchTsBuf.length < 2) return 0;
-  const intervals = [];
-  for (let i = 1; i < catchTsBuf.length; i++) { const dt = catchTsBuf[i] - catchTsBuf[i - 1]; if (dt >= PERIOD_MIN_MS && dt <= PERIOD_MAX_MS) intervals.push(dt); }
-  if (intervals.length === 0) return 0;
-  intervals.sort((a, b) => a - b);
-  const mid = Math.floor(intervals.length / 2);
-  return 60000 / (intervals.length % 2 === 0 ? (intervals[mid - 1] + intervals[mid]) / 2 : intervals[mid]);
-}
-
-function computeDriveImpulse(samples) {
-  let impulse = 0;
-  for (let i = 1; i < samples.length; i++) { const dt = (samples[i].t - samples[i-1].t) / 1000; if (dt <= 0 || dt > 0.1) continue; if (samples[i].v > 0) impulse += samples[i].v * dt; }
-  return impulse > 0 ? +impulse.toFixed(4) : null;
-}
-
-// Called from FSM at the moment a new catch is confirmed, before drive state resets.
-function onNewCatch() {
-  if (pendingCurveDriveCount > 0 && catchToCatchSamples.length >= 8) {
-    const normalised = normalizeStrokeSamples(catchToCatchSamples, pendingCurveDriveCount);
-    if (normalised) {
-      lastStrokeCurve = normalised;
-      strokeCurveHistory.push(normalised);
-      if (strokeCurveHistory.length > CURVE_HISTORY_N) strokeCurveHistory.shift();
-      if (curveTabActive()) { renderCurveCanvas(); updateCurveTiles(); }
-    }
+function rateFromMedianIntervals(){
+  if(catchTsBuf.length<2)return 0;
+  const intervals=[];
+  for(let i=1;i<catchTsBuf.length;i++){
+    const dt=catchTsBuf[i]-catchTsBuf[i-1];
+    if(dt>=CONFIG.stroke.periodMinMs&&dt<=CONFIG.stroke.periodMaxMs)intervals.push(dt);
   }
-  catchToCatchSamples = [];
-  pendingCurveDriveCount = 0;
+  if(!intervals.length)return 0;
+  intervals.sort((a,b)=>a-b);
+  const m=Math.floor(intervals.length/2);
+  return 60000/(intervals.length%2===0?(intervals[m-1]+intervals[m])/2:intervals[m]);
 }
 
-function onStrokeFinish(now, driveDur) {
-  if (driveDur < MIN_DRIVE_MS || driveDur > MAX_DRIVE_MS) return;
-  const catchSlope = Math.round(Math.abs(catchPeakJerk));
-  if (catchSlope < 2 || catchSlope < jerkThreshBase * 1.5) return;
+/** Integrate positive gravity-corrected acceleration over drive samples (m/s² · s). */
+function computeDriveImpulse(samples){
+  let impulse=0;
+  for(let i=1;i<samples.length;i++){
+    const dt=(samples[i].t-samples[i-1].t)/1000;
+    if(dt<=0||dt>0.1)continue;
+    if(samples[i].v>0)impulse+=samples[i].v*dt;
+  }
+  return impulse>0?+impulse.toFixed(4):null;
+}
 
-  const peakOffset = drivePeakAccT - driveStartT;
-  const rawChar = driveDur > 0 ? Math.min(100, Math.max(0, (peakOffset / driveDur) * 100)) : 50;
+function onStrokeFinish(now,driveDur){
+  if(driveDur<CONFIG.stroke.minDriveMs||driveDur>CONFIG.stroke.maxDriveMs)return;
+  const catchSlope=Math.round(Math.abs(catchPeakJerk));
+  if(catchSlope<2||catchSlope<jerkThreshBase*1.5)return;
+
+  const peakOffset=drivePeakAccT-driveStartT;
+  const rawChar=driveDur>0?clamp((peakOffset/driveDur)*100,0,100):50;
 
   catchTsBuf.push(driveStartT);
-  if (catchTsBuf.length > CATCH_TS_BUF) catchTsBuf.shift();
-  lastCatchAbsT = driveStartT;
+  if(catchTsBuf.length>CATCH_TS_BUF)catchTsBuf.shift();
+  lastCatchAbsT=driveStartT;
 
-  const medRate = rateFromMedianIntervals();
-  if (medRate > 0) {
+  // Stroke rate: blended median-interval + autocorrelation
+  const medRate=rateFromMedianIntervals();
+  if(medRate>0){
     let blended;
-    if (strokeRate === 0) {
-      blended = medRate;
-    } else if (acConf > 0.50 && acRate > 0) {
-      const acTooHigh = acRate > medRate * 1.35;
-      const acTooLow  = medRate > 0 && acRate < medRate * 0.72;
-      const acRateSafe = (acTooHigh || acTooLow) ? medRate : acRate;
-      blended = 0.75 * medRate + 0.25 * acRateSafe;
-    } else {
-      blended = 0.65 * medRate + 0.35 * strokeRate;
-    }
-    strokeRate = Math.max(SPM_MIN, Math.min(SPM_MAX, Math.round(blended * 2) / 2));
+    if(strokeRate===0){blended=medRate;}
+    else if(acConf>0.50&&acRate>0){
+      const safe=(acRate>medRate*1.35||acRate<medRate*0.72)?medRate:acRate;
+      blended=0.75*medRate+0.25*safe;
+    } else {blended=0.65*medRate+0.35*strokeRate;}
+    strokeRate=clamp(Math.round(blended*2)/2,CONFIG.stroke.spmMin,CONFIG.stroke.spmMax);
   }
   strokesDetected++;
 
-  catchValsArr.push(catchSlope); if (catchValsArr.length > 8) catchValsArr.shift();
-  catchLast = Math.round(catchValsArr.reduce((a, b) => a + b, 0) / catchValsArr.length);
-  catchAvg8 = catchLast;
-  if (catchPeakSess === null || catchSlope > catchPeakSess) catchPeakSess = catchSlope;
+  // Catch slope rolling average (last 8 strokes)
+  catchValsArr.push(catchSlope);
+  if(catchValsArr.length>8)catchValsArr.shift();
+  catchLast=Math.round(catchValsArr.reduce((a,b)=>a+b,0)/catchValsArr.length);
+  catchAvg8=catchLast;
+  if(catchPeakSess==null||catchSlope>catchPeakSess)catchPeakSess=catchSlope;
 
-  if (catchValsArr.length >= 5) {
-    const m = catchValsArr.reduce((a, b) => a + b, 0) / catchValsArr.length;
-    const sd = Math.sqrt(catchValsArr.reduce((s, v) => s + (v - m) ** 2, 0) / catchValsArr.length);
-    const target = Math.max(jerkThreshBase, m * 0.50 - sd * 0.35);
-    jerkThreshActive = adaptReady
-      ? Math.max(jerkThreshBase * 0.8, 0.80 * jerkThreshActive + 0.20 * target)
-      : Math.max(jerkThreshBase * 0.8, target);
-    if (!adaptReady) {
-      adaptReady = true;
-      if (strokesDetected >= 4) { axisLocked = true; const pill = document.getElementById('p-axis'); if (pill) { pill.textContent = 'AX:' + selAxis.toUpperCase(); pill.className = 'pill pill-on'; } }
+  // Adaptive jerk threshold — converges to session-specific rhythm
+  if(catchValsArr.length>=5){
+    const m=catchValsArr.reduce((a,b)=>a+b,0)/catchValsArr.length;
+    const sd=Math.sqrt(catchValsArr.reduce((s,v)=>s+(v-m)**2,0)/catchValsArr.length);
+    const target=Math.max(jerkThreshBase,m*0.50-sd*0.35);
+    jerkThreshActive=adaptReady
+      ?Math.max(jerkThreshBase*0.8,0.80*jerkThreshActive+0.20*target)
+      :Math.max(jerkThreshBase*0.8,target);
+    if(!adaptReady){
+      adaptReady=true;
+      if(strokesDetected>=4){
+        axisLocked=true;
+        const p=document.getElementById('p-axis');
+        if(p){p.textContent='AX:'+selAxis.toUpperCase();p.className='pill pill-on';}
+      }
     }
   }
 
-  if (catchValsArr.length >= 3) {
-    const m = catchValsArr.reduce((a, b) => a + b, 0) / catchValsArr.length;
-    catchConsistency = Math.round(Math.sqrt(catchValsArr.reduce((s, v) => s + (v - m) ** 2, 0) / catchValsArr.length));
+  if(catchValsArr.length>=3){
+    const m=catchValsArr.reduce((a,b)=>a+b,0)/catchValsArr.length;
+    catchConsistency=Math.round(Math.sqrt(catchValsArr.reduce((s,v)=>s+(v-m)**2,0)/catchValsArr.length));
   }
 
-  charValsArr.push(Math.round(rawChar)); if (charValsArr.length > 5) charValsArr.shift();
-  strokeChar = Math.round(charValsArr.reduce((a, b) => a + b, 0) / charValsArr.length);
+  // Stroke characteristic
+  charValsArr.push(Math.round(rawChar));
+  if(charValsArr.length>5)charValsArr.shift();
+  strokeChar=Math.round(charValsArr.reduce((a,b)=>a+b,0)/charValsArr.length);
 
-  strokeTs.push(driveStartT); if (strokeTs.length > MAX_STROKE_TS) strokeTs.shift();
-  rdi = null;
-
-  if (strokeTs.length >= 2) {
-    const prevCatchT = strokeTs[strokeTs.length - 2], currentCatchT = strokeTs[strokeTs.length - 1];
-    const recovery = (currentCatchT - prevCatchT - driveDur) / 1000, drive = driveDur / 1000;
-    if (recovery > 0 && drive > 0) {
-      const rdiRaw = (recovery - drive) / (recovery + drive);
-      rdiValsArr.push(rdiRaw); if (rdiValsArr.length > 10) rdiValsArr.shift();
-      rdi = Math.max(-1, Math.min(1, rdiValsArr.reduce((a, b) => a + b, 0) / rdiValsArr.length));
+  // Recovery–Drive Index
+  strokeTs.push(driveStartT);
+  if(strokeTs.length>MAX_STROKE_TS)strokeTs.shift();
+  rdi=null;
+  if(strokeTs.length>=2){
+    const prev=strokeTs[strokeTs.length-2],cur=strokeTs[strokeTs.length-1];
+    const rec=(cur-prev-driveDur)/1000,drv=driveDur/1000;
+    if(rec>0&&drv>0){
+      const rdiRaw=(rec-drv)/(rec+drv);
+      rdiValsArr.push(rdiRaw);if(rdiValsArr.length>10)rdiValsArr.shift();
+      rdi=clamp(rdiValsArr.reduce((a,b)=>a+b,0)/rdiValsArr.length,-1,1);
     }
   }
 
-  const intervalS = strokeTs.length >= 2 ? (strokeTs[strokeTs.length - 1] - strokeTs[strokeTs.length - 2]) / 1000 : 0;
+  const intervalS=strokeTs.length>=2?(strokeTs[strokeTs.length-1]-strokeTs[strokeTs.length-2])/1000:0;
 
-  const isRestRecovery = intervalS > 5.0;
-  if (isRestRecovery) {
-    acBuf.length = 0;
-    acConf = 0;
-    catchTsBuf.length = 0;
-    strokeRate = 0;
-    // Also discard any partial catch-to-catch curve across a rest gap
-    catchToCatchSamples = [];
-    pendingCurveDriveCount = 0;
+  // Rest gap: flush autocorrelation state across long pauses
+  if(intervalS>CONFIG.stroke.restGapS){
+    acBuf.length=0;acConf=0;catchTsBuf.length=0;strokeRate=0;
+    catchToCatchSamples=[];pendingCurveDriveCount=0;
   }
 
-  const dpsRawDelta = prevStrokeDistT > 0 ? +(distance - prevStrokeDist).toFixed(2) : 0;
-  if (intervalS > 0.8 && intervalS < 8 && prevStrokeDistT > 0) {
-    const dDist = distance - prevStrokeDist;
-    if (dDist > 0.5 && dDist < 25) {
-      dpsValsArr.push(dDist); if (dpsValsArr.length > 8) dpsValsArr.shift();
-      distPerStroke = Math.round(dpsValsArr.reduce((a, b) => a + b, 0) / dpsValsArr.length * 10) / 10;
-      if (distPerStroke > maxDPS) maxDPS = distPerStroke;
+  // DPS: GPS distance between consecutive catches, median-filtered
+  if(intervalS>0.8&&intervalS<8&&prevStrokeDistT>0){
+    const dDist=distance-prevStrokeDist;
+    if(dDist>0.5&&dDist<25){
+      pushLimit(dpsValsArr,dDist,CONFIG.stroke.dpsMedianN);
+      distPerStroke=Math.round((median(dpsValsArr)??dDist)*10)/10;
+      if(distPerStroke>maxDPS)maxDPS=distPerStroke;
     }
   }
-  prevStrokeDist = distance; prevStrokeDistT = driveStartT;
+  prevStrokeDist=distance;prevStrokeDistT=driveStartT;
 
-  computeRunLoss(now, intervalS);
-  const driveImpulse = computeDriveImpulse(driveAccSamples);
-  const catchIntervalMs = catchTsBuf.length >= 2 ? catchTsBuf[catchTsBuf.length - 1] - catchTsBuf[catchTsBuf.length - 2] : null;
-  const medRateRaw = rateFromMedianIntervals();
+  // Impulse: integrate positive gravity-corrected drive accel
+  const driveImpulse=computeDriveImpulse(driveAccSamples);
+
+  // Schedule run-loss window — resolved in GPS handler via updatePendingRunLoss()
+  pendingRun={
+    startAt: driveStartT+CONFIG.runLoss.startAfterCatchMs,
+    endAt:   driveStartT+CONFIG.runLoss.startAfterCatchMs+CONFIG.runLoss.windowMs,
+    startSpeed:null,minSpeed:null
+  };
 
   strokeCount++;
+  const catchIntervalMs=catchTsBuf.length>=2?catchTsBuf[catchTsBuf.length-1]-catchTsBuf[catchTsBuf.length-2]:null;
+
   sessStrokes.push({
-    t: Date.now(), catchPeak: catchSlope, char: strokeChar,
-    rate: strokeRate, pace: pace > 0 ? pace : null,
-    dist: distance, dps: distPerStroke,
-    runLossPct, runLossMs, runEfficiency, driveImpulse, catchConsistency, rdi,
-    dbg: {
-      intervalMs:    catchIntervalMs ? Math.round(catchIntervalMs) : null,
-      driveDurMs:    Math.round(driveDur),
-      catchJerkRaw:  +catchPeakJerk.toFixed(1),
-      jerkThresh:    +jerkThreshActive.toFixed(2),
-      medRateFsm:    medRateRaw > 0 ? +medRateRaw.toFixed(1) : null,
-      acRate:        acRate > 0 ? acRate : null,
-      acConf:        +acConf.toFixed(3),
-      gpsEma:        gpsSpeedEma > 0.3 ? +(500 / gpsSpeedEma).toFixed(1) : null,
-      dpsRaw:        dpsRawDelta,
-      dpsN:          dpsValsArr.length,
-      selAxis,
-      axisLocked
+    t:Date.now(),catchPeak:catchSlope,char:strokeChar,
+    rate:strokeRate,pace:pace>0?pace:null,
+    dist:distance,dps:distPerStroke,
+    runLossM:null,  // back-filled by updatePendingRunLoss()
+    driveImpulse,catchConsistency,rdi,
+    dbg:{
+      intervalMs:   catchIntervalMs?Math.round(catchIntervalMs):null,
+      driveDurMs:   Math.round(driveDur),
+      catchJerkRaw: +catchPeakJerk.toFixed(1),
+      jerkThresh:   +jerkThreshActive.toFixed(2),
+      medRateFsm:   rateFromMedianIntervals()>0?+rateFromMedianIntervals().toFixed(1):null,
+      acRate:       acRate>0?acRate:null,
+      acConf:       +acConf.toFixed(3),
+      gpsEma:       gpsSpeedEma>0.3?+(500/gpsSpeedEma).toFixed(1):null,
+      dpsN:         dpsValsArr.length,
+      selAxis,axisLocked
     }
   });
 
-  // Snapshot drive boundary — recovery samples continue accumulating until onNewCatch().
-  pendingCurveDriveCount = catchToCatchSamples.length;
-
+  pendingCurveDriveCount=catchToCatchSamples.length;
   updateUI();
 }
 
-/* ════════════════════════════════════════
-   AUTOCORRELATION STROKE RATE
-════════════════════════════════════════ */
-const AC_BUF_MS = 15000, AC_UPDATE_MS = 2000;
-const acBuf = [];
-let acLastUpdate = 0, acRate = 0, acConf = 0;
+/* ═══════════════════════════════════════════════════
+   GPS / PACE
+═══════════════════════════════════════════════════ */
+let pace=0,gpsAccuracyM=null;
+let gpsSpeedEma=-1,gpsLastValidT=0,gpsWasStopped=false;
+const speedSamples=[];     // median pre-filter window
+const paceDistWindow=[];   // sliding distance window for pace
+const velocityWindow=[];   // EMA speed history for run-loss window
+let lastPos=null;
+const sessGpsTrace=[],sessGpsRawTrace=[];
 
-function computeAutocorrelationRate(now) {
-  if (acBuf.length < 80 || now - acLastUpdate < AC_UPDATE_MS) return; acLastUpdate = now;
-  const vals = acBuf.map(s => s.v), n = vals.length;
-  const mu = vals.reduce((a, b) => a + b, 0) / n, x = vals.map(v => v - mu);
-  const r0 = x.reduce((s, v) => s + v * v, 0) / n; if (r0 < 0.01) return;
-  const dtMs = (acBuf[n - 1].t - acBuf[0].t) / Math.max(1, n - 1);
-  const minL = Math.max(1, Math.floor(PERIOD_MIN_MS / dtMs)), maxL = Math.min(Math.floor(PERIOD_MAX_MS / dtMs), Math.floor(n * 0.6));
-  if (minL >= maxL) return;
-  let bestR = -Infinity, bestLag = minL;
-  for (let lag = minL; lag <= maxL; lag++) { let sum = 0; const len = n - lag; for (let i = 0; i < len; i++) sum += x[i] * x[i + lag]; const r = sum / (len * r0); if (r > bestR) { bestR = r; bestLag = lag; } }
-  if (bestR < 0.22) { acConf = Math.max(0, bestR); return; }
-  const periodMs = bestLag * dtMs, raw = 60000 / periodMs;
-  if (raw < SPM_MIN || raw > SPM_MAX) return;
-  const rateRef = strokeRate > 0 ? strokeRate : (acRate > 0 ? acRate : 0);
-  if (rateRef > 0 && raw > rateRef * 0.72 && bestR < 0.65) { acConf = Math.max(0, acConf * 0.5); return; }
-  acConf = Math.min(1, bestR);
-  const smooth = acRate === 0 ? raw : (0.35 * raw + 0.65 * acRate);
-  acRate = Math.round(smooth * 2) / 2;
-  if (running && !paused && (now - lastCatchAbsT) > 4000 && acConf > 0.40) {
-    strokeRate = acRate; updateUI();
+/* ═══════════════════════════════════════════════════
+   RUN LOSS  (speed-decay approach from the rewrite)
+   Replaces the velocity-window min/max percentage approach.
+   After each drive, sample speed at +450ms, track min over
+   +900ms window, compute energy-equivalent loss in m/stroke.
+═══════════════════════════════════════════════════ */
+let pendingRun=null;
+const runLosses=[];
+let runLossM=null;
+
+function updatePendingRunLoss(){
+  const p=pendingRun; if(!p||gpsSpeedEma<0.3)return;
+  const t=performance.now(),s=gpsSpeedEma;
+  if(t>=p.startAt&&p.startSpeed===null){p.startSpeed=s;p.minSpeed=s;}
+  if(p.startSpeed!==null&&t<p.endAt)p.minSpeed=Math.min(p.minSpeed,s);
+  if(t>=p.endAt&&p.startSpeed!==null){
+    const dv=Math.max(0,p.startSpeed-p.minSpeed);
+    const loss=dv*(CONFIG.runLoss.windowMs/1000)*0.5;
+    if(loss>=0&&loss<=CONFIG.runLoss.maxLossM){
+      pushLimit(runLosses,loss,CONFIG.runLoss.medianN);
+      runLossM=median(runLosses);
+      if(sessStrokes.length)sessStrokes[sessStrokes.length-1].runLossM=runLossM;
+    }
+    pendingRun=null;
   }
 }
 
-/* ════════════════════════════════════════
-   MAIN MOTION HANDLER
-════════════════════════════════════════ */
-function handleMotion(e) {
-  const now = performance.now();
-  updateAxes(e, now); maybeDetectAxis(now);
-  if (calRunning) return;
-  const fast = axFast[selAxis];
-  jerkBuf.push({ t: now, v: fast }); if (jerkBuf.length > 5) jerkBuf.shift();
-  let jerk = 0;
-  if (jerkBuf.length >= 2) { const dt = (jerkBuf[jerkBuf.length - 1].t - jerkBuf[0].t) / 1000; if (dt > 0.005) jerk = (jerkBuf[jerkBuf.length - 1].v - jerkBuf[0].v) / dt; jerk = Math.max(-300, Math.min(300, jerk)); }
-  acBuf.push({ t: now, v: axSmooth[selAxis] });
-  const acCut = now - AC_BUF_MS;
-  while (acBuf.length > 1 && acBuf[0].t < acCut) acBuf.shift();
-
-  // ── catch-to-catch sample accumulation ──
-  if (running && !paused) {
-    catchToCatchSamples.push({ t: now, v: axSmooth[selAxis] });
-    computeAutocorrelationRate(now);
+/**
+ * Push GPS speed into the filtered EMA pipeline:
+ *   median pre-filter (N=7)  →  spike filter  →  EMA
+ * This removes outlier GPS fixes before they enter the EMA,
+ * keeping gpsSpeedEma clean for pace and run-loss.
+ */
+function pushVelocity(t,v){
+  const gapMs=gpsLastValidT>0?t-gpsLastValidT:0;
+  if(gpsSpeedEma<0||gapMs>CONFIG.gps.gapResetMs){
+    gpsLastValidT=t;gpsSpeedEma=v;gpsWasStopped=false;
+    if(gapMs>CONFIG.gps.gapResetMs){paceDistWindow.length=0;speedSamples.length=0;}
+    return;
   }
-
-  runFSM(now, fast, jerk);
-}
-
-
-/* ════════════════════════════════════════
-   GPS / PACE / VELOCITY
-════════════════════════════════════════ */
-let pace = 0;
-const PACE_MAX = 600;
-const paceDistWindow = [];
-const PACE_DIST_WINDOW_MS = 12000;
-let vAnchor = 0, vAnchorT = 0;
-const velocityWindow = [];
-const VEL_WINDOW_MS = 10000;
-let gpsWasStopped = false, gpsSpeedEma = -1, gpsLastValidT = 0, gpsBlackoutHeld = false;
-const GPS_EMA_ALPHA    = 0.28;
-const GPS_GAP_RESET_MS = 3000;
-const GPS_SPIKE_DELTA  = 1.5;
-
-function pushVelocity(t, v) {
-  const gapMs = gpsLastValidT > 0 ? t - gpsLastValidT : 0;
-  gpsBlackoutHeld = false;
-  const cut = t - VEL_WINDOW_MS;
-  while (velocityWindow.length > 1 && velocityWindow[0].t < cut) velocityWindow.shift();
-
-  if (gpsSpeedEma < 0 || gapMs > GPS_GAP_RESET_MS) {
-    gpsLastValidT = t; gpsSpeedEma = v; gpsWasStopped = false;
-    if (gapMs > GPS_GAP_RESET_MS) paceReadings.length = 0;
-  } else if (gpsWasStopped && v > 0.5) {
-    gpsLastValidT = t; gpsSpeedEma = v; gpsWasStopped = false; paceReadings.length = 0;
-  } else {
-    if (v < 0.3) {
-      if (gpsSpeedEma < 0.5) { gpsLastValidT = t; gpsWasStopped = true; }
-      else if ((t - lastCatchAbsT) < 4000) { gpsBlackoutHeld = true; return; }
-      else { return; }
-    } else {
-      gpsLastValidT = t; gpsBlackoutHeld = false;
-    }
-    if (v >= 0.3) {
-      const vCapped = (gpsSpeedEma > 1.0 && v > gpsSpeedEma + GPS_SPIKE_DELTA) ? gpsSpeedEma + GPS_SPIKE_DELTA : v;
-      gpsSpeedEma = GPS_EMA_ALPHA * vCapped + (1 - GPS_EMA_ALPHA) * gpsSpeedEma;
-    }
+  if(gpsWasStopped&&v>0.5){gpsLastValidT=t;gpsSpeedEma=v;gpsWasStopped=false;paceDistWindow.length=0;return;}
+  if(v<0.3){
+    if(gpsSpeedEma<0.5){gpsLastValidT=t;gpsWasStopped=true;return;}
+    if((t-lastCatchAbsT)<4000)return;  // hold EMA through active stroke
+    return;
   }
-  /* FIX F9: only push to velocityWindow when EMA is meaningful (>0.3 m/s).
-     Previous code pushed gpsSpeedEma=0 readings during initialisation, causing
-     vmin=0 in computeRunLoss and rl_p=100% on every post-init stroke. */
-  if (!gpsBlackoutHeld && gpsSpeedEma > 0.3) {
-    velocityWindow.push({ t, v: gpsSpeedEma });
+  gpsLastValidT=t;
+  pushLimit(speedSamples,v,CONFIG.gps.speedMedianN);
+  const medV=median(speedSamples)??v;
+  const vCapped=(gpsSpeedEma>1.0&&medV>gpsSpeedEma+CONFIG.gps.spikeMarginMps)
+    ?gpsSpeedEma+CONFIG.gps.spikeMarginMps:medV;
+  gpsSpeedEma=CONFIG.gps.speedEmaAlpha*vCapped+(1-CONFIG.gps.speedEmaAlpha)*gpsSpeedEma;
+  if(gpsSpeedEma>0.3){
+    velocityWindow.push({t,v:gpsSpeedEma});
+    const velCut=t-CONFIG.gps.velWindowMs;
+    while(velocityWindow.length>1&&velocityWindow[0].t<velCut)velocityWindow.shift();
   }
 }
 
-function computeRunLoss(now, strokeIntervalS) {
-  const windowMs = strokeIntervalS > 0 ? strokeIntervalS * 1200 : (strokeRate > 0 ? (60000 / strokeRate) * 1.1 : 3500);
-  const cutoff = (now || performance.now()) - windowMs;
-  const rel = velocityWindow.filter(p => p.t >= cutoff);
-  if (rel.length < 2) { runLossPct = null; runLossMs = null; runEfficiency = null; return; }
-  let vmax = 0, vmin = Infinity;
-  for (const p of rel) { if (p.v > vmax) vmax = p.v; if (p.v < vmin) vmin = p.v; }
-  if (vmax < 1.0 || vmin >= vmax) { runLossPct = null; runLossMs = null; runEfficiency = null; return; }
-  runLossMs = +(vmax - vmin).toFixed(2);
-  runLossPct = +(((vmax - vmin) / vmax) * 100).toFixed(1);
-  runEfficiency = +(vmin / vmax).toFixed(3);
-}
+function handlePos(pos){
+  const acc=pos.coords.accuracy||0; gpsAccuracyM=acc;
+  const pill=document.getElementById('p-gps');
+  if(acc<8)      {pill.className='pill pill-on'; pill.textContent='GPS '+Math.round(acc)+'m';}
+  else if(acc<25){pill.className='pill pill-warn';pill.textContent='GPS '+Math.round(acc)+'m';}
+  else           {pill.className='pill pill-err'; pill.textContent='GPS '+Math.round(acc)+'m';}
 
-let lastPos = null;
-const sessGpsTrace = [], sessGpsRawTrace = [];
+  const spd=pos.coords.speed,now=performance.now();
 
-function handlePos(pos) {
-  const acc = pos.coords.accuracy || 0;
-  const gpsPill = document.getElementById('p-gps');
-  if (acc < 8) { gpsPill.className = 'pill pill-on'; gpsPill.textContent = 'GPS ' + Math.round(acc) + 'm'; }
-  else if (acc < 25) { gpsPill.className = 'pill pill-warn'; gpsPill.textContent = 'GPS ' + Math.round(acc) + 'm'; }
-  else { gpsPill.className = 'pill pill-err'; gpsPill.textContent = 'GPS ' + Math.round(acc) + 'm'; }
-
-  const spd = pos.coords.speed, now = performance.now();
-  if (running && !paused && spd != null && spd >= 0 && spd < 8) {
-    vAnchor = spd; vAnchorT = now;
-    pushVelocity(now, spd);
-    sessGpsRawTrace.push({ t: Date.now(), rawSpd: spd != null ? +spd.toFixed(3) : null, emaSpd: +gpsSpeedEma.toFixed(3), acc: +(pos.coords.accuracy || 0).toFixed(1), fixAge: Math.round(Date.now() - pos.timestamp), heading: pos.coords.heading != null ? +pos.coords.heading.toFixed(1) : null, blackout: gpsBlackoutHeld ? 1 : 0 });
+  if(running&&!paused&&spd!=null&&spd>=0&&spd<8){
+    pushVelocity(now,spd);
+    updatePendingRunLoss();
+    sessGpsRawTrace.push({t:Date.now(),rawSpd:+spd.toFixed(3),emaSpd:+gpsSpeedEma.toFixed(3),acc:+acc.toFixed(1),fixAge:Math.round(Date.now()-pos.timestamp),heading:pos.coords.heading!=null?+pos.coords.heading.toFixed(1):null,blackout:0});
   }
 
-  const lat = pos.coords.latitude, lon = pos.coords.longitude, cur = { lat, lon, t: Date.now() };
-  if (running && !paused && lastPos && lat != null && lon != null && lastPos.lat != null && lastPos.lon != null) {
-    const d = haversine(lastPos, cur);
-    if (d >= 0.3 && d < 30 && gpsSpeedEma > 0.5) {
-      distance += d; cur.dist = distance; sessGpsTrace.push(cur);
-      paceDistWindow.push({ t: now, dist: distance });
-      const pdCut = now - PACE_DIST_WINDOW_MS;
-      while (paceDistWindow.length > 1 && paceDistWindow[0].t < pdCut) paceDistWindow.shift();
+  const lat=pos.coords.latitude,lon=pos.coords.longitude,cur={lat,lon,t:Date.now()};
+  if(running&&!paused&&lastPos&&lat!=null&&lon!=null&&lastPos.lat!=null&&lastPos.lon!=null){
+    const d=haversineM(lastPos,cur);
+    if(d>=CONFIG.gps.minMoveDist&&d<30&&gpsSpeedEma>0.5){
+      distance+=d;cur.dist=distance;sessGpsTrace.push(cur);
+      paceDistWindow.push({t:now,dist:distance});
+      const pdCut=now-CONFIG.gps.paceWindowMs;
+      while(paceDistWindow.length>1&&paceDistWindow[0].t<pdCut)paceDistWindow.shift();
     }
-  }                            // ← closes the position-delta block here
-  lastPos = cur;               // ← unconditional: always update anchor
-
-  /* FIX P1: position-derived pace */
-  if (running && !paused) {
-    if (spd != null && spd < 0.3) { paceDistWindow.length = 0; pace = 0; }
-    else if (paceDistWindow.length >= 2) {
-      const oldest = paceDistWindow[0], newest = paceDistWindow[paceDistWindow.length - 1];
-      const dtS = (newest.t - oldest.t) / 1000;
-      const dd  = newest.dist - oldest.dist;
-      if (dd >= 3 && dtS >= 3) {
-        const raw = (dtS / dd) * 500;
-        if (raw >= 90 && raw <= PACE_MAX) { pace = raw; sessPaceTrace.push(pace); }
-      }
-    }
-    if (gpsLastValidT > 0 && (now - gpsLastValidT) > 6000) pace = 0;
   }
+  lastPos=cur;
 
+  if(running&&!paused){
+    if(spd!=null&&spd<0.3){paceDistWindow.length=0;pace=0;}
+    else if(paceDistWindow.length>=2){
+      const oldest=paceDistWindow[0],newest=paceDistWindow[paceDistWindow.length-1];
+      const dtS=(newest.t-oldest.t)/1000,dd=newest.dist-oldest.dist;
+      if(dd>=3&&dtS>=3){const raw=(dtS/dd)*500;if(raw>=90&&raw<=CONFIG.gps.maxPaceS){pace=raw;sessPaceTrace.push(pace);}}
+    }
+    if(gpsLastValidT>0&&(now-gpsLastValidT)>6000)pace=0;
+  }
   updateUI();
 }
 
-
-function handleGpsErr(err) {
-  const p = document.getElementById('p-gps'); p.className = 'pill pill-err';
-  p.textContent = err.code === 1 ? 'GPS DENIED' : 'GPS ERR';
+function handleGpsErr(err){
+  const p=document.getElementById('p-gps');p.className='pill pill-err';
+  p.textContent=err.code===1?'GPS DENIED':'GPS ERR';
 }
 
-/* ════════════════════════════════════════
+/* ═══════════════════════════════════════════════════
    SESSION STATE
-════════════════════════════════════════ */
-let running = false, paused = false, elapsed = 0;
-let distance = 0, lapStartDist = 0, lapStartTime = 0;
-let laps = [], sessStart = null, sessStrokes = [], sessPaceTrace = [];
-let sessSaved = false;
-let timerInt = null, autosaveInt = null, wakeLock = null;
+═══════════════════════════════════════════════════ */
+let running=false,paused=false,elapsed=0;
+let distance=0,lapStartDist=0,lapStartTime=0;
+let laps=[],sessStart=null,sessStrokes=[],sessPaceTrace=[];
+let sessSaved=false,timerInt=null,autosaveInt=null,wakeLock=null;
 
-/* ════════════════════════════════════════
-   UI UPDATE
-════════════════════════════════════════ */
-function updateUI() {
-  const on = running && !paused;
-  const pel = document.getElementById('t-pace');
-  if (on && pace > 0) { pel.textContent = fmt(pace); pel.className = 'tval tval-primary'; }
-  else { pel.textContent = '--:--'; pel.className = 'tval tval-primary dim'; }
+/* ═══════════════════════════════════════════════════
+   UPDATE UI  — drives both values and quality pills
+═══════════════════════════════════════════════════ */
+function updateUI(){
+  const on=running&&!paused;
 
-  const rel = document.getElementById('t-rate');
-  if (on && strokeRate > 0) { rel.textContent = strokeRate % 1 === 0 ? strokeRate : strokeRate.toFixed(1); rel.className = 'tval tval-primary'; }
-  else { rel.textContent = '--'; rel.className = 'tval tval-primary dim'; }
+  // ── Pace
+  const pel=document.getElementById('t-pace');
+  const paceOk=on&&pace>0&&gpsAccuracyM!=null&&gpsAccuracyM<=CONFIG.gps.maxAccuracyM;
+  if(paceOk){pel.textContent=fmt(pace);pel.className='tval tval-primary';}
+  else       {pel.textContent='--:--';pel.className='tval tval-primary dim';}
+  const gpsPoor=gpsAccuracyM!=null&&gpsAccuracyM>CONFIG.gps.maxAccuracyM;
+  setQ('q-pace',paceOk?'GPS':gpsPoor?'POOR':'WAIT',paceOk?'g':gpsPoor?'b':'');
 
-  const dpsel = document.getElementById('t-dps');
-  if (on && distPerStroke > 0) { dpsel.textContent = distPerStroke.toFixed(1); dpsel.className = 'tval tval-primary'; }
-  else { dpsel.textContent = '--'; dpsel.className = 'tval tval-primary dim'; }
+  // ── Stroke Rate
+  const rel=document.getElementById('t-rate');
+  const rateFresh=lastCatchAbsT&&(performance.now()-lastCatchAbsT)<4500;
+  if(on&&strokeRate>0){
+    rel.textContent=strokeRate%1===0?strokeRate:strokeRate.toFixed(1);rel.className='tval tval-primary';
+    setQ('q-rate',rateFresh?'LIVE':'HELD',rateFresh?'g':'w');
+  } else {rel.textContent='--';rel.className='tval tval-primary dim';setQ('q-rate','WAIT','');}
 
-  const needle = document.getElementById('cbar-needle'), charNumEl = document.getElementById('t-char-num'), charBadgeEl = document.getElementById('char-badge');
-  if (on && strokeCount > 0 && rdi != null) {
-    const pct = ((rdi + 1) / 2) * 100;
-    needle.style.left = pct + '%'; charNumEl.textContent = rdi.toFixed(2); charNumEl.className = 'char-num';
-    /* FIX F2: use rdiLabel (range -1..1) instead of charLabel (range 0..100).
-       charLabel(rdi) where rdi≈0.5 always returned 'EARLY DRIVE'. */
-    charBadgeEl.textContent = rdiLabel(rdi);
-    needle.style.background = '#000';
+  // ── DPS
+  const dpsel=document.getElementById('t-dps');
+  if(on&&distPerStroke>0){
+    dpsel.textContent=distPerStroke.toFixed(1);dpsel.className='tval tval-primary';
+    setQ('q-dps',dpsValsArr.length>=3?'MEDIAN':'LOW',dpsValsArr.length>=3?'g':'w');
+  } else {dpsel.textContent='--';dpsel.className='tval tval-primary dim';setQ('q-dps','WAIT','');}
+
+  // ── Recovery Index (RDI)
+  const needle=document.getElementById('cbar-needle'),charNumEl=document.getElementById('t-char-num'),charBadge=document.getElementById('char-badge');
+  if(on&&strokeCount>0&&rdi!=null){
+    const pct=((rdi+1)/2)*100;
+    needle.style.left=pct+'%';charNumEl.textContent=rdi.toFixed(2);charNumEl.className='char-num';
+    charBadge.textContent=rdiLabel(rdi);needle.style.background='#000';
+    setQ('q-rdi',rdiValsArr.length>=3?'TREND':'LOW',rdiValsArr.length>=3?'w':'b');
   } else {
-    needle.style.left = '50%'; charNumEl.textContent = '--'; charNumEl.className = 'char-num dim'; charBadgeEl.textContent = '—'; needle.style.background = '#ccc';
+    needle.style.left='50%';charNumEl.textContent='--';charNumEl.className='char-num dim';
+    charBadge.textContent='—';needle.style.background='#ccc';
+    setQ('q-rdi','WAIT','');
   }
 
-  const CATCH_SCALE = 50, ce = document.getElementById('t-catch');
-  if (catchLast !== null) {
-    ce.textContent = catchLast; ce.className = 'tval-r23';
-    const pct = Math.max(0, Math.min(100, (catchLast / CATCH_SCALE) * 100));
-    document.getElementById('catch-fill').style.width = pct + '%';
-    document.getElementById('catch-needle').style.left = pct + '%';
-  } else { ce.textContent = '--'; ce.className = 'tval-r23 dim'; }
+  // ── Catch Slope
+  const CATCH_SCALE=50,ce=document.getElementById('t-catch');
+  if(catchLast!==null){
+    ce.textContent=catchLast;ce.className='tval-r23';
+    const pct=clamp((catchLast/CATCH_SCALE)*100,0,100);
+    document.getElementById('catch-fill').style.width=pct+'%';
+    document.getElementById('catch-needle').style.left=pct+'%';
+    setQ('q-catch',catchValsArr.length>=4?'TREND':'NOISY',catchValsArr.length>=4?'w':'b');
+  } else {ce.textContent='--';ce.className='tval-r23 dim';setQ('q-catch','WAIT','');}
 
-  const rle = document.getElementById('t-runloss'), rlm = document.getElementById('t-runloss-ms');
-  if (runLossPct != null && on) { rle.textContent = runLossPct + '%'; rle.className = 'tval-r23'; rlm.textContent = runLossMs != null ? runLossMs.toFixed(2) + ' m/s' : ''; }
-  else { rle.textContent = '--%'; rle.className = 'tval-r23 dim'; rlm.textContent = ''; }
+  // ── Run Loss (m/stroke, speed-decay method)
+  const rle=document.getElementById('t-runloss'),rlsub=document.getElementById('t-runloss-ms');
+  if(runLossM!=null&&on){
+    rle.textContent=runLossM.toFixed(2);rle.className='tval-r23';rlsub.textContent='m / stroke';
+    setQ('q-rl',runLosses.length>=4?'TREND':'NOISY',runLosses.length>=4?'w':'b');
+  } else {rle.textContent='--';rle.className='tval-r23 dim';rlsub.textContent='';setQ('q-rl','WAIT','');}
 
-  const efe = document.getElementById('t-impulse'), lastImpulse = sessStrokes.length > 0 ? sessStrokes[sessStrokes.length - 1].driveImpulse : null;
-  if (lastImpulse != null && on) { efe.textContent = lastImpulse.toFixed(2); efe.className = 'tval-r23'; }
-  else { efe.textContent = '--'; efe.className = 'tval-r23 dim'; }
+  // ── Impulse
+  const efe=document.getElementById('t-impulse');
+  const lastImpulse=sessStrokes.length>0?sessStrokes[sessStrokes.length-1].driveImpulse:null;
+  if(lastImpulse!=null&&on){
+    efe.textContent=lastImpulse.toFixed(2);efe.className='tval-r23';setQ('q-imp','GOOD','g');
+  } else {efe.textContent='--';efe.className='tval-r23 dim';setQ('q-imp','WAIT','');}
 
-  updateCfgTile('top'); updateCfgTile('bot');
-  if (curveTabActive()) updateCurveTiles();
+  updateCfgTile('top');updateCfgTile('bot');
+  if(curveTabActive())updateCurveTiles();
 }
 
-/* ════════════════════════════════════════
+/* ═══════════════════════════════════════════════════
    CONFIGURABLE TILES
-════════════════════════════════════════ */
-const CFG_OPTIONS = ['total-time', 'total-dist', 'tod', 'lap-pace', 'lap-time', 'lap-dist', 'avg-pace'];
-const CFG_LABELS  = { 'tod': 'Time of day', 'total-time': 'Total time', 'lap-time': 'Lap time', 'lap-pace': 'Lap pace', 'total-dist': 'Total distance', 'lap-dist': 'Lap distance', 'avg-pace': 'Avg pace' };
-let cfgTop = (() => { const v = localStorage.getItem('scull_cfg_top'); return (v && CFG_OPTIONS.includes(v)) ? v : 'total-time'; })();
-let cfgBot = (() => { const v = localStorage.getItem('scull_cfg_bot'); return (v && CFG_OPTIONS.includes(v)) ? v : 'total-dist'; })();
+═══════════════════════════════════════════════════ */
+const CFG_OPTIONS=['total-time','total-dist','tod','lap-pace','lap-time','lap-dist','avg-pace'];
+const CFG_LABELS={'tod':'Time of day','total-time':'Total time','lap-time':'Lap time','lap-pace':'Lap pace','total-dist':'Total distance','lap-dist':'Lap distance','avg-pace':'Avg pace'};
+let cfgTop=(()=>{const v=localStorage.getItem('scull_cfg_top');return(v&&CFG_OPTIONS.includes(v))?v:'total-time';})();
+let cfgBot=(()=>{const v=localStorage.getItem('scull_cfg_bot');return(v&&CFG_OPTIONS.includes(v))?v:'total-dist';})();
 
-function cycleCfg(w) {
-  const cur = w === 'top' ? cfgTop : cfgBot;
-  const next = CFG_OPTIONS[(CFG_OPTIONS.indexOf(cur) + 1) % CFG_OPTIONS.length];
-  if (w === 'top') { cfgTop = next; localStorage.setItem('scull_cfg_top', next); }
-  else { cfgBot = next; localStorage.setItem('scull_cfg_bot', next); }
+function cycleCfg(w){
+  const cur=w==='top'?cfgTop:cfgBot;
+  const next=CFG_OPTIONS[(CFG_OPTIONS.indexOf(cur)+1)%CFG_OPTIONS.length];
+  if(w==='top'){cfgTop=next;localStorage.setItem('scull_cfg_top',next);}else{cfgBot=next;localStorage.setItem('scull_cfg_bot',next);}
   updateCfgTile(w);
 }
 
-function cfgValue(key) {
-  const on = running && !paused, ld = Math.round(distance - lapStartDist), lt = elapsed - lapStartTime;
-  const lapPressed = laps.length > 0, lp = ld > 5 && lt > 0 ? (lt / ld) * 500 : 0;
-  const ap = sessPaceTrace.length > 0 ? sessPaceTrace.reduce((a, b) => a + b, 0) / sessPaceTrace.length : 0;
-  switch (key) {
-    case 'tod': { const d = new Date(); return { val: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, sub: '', dim: false }; }
-    case 'total-time': return { val: fmtH(elapsed), sub: '', dim: !on && elapsed === 0 };
-    case 'lap-time': return { val: fmt(lt), sub: '', dim: !on };
+function cfgValue(key){
+  const on=running&&!paused,ld=Math.round(distance-lapStartDist),lt=elapsed-lapStartTime;
+  const lp=ld>5&&lt>0?(lt/ld)*500:0;
+  const ap=sessPaceTrace.length>0?sessPaceTrace.reduce((a,b)=>a+b,0)/sessPaceTrace.length:0;
+  switch(key){
+    case 'tod':{const d=new Date();return{val:`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`,sub:'',dim:false};}
+    case 'total-time':return{val:fmtH(elapsed),sub:'',dim:!on&&elapsed===0};
+    case 'lap-time':return{val:fmt(lt),sub:'',dim:!on};
     case 'lap-pace':
-      if (on) {
-        if (!lapPressed && ap > 0 && ap < PACE_MAX) return { val: fmt(ap), sub: 'avg pace', dim: false };
-        if (lapPressed && lp > 0 && lp < PACE_MAX) return { val: fmt(lp), sub: 'lap pace', dim: false };
-      }
-      return { val: '--:--', sub: 'min/500m', dim: true };
-    case 'avg-pace': if ((running || elapsed > 0) && ap > 0 && ap < PACE_MAX) return { val: fmt(ap), sub: 'min/500m', dim: false }; return { val: '--:--', sub: 'min/500m', dim: true };
-    case 'total-dist': if (running || elapsed > 0) return { val: Math.round(distance), sub: 'metres', dim: false }; return { val: '0', sub: 'metres', dim: true };
-    case 'lap-dist': if (on && ld > 0) return { val: ld, sub: 'metres', dim: false }; return { val: '--', sub: 'metres', dim: true };
-    default: return { val: '--', sub: '', dim: true };
+      if(on){if(!laps.length&&ap>0&&ap<CONFIG.gps.maxPaceS)return{val:fmt(ap),sub:'avg pace',dim:false};if(laps.length&&lp>0&&lp<CONFIG.gps.maxPaceS)return{val:fmt(lp),sub:'lap pace',dim:false};}
+      return{val:'--:--',sub:'min/500m',dim:true};
+    case 'avg-pace':if((running||elapsed>0)&&ap>0&&ap<CONFIG.gps.maxPaceS)return{val:fmt(ap),sub:'min/500m',dim:false};return{val:'--:--',sub:'min/500m',dim:true};
+    case 'total-dist':if(running||elapsed>0)return{val:Math.round(distance),sub:'metres',dim:false};return{val:'0',sub:'metres',dim:true};
+    case 'lap-dist':if(on&&ld>0)return{val:ld,sub:'metres',dim:false};return{val:'--',sub:'metres',dim:true};
+    default:return{val:'--',sub:'',dim:true};
   }
 }
 
-function updateCfgTile(w) {
-  const key = w === 'top' ? cfgTop : cfgBot;
-  const v = document.getElementById(`cfg-${w}-val`), s = document.getElementById(`cfg-${w}-sub`), l = document.getElementById(`cfg-${w}-lbl`);
-  if (!v) return;
-  const { val, sub, dim } = cfgValue(key);
-  v.textContent = val; v.className = 'tval-r23' + (dim ? ' dim' : '');
-  s.textContent = sub; l.innerHTML = CFG_LABELS[key] + ' <span class="cfg-hint">▸</span>';
+function updateCfgTile(w){
+  const key=w==='top'?cfgTop:cfgBot;
+  const v=document.getElementById(`cfg-${w}-val`),s=document.getElementById(`cfg-${w}-sub`),l=document.getElementById(`cfg-${w}-lbl`);
+  if(!v)return;
+  const{val,sub,dim}=cfgValue(key);
+  v.textContent=val;v.className='tval-r23'+(dim?' dim':'');
+  s.textContent=sub;
+  const txtSpan=l.querySelector('.tlbl-txt');if(txtSpan)txtSpan.innerHTML=CFG_LABELS[key]+' <span class="cfg-hint">▸</span>';
+  const on=running&&!paused;
+  setQ(`q-${w}`,on?'LIVE':elapsed>0?'DONE':'OFF',on?'g':elapsed>0?'w':'');
 }
 
-function wireCfgTiles() {
-  ['top', 'bot'].forEach(w => { const el = document.getElementById(`cfg-${w}-tile`); if (el) el.addEventListener('click', () => cycleCfg(w)); });
-  setInterval(() => { updateCfgTile('top'); updateCfgTile('bot'); }, 5000);
+function wireCfgTiles(){
+  ['top','bot'].forEach(w=>{const el=document.getElementById(`cfg-${w}-tile`);if(el)el.addEventListener('click',()=>cycleCfg(w));});
+  setInterval(()=>{updateCfgTile('top');updateCfgTile('bot');},CONFIG.ui.cfgTileMs);
 }
 
-/* ════════════════════════════════════════
+/* ═══════════════════════════════════════════════════
+   CURVE TILES
+═══════════════════════════════════════════════════ */
+const CURVE_TILE_OPTIONS=['stroke-rate','catch-slope','dps','impulse','run-loss','char','pace'];
+const CURVE_TILE_LABELS={'stroke-rate':'Stroke rate','catch-slope':'Catch slope','dps':'Dist/stroke','impulse':'Impulse','run-loss':'Run loss','char':'Char %','pace':'Pace'};
+const CURVE_TILE_SUBS={'stroke-rate':'str/min','catch-slope':'m/s³','dps':'m','impulse':'','run-loss':'m/str','char':'%','pace':'/500m'};
+let curveTileKeys=(()=>{try{const s=JSON.parse(localStorage.getItem('scull_ctiles')||'null');if(s&&s.length===4&&s.every(k=>CURVE_TILE_OPTIONS.includes(k)))return s;}catch{}return['stroke-rate','catch-slope','dps','impulse'];})();
+
+function curveTileValue(key){
+  const on=running&&!paused;
+  switch(key){
+    case 'stroke-rate':return{val:(on&&strokeRate>0)?(strokeRate%1===0?strokeRate:strokeRate.toFixed(1)):'--',dim:!on||!strokeRate};
+    case 'catch-slope':return{val:catchLast!==null?catchLast:'--',dim:catchLast===null};
+    case 'dps':return{val:(on&&distPerStroke>0)?distPerStroke.toFixed(1):'--',dim:!on||!distPerStroke};
+    case 'impulse':{const imp=sessStrokes.length>0?sessStrokes[sessStrokes.length-1].driveImpulse:null;return{val:(imp!=null&&on)?imp.toFixed(2):'--',dim:!on||imp==null};}
+    case 'run-loss':return{val:(runLossM!=null&&on)?runLossM.toFixed(2):'--',dim:!on||runLossM==null};
+    case 'char':return{val:(on&&strokeCount>0)?strokeChar:'--',dim:!on};
+    case 'pace':return{val:(on&&pace>0)?fmt(pace):'--:--',dim:!on||!pace};
+    default:return{val:'--',dim:true};
+  }
+}
+
+function updateCurveTiles(){
+  curveTileKeys.forEach((key,i)=>{
+    const{val,dim}=curveTileValue(key);
+    const ve=document.getElementById(`ct-${i}-val`),se=document.getElementById(`ct-${i}-sub`),le=document.getElementById(`ct-${i}-lbl`);
+    if(!ve)return;
+    ve.textContent=val;ve.className='tval-r23'+(dim?' dim':'');
+    if(se)se.textContent=CURVE_TILE_SUBS[key]||'';
+    if(le)le.textContent=CURVE_TILE_LABELS[key]+' ▸';
+  });
+}
+
+function wireCurveTiles(){
+  document.querySelectorAll('.curve-tile').forEach(el=>{
+    const i=parseInt(el.dataset.cw);
+    el.addEventListener('click',()=>{
+      const cur=curveTileKeys[i],next=CURVE_TILE_OPTIONS[(CURVE_TILE_OPTIONS.indexOf(cur)+1)%CURVE_TILE_OPTIONS.length];
+      curveTileKeys[i]=next;try{localStorage.setItem('scull_ctiles',JSON.stringify(curveTileKeys));}catch{}
+      updateCurveTiles();
+    });
+  });
+}
+
+let activeSubTab='live';
+function curveTabActive(){return document.getElementById('screen-live').classList.contains('active')&&activeSubTab==='curve';}
+
+/* ═══════════════════════════════════════════════════
+   CURVE CANVAS RENDERER
+═══════════════════════════════════════════════════ */
+function renderCurveCanvas(){
+  const canvas=document.getElementById('curve-canvas');if(!canvas)return;
+  const wrap=canvas.parentElement,W=wrap.clientWidth,H=wrap.clientHeight;
+  if(!W||!H)return;
+  const dpr=window.devicePixelRatio||1;
+  canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);
+  const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);ctx.clearRect(0,0,W,H);
+  const padT=18,padB=18,padH=6;
+  const sx=i=>padH+(i/(CURVE_POINTS-1))*(W-padH*2);
+  const avg5=strokeCurveHistory.length>=2?avgCurves(strokeCurveHistory):null;
+  if(!lastStrokeCurve&&!avg5){
+    ctx.strokeStyle='rgba(255,255,255,0.07)';ctx.lineWidth=1;
+    for(let i=1;i<4;i++){const y=H*i/4;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    ctx.fillStyle='rgba(255,255,255,0.18)';ctx.font='bold 11px Roboto,sans-serif';ctx.textAlign='center';
+    ctx.fillText('Row a stroke to see the curve',W/2,H/2);return;
+  }
+  let yMin=Infinity,yMax=-Infinity;
+  for(const c of [lastStrokeCurve,avg5].filter(Boolean)){for(const v of c.data){if(v<yMin)yMin=v;if(v>yMax)yMax=v;}}
+  const yRange=yMax-yMin||1;
+  const sy=v=>padT+(1-(v-yMin)/yRange)*(H-padT-padB);
+  const driveFrac=(lastStrokeCurve??avg5).driveFrac;
+  const xDivide=sx(Math.round(driveFrac*(CURVE_POINTS-1)));
+  ctx.fillStyle='rgba(93,173,226,0.06)';ctx.fillRect(padH,padT,xDivide-padH,H-padT-padB);
+  ctx.fillStyle='rgba(243,156,18,0.05)';ctx.fillRect(xDivide,padT,W-padH-xDivide,H-padT-padB);
+  ctx.strokeStyle='rgba(255,255,255,0.07)';ctx.lineWidth=1;
+  for(let i=1;i<4;i++){const y=H*i/4;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  if(yMin<0&&yMax>0){const y0=sy(0);ctx.save();ctx.strokeStyle='rgba(255,255,255,0.25)';ctx.lineWidth=1;ctx.setLineDash([4,6]);ctx.beginPath();ctx.moveTo(padH,y0);ctx.lineTo(W-padH,y0);ctx.stroke();ctx.setLineDash([]);ctx.restore();}
+  ctx.save();ctx.strokeStyle='rgba(255,255,255,0.30)';ctx.lineWidth=1;ctx.setLineDash([3,5]);ctx.beginPath();ctx.moveTo(xDivide,padT);ctx.lineTo(xDivide,H-padB);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+  function drawCurveLine(curve,color,lineWidth,fill){
+    ctx.beginPath();
+    for(let i=0;i<CURVE_POINTS;i++){const x=sx(i),y=sy(curve.data[i]);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
+    if(fill){
+      const baseline=Math.max(padT,Math.min(H-padB,sy(Math.max(yMin,0))));
+      ctx.lineTo(sx(CURVE_POINTS-1),baseline);ctx.lineTo(sx(0),baseline);ctx.closePath();
+      ctx.fillStyle=color+'22';ctx.fill();ctx.beginPath();
+      for(let i=0;i<CURVE_POINTS;i++){const x=sx(i),y=sy(curve.data[i]);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
+    }
+    ctx.strokeStyle=color;ctx.lineWidth=lineWidth;ctx.lineJoin='round';ctx.stroke();
+  }
+  if(avg5)drawCurveLine(avg5,'#f39c12',1.5,true);
+  if(lastStrokeCurve)drawCurveLine(lastStrokeCurve,'#5dade2',2.5,false);
+  ctx.fillStyle='rgba(255,255,255,0.38)';ctx.font='9px Roboto,sans-serif';ctx.textAlign='left';
+  ctx.fillText(yMax.toFixed(1),3,padT-4);ctx.fillText(yMin.toFixed(1),3,H-padB+11);
+  ctx.font='9px Roboto,sans-serif';
+  ctx.fillStyle='rgba(93,173,226,0.75)';ctx.textAlign='left';ctx.fillText('CATCH',sx(0)+2,H-3);ctx.textAlign='right';ctx.fillText('FINISH',xDivide-3,H-3);
+  ctx.fillStyle='rgba(243,156,18,0.75)';ctx.textAlign='left';ctx.fillText('RECOVERY',xDivide+3,H-3);ctx.textAlign='right';ctx.fillText('CATCH',sx(CURVE_POINTS-1)-2,H-3);
+  ctx.fillStyle='rgba(255,255,255,0.38)';ctx.textAlign='center';ctx.fillText('acc.x  m/s²  ·  catch→catch',W/2,padT-4);
+}
+
+/* ═══════════════════════════════════════════════════
    SESSION CONTROLS
-════════════════════════════════════════ */
-function renderCtrl() {
-  const show = (id, vis) => document.getElementById(`cc-${id}`).style.display = vis ? 'flex' : 'none';
-  const sr = !running && !paused, rv = !running && paused && elapsed > 0;
-  show('start', sr && !rv); show('resume', rv);
-  show('pause', running && !paused); show('lap', running && !paused);
-  show('stop', running && !paused); show('reset', !running && elapsed > 0);
-  document.getElementById('rec-ind').style.display = (running && !paused) ? 'flex' : 'none';
+═══════════════════════════════════════════════════ */
+function renderCtrl(){
+  const show=(id,vis)=>document.getElementById(`cc-${id}`).style.display=vis?'flex':'none';
+  const sr=!running&&!paused,rv=!running&&paused&&elapsed>0;
+  show('start',sr&&!rv);show('resume',rv);
+  show('pause',running&&!paused);show('lap',running&&!paused);
+  show('stop',running&&!paused);show('reset',!running&&elapsed>0);
+  document.getElementById('rec-ind').style.display=(running&&!paused)?'flex':'none';
 }
 
-function startSess() {
-  if (!sessStart) sessStart = Date.now();
-  lapStartDist = distance; lapStartTime = elapsed; running = true; paused = false;
-  timerInt = setInterval(() => { elapsed++; updateUI(); }, 1000);
-  saveInProgress();                              // FIX S1: write skeleton immediately on start
-  autosaveInt = setInterval(saveInProgress, 30000);
+function startSess(){
+  if(!sessStart)sessStart=Date.now();
+  lapStartDist=distance;lapStartTime=elapsed;running=true;paused=false;
+  timerInt=setInterval(()=>{elapsed++;updateUI();},1000);
+  saveInProgress();
+  autosaveInt=setInterval(saveInProgress,CONFIG.ui.autosaveMs);
   requestAnimationFrame(renderCtrl);
 }
-
-
-function pauseSess() { paused = true; running = false; clearInterval(timerInt); requestAnimationFrame(renderCtrl); }
-
-function resumeSess() {
-  paused = false; running = true; paceDistWindow.length = 0; velocityWindow.length = 0; gpsSpeedEma = -1;
-  timerInt = setInterval(() => { elapsed++; updateUI(); }, 1000); requestAnimationFrame(renderCtrl);
+function pauseSess(){paused=true;running=false;clearInterval(timerInt);requestAnimationFrame(renderCtrl);}
+function resumeSess(){
+  paused=false;running=true;paceDistWindow.length=0;velocityWindow.length=0;gpsSpeedEma=-1;speedSamples.length=0;
+  timerInt=setInterval(()=>{elapsed++;updateUI();},1000);requestAnimationFrame(renderCtrl);
 }
 
-function stopSess() {
-  running = false; paused = false; clearInterval(timerInt); clearInterval(autosaveInt);
-  if (elapsed > 10 && sessStrokes.length > 0 && !sessSaved) {
-    try {
-      const ap = sessPaceTrace.length > 0 ? Math.round(sessPaceTrace.reduce((a, b) => a + b, 0) / sessPaceTrace.length) : 0;
-      const ar = sessStrokes.length > 0 ? Math.round(sessStrokes.reduce((a, b) => a + b.rate, 0) / sessStrokes.length) : 0;
-      const maxRate = sessStrokes.reduce((m, s) => s.rate > m ? s.rate : m, 0);
-      const avg = (arr, k) => { const v = arr.map(x => x[k]).filter(v => v != null && !isNaN(v)); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
-      const ac = (() => { const v = sessStrokes.map(x => x.catchConsistency).filter(v => v != null && !isNaN(v)); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; })();
+function stopSess(){
+  running=false;paused=false;clearInterval(timerInt);clearInterval(autosaveInt);
+  if(elapsed>10&&sessStrokes.length>0&&!sessSaved){
+    try{
+      const ap=sessPaceTrace.length>0?Math.round(sessPaceTrace.reduce((a,b)=>a+b,0)/sessPaceTrace.length):0;
+      const ar=sessStrokes.length>0?Math.round(sessStrokes.reduce((a,b)=>a+b.rate,0)/sessStrokes.length):0;
+      const maxRate=sessStrokes.reduce((m,s)=>s.rate>m?s.rate:m,0);
+      const avg=(arr,k)=>{const v=arr.map(x=>x[k]).filter(v=>v!=null&&!isNaN(v));return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;};
+      const ac=(()=>{const v=sessStrokes.map(x=>x.catchConsistency).filter(v=>v!=null&&!isNaN(v));return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null;})();
       addSess({
-        id: Date.now().toString(), startTime: sessStart, endTime: Date.now(), duration: elapsed,
-        distance: Math.round(distance), avgPace: ap, avgRate: ar, maxRate,
-        catchPeakSess, catchAvg8, strokeCount,
-        avgRunLoss: avg(sessStrokes, 'runLossPct'), avgEfficiency: avg(sessStrokes, 'runEfficiency'),
-        avgDPS: avg(sessStrokes, 'dps'), avgCatch: avg(sessStrokes, 'catchPeak'),
-        avgChar: avg(sessStrokes, 'char'), avgConsistency: ac,
-        avgImpulse: avg(sessStrokes, 'driveImpulse'), avgRdi: avg(sessStrokes, 'rdi'),
-        strokes: sessStrokes.map(s => ({ ...s })), paceTrace: sessPaceTrace.slice(),
-        gpsTrace: sessGpsTrace.slice(), gpsRawTrace: sessGpsRawTrace.slice(),
-        hrTrace: null, laps: laps.slice(),
-        calNoiseFloor: cal.noiseFloor, calThresh: cal.jerkThresh, detectedAxis: selAxis
+        id:Date.now().toString(),startTime:sessStart,endTime:Date.now(),duration:elapsed,
+        distance:Math.round(distance),avgPace:ap,avgRate:ar,maxRate,
+        catchPeakSess,catchAvg8,strokeCount,
+        avgRunLossM:avg(sessStrokes,'runLossM'),
+        avgDPS:avg(sessStrokes,'dps'),avgCatch:avg(sessStrokes,'catchPeak'),
+        avgChar:avg(sessStrokes,'char'),avgConsistency:ac,
+        avgImpulse:avg(sessStrokes,'driveImpulse'),avgRdi:avg(sessStrokes,'rdi'),
+        strokes:sessStrokes.map(s=>({...s})),paceTrace:sessPaceTrace.slice(),
+        gpsTrace:sessGpsTrace.slice(),gpsRawTrace:sessGpsRawTrace.slice(),
+        hrTrace:null,laps:laps.slice(),
+        calNoiseFloor:cal.noiseFloor,calThresh:cal.jerkThresh,detectedAxis:selAxis
       });
-      sessSaved = true; toast('Session saved');
-    } catch(e) { toast('Save error — export CSV to recover data'); }
+      sessSaved=true;toast('Session saved');
+    }catch(e){toast('Save error — export CSV to recover data');}
     localStorage.removeItem(AUTOSAVE_DB);
   }
   requestAnimationFrame(renderCtrl);
 }
 
-function resetSess() {
-  if (elapsed > 10 && sessStrokes.length > 0 && !sessSaved) {
-    if (confirm('Save this session before resetting?')) { stopSess(); } else { clearInterval(timerInt); clearInterval(autosaveInt); }
-  } else { clearInterval(timerInt); clearInterval(autosaveInt); }
-  running = false; paused = false; sessSaved = false; localStorage.removeItem(AUTOSAVE_DB);
-  elapsed = 0; distance = 0; pace = 0; strokeRate = 0; strokeCount = 0;
-  acRate = 0; acConf = 0; distPerStroke = 0; dpsValsArr = [];
-  lapStartDist = 0; lapStartTime = 0;
-  catchLast = null; catchPeakSess = null; catchAvg8 = null; catchValsArr.length = 0; catchConsistency = null;
-  strokeChar = 50; charValsArr.length = 0; rdi = 0; rdiValsArr.length = 0;
-  runLossPct = null; runLossMs = null; runEfficiency = null;
-  laps = []; sessStrokes.length = 0; sessPaceTrace.length = 0; sessGpsTrace.length = 0; sessGpsRawTrace.length = 0;
-  strokeTs.length = 0; paceDistWindow.length = 0; velocityWindow.length = 0; vAnchor = 0; vAnchorT = 0;
-  prevStrokeDist = 0; prevStrokeDistT = 0; gpsLastValidT = 0;
-  fsmState = FS.IDLE; catchPeakJerk = 0; lastCatchAbsT = 0; strokesDetected = 0;
-  jerkThreshActive = jerkThreshBase; adaptReady = false;
-  acBuf.length = 0; acLastUpdate = 0; jerkBuf.length = 0; catchTsBuf.length = 0;
-  gpsSpeedEma = -1; axisLocked = false; axisAutoDetected = false; lastAxisCheck = 0; sessStart = null;
-  lastStrokeCurve = null; strokeCurveHistory.length = 0;
-  if (curveTabActive()) renderCurveCanvas();
-  updateUI(); requestAnimationFrame(renderCtrl);
-  const pill = document.getElementById('p-axis'); if (pill) { pill.textContent = 'AX:?'; pill.className = 'pill pill-off'; }
+function resetSess(){
+  if(elapsed>10&&sessStrokes.length>0&&!sessSaved){
+    if(confirm('Save this session before resetting?')){stopSess();}else{clearInterval(timerInt);clearInterval(autosaveInt);}
+  }else{clearInterval(timerInt);clearInterval(autosaveInt);}
+  running=false;paused=false;sessSaved=false;localStorage.removeItem(AUTOSAVE_DB);
+  elapsed=0;distance=0;pace=0;strokeRate=0;strokeCount=0;
+  acRate=0;acConf=0;distPerStroke=0;dpsValsArr.length=0;maxDPS=0;
+  lapStartDist=0;lapStartTime=0;
+  catchLast=null;catchPeakSess=null;catchAvg8=null;catchValsArr.length=0;catchConsistency=null;
+  strokeChar=50;charValsArr.length=0;rdi=null;rdiValsArr.length=0;
+  pendingRun=null;runLosses.length=0;runLossM=null;
+  laps=[];sessStrokes.length=0;sessPaceTrace.length=0;sessGpsTrace.length=0;sessGpsRawTrace.length=0;
+  strokeTs.length=0;paceDistWindow.length=0;velocityWindow.length=0;speedSamples.length=0;
+  prevStrokeDist=0;prevStrokeDistT=0;gpsLastValidT=0;gpsSpeedEma=-1;gpsWasStopped=false;gpsAccuracyM=null;
+  fsmState=FS.IDLE;catchPeakJerk=0;catchStartT=0;lastCatchAbsT=0;lastDriveEndT=0;
+  strokesDetected=0;jerkThreshActive=jerkThreshBase;adaptReady=false;
+  acBuf.length=0;acLastUpdate=0;jerkBuf.length=0;catchTsBuf.length=0;
+  axisLocked=false;axisAutoDetected=false;lastAxisCheck=0;sessStart=null;
+  lastStrokeCurve=null;strokeCurveHistory.length=0;catchToCatchSamples=[];pendingCurveDriveCount=0;
+  motionSamples=0;motionStartedAt=0;lastMotionT=0;
+  for(const k of AXES){gravity[k]=0;axFast[k]=0;axSmooth[k]=0;}
+  ['q-pace','q-rate','q-dps','q-rdi','q-catch','q-rl','q-imp','q-top','q-bot'].forEach(id=>setQ(id,'WAIT',''));
+  if(curveTabActive())renderCurveCanvas();
+  updateUI();requestAnimationFrame(renderCtrl);
+  const pill=document.getElementById('p-axis');if(pill){pill.textContent='AX:?';pill.className='pill pill-off';}
 }
 
-function recordLap() {
-  if (!running || paused) return;
-  const d = Math.round(distance - lapStartDist), t = elapsed - lapStartTime, p = d > 5 && t > 0 ? (t / d) * 500 : 0;
-  laps.push({ n: laps.length + 1, dist: d, time: t, pace: p, rate: strokeRate });
-  lapStartDist = distance; lapStartTime = elapsed; toast(`Lap ${laps.length} · ${d}m`);
+function recordLap(){
+  if(!running||paused)return;
+  const d=Math.round(distance-lapStartDist),t=elapsed-lapStartTime,p=d>5&&t>0?(t/d)*500:0;
+  laps.push({n:laps.length+1,dist:d,time:t,pace:p,rate:strokeRate});
+  lapStartDist=distance;lapStartTime=elapsed;toast(`Lap ${laps.length} · ${d}m`);
 }
 
-function wireButtons() {
-  const s = id => document.getElementById(`cc-${id}`);
-  s('start').addEventListener('click', startSess); s('resume').addEventListener('click', resumeSess);
-  s('pause').addEventListener('click', pauseSess); s('lap').addEventListener('click', recordLap);
-  s('stop').addEventListener('click', stopSess); s('reset').addEventListener('click', resetSess);
+function saveInProgress(){
+  if(!running||!sessStart||sessStrokes.length===0)return;
+  try{
+    const snap={id:sessStart.toString(),startTime:sessStart,duration:elapsed,distance:Math.round(distance),avgPace:sessPaceTrace.length?Math.round(sessPaceTrace.reduce((a,b)=>a+b,0)/sessPaceTrace.length):0,avgRate:sessStrokes.length?Math.round(sessStrokes.reduce((a,b)=>a+b.rate,0)/sessStrokes.length):0,maxRate:sessStrokes.length?Math.max(...sessStrokes.map(s=>s.rate)):0,strokeCount,catchPeakSess,catchAvg8,laps,strokes:sessStrokes,paceTrace:sessPaceTrace,gpsTrace:sessGpsTrace,avgRunLossM:null,avgImpulse:null,avgRdi:null,_autosave:true,_savedAt:Date.now()};
+    localStorage.setItem(AUTOSAVE_DB,JSON.stringify(snap));
+  }catch{}
 }
 
-/* ════════════════════════════════════════
+function checkAutosave(){
+  try{
+    const raw=localStorage.getItem(AUTOSAVE_DB);if(!raw)return;
+    const snap=JSON.parse(raw);if(!snap||!snap._autosave||!snap.strokeCount)return;
+    const age=Date.now()-snap._savedAt;if(age>12*3600*1000){localStorage.removeItem(AUTOSAVE_DB);return;}
+    const mins=Math.round(snap.duration/60),km=(snap.distance/1000).toFixed(2);
+    if(confirm(`Recover autosaved session?\n${km} km · ${mins} min · ${snap.strokeCount} strokes\n(Saved ${Math.round(age/60000)} min ago)`)){
+      snap._autosave=false;const a=loadSess();a.unshift(snap);saveSess(a);localStorage.removeItem(AUTOSAVE_DB);alert('Session recovered. View in Analysis.');
+    }else{localStorage.removeItem(AUTOSAVE_DB);}
+  }catch{localStorage.removeItem(AUTOSAVE_DB);}
+}
+
+function wireButtons(){
+  const s=id=>document.getElementById(`cc-${id}`);
+  s('start').addEventListener('click',startSess);s('resume').addEventListener('click',resumeSess);
+  s('pause').addEventListener('click',pauseSess);s('lap').addEventListener('click',recordLap);
+  s('stop').addEventListener('click',stopSess);s('reset').addEventListener('click',resetSess);
+}
+
+/* ═══════════════════════════════════════════════════
    TABS
-════════════════════════════════════════ */
-function showTab(tab) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  if (tab === 'live' || tab === 'curve') {
-    if (!enterLive._done) { document.getElementById('screen-perm').classList.add('active'); return; }
+═══════════════════════════════════════════════════ */
+function showTab(tab){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  if(tab==='live'||tab==='curve'){
+    if(!enterLive._done){document.getElementById('screen-perm').classList.add('active');return;}
     document.getElementById('screen-live').classList.add('active');
-    activeSubTab = tab;
-    const grid = document.getElementById('tile-grid'), cpanel = document.getElementById('curve-panel');
-    if (grid) grid.style.display = tab === 'curve' ? 'none' : '';
-    if (cpanel) cpanel.classList.toggle('cpanel-active', tab === 'curve');
-    if (tab === 'curve') requestAnimationFrame(() => { renderCurveCanvas(); updateCurveTiles(); });
-  } else {
-    document.getElementById('screen-analysis').classList.add('active'); renderAnalysisList();
-  }
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  if (tab === 'live') { ['tab-live-ls', 'tab-live-an'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('active'); }); }
-  else if (tab === 'curve') { const el = document.getElementById('tab-curve-ls'); if (el) el.classList.add('active'); }
-  else { ['tab-anal-ls', 'tab-anal-an'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('active'); }); }
+    activeSubTab=tab;
+    const grid=document.getElementById('tile-grid'),cpanel=document.getElementById('curve-panel');
+    if(grid)grid.style.display=tab==='curve'?'none':'';
+    if(cpanel)cpanel.classList.toggle('cpanel-active',tab==='curve');
+    if(tab==='curve')requestAnimationFrame(()=>{renderCurveCanvas();updateCurveTiles();});
+  }else{document.getElementById('screen-analysis').classList.add('active');renderAnalysisList();}
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  if(tab==='live')['tab-live-ls','tab-live-an'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('active');});
+  else if(tab==='curve'){const el=document.getElementById('tab-curve-ls');if(el)el.classList.add('active');}
+  else['tab-anal-ls','tab-anal-an'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('active');});
 }
 
-let _tabsWired = false;
-function wireTabButtons() {
-  if (_tabsWired) return; _tabsWired = true;
-  ['tab-live-ls', 'tab-live-an'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('click', () => showTab('live')); });
-  ['tab-anal-ls', 'tab-anal-an'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('click', () => showTab('analysis')); });
-  const curve = document.getElementById('tab-curve-ls'); if (curve) curve.addEventListener('click', () => showTab('curve'));
+let _tabsWired=false;
+function wireTabButtons(){
+  if(_tabsWired)return;_tabsWired=true;
+  ['tab-live-ls','tab-live-an'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('click',()=>showTab('live'));});
+  ['tab-anal-ls','tab-anal-an'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('click',()=>showTab('analysis'));});
+  const curve=document.getElementById('tab-curve-ls');if(curve)curve.addEventListener('click',()=>showTab('curve'));
 }
 
-window.addEventListener('resize', () => { if (curveTabActive()) requestAnimationFrame(renderCurveCanvas); });
+window.addEventListener('resize',()=>{if(curveTabActive())requestAnimationFrame(renderCurveCanvas);});
 
-/* ════════════════════════════════════════
+/* ═══════════════════════════════════════════════════
    SENSOR INIT
-════════════════════════════════════════ */
-document.getElementById('perm-btn').addEventListener('click', async () => {
-  if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-    try { const r = await DeviceMotionEvent.requestPermission(); if (r !== 'granted') { alert('Motion permission denied.\nEnable in Settings → Safari → Motion & Orientation Access.'); return; } } catch (e) { alert('Permission error: ' + e.message); return; }
+═══════════════════════════════════════════════════ */
+document.getElementById('perm-btn').addEventListener('click',async()=>{
+  if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
+    try{const r=await DeviceMotionEvent.requestPermission();if(r!=='granted'){alert('Motion permission denied.\nEnable in Settings → Safari → Motion & Orientation Access.');return;}}catch(e){alert('Permission error: '+e.message);return;}
   }
-  window.addEventListener('devicemotion', handleMotion, { passive: true });
-  document.getElementById('p-acc').className = 'pill pill-on'; document.getElementById('p-acc').textContent = 'ACC';
-  DriveSync.init().then(() => { if (DriveSync.isSignedIn()) { updateDriveBtn(); flushQueue(); } }).catch(console.warn);
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(pos => {
-      handlePos(pos); navigator.geolocation.watchPosition(handlePos, handleGpsErr, { enableHighAccuracy: true, maximumAge: 500, timeout: 20000 });
-    }, handleGpsErr, { enableHighAccuracy: true, timeout: 20000 });
-  } else { document.getElementById('p-gps').className = 'pill pill-err'; document.getElementById('p-gps').textContent = 'NO GPS'; }
-  if ('wakeLock' in navigator) {
-    try { wakeLock = await navigator.wakeLock.request('screen'); } catch {}
-    document.addEventListener('visibilitychange', async () => { if (document.visibilityState === 'visible') { try { wakeLock = await navigator.wakeLock.request('screen'); } catch {} } });
+  window.addEventListener('devicemotion',handleMotion,{passive:true});
+  document.getElementById('p-acc').className='pill pill-on';document.getElementById('p-acc').textContent='ACC';
+  DriveSync.init().then(()=>{if(DriveSync.isSignedIn()){updateDriveBtn();flushQueue();}}).catch(console.warn);
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(pos=>{
+      handlePos(pos);
+      navigator.geolocation.watchPosition(handlePos,handleGpsErr,{enableHighAccuracy:true,maximumAge:500,timeout:20000});
+    },handleGpsErr,{enableHighAccuracy:true,timeout:20000});
+  }else{document.getElementById('p-gps').className='pill pill-err';document.getElementById('p-gps').textContent='NO GPS';}
+  if('wakeLock' in navigator){
+    try{wakeLock=await navigator.wakeLock.request('screen');}catch{}
+    document.addEventListener('visibilitychange',async()=>{if(document.visibilityState==='visible'){try{wakeLock=await navigator.wakeLock.request('screen');}catch{}}});
   }
   document.getElementById('screen-perm').classList.remove('active');
   document.getElementById('screen-cal').classList.add('active');
-  if (cal.done) {
-    document.getElementById('cal-status').textContent = 'Using saved calibration ✓';
-    document.getElementById('cal-result').textContent = `Noise floor ${cal.noiseFloor} m/s²  ·  Jerk threshold ${cal.jerkThresh} m/s³`;
-    document.getElementById('cal-bar').style.width = '100%';
-    document.getElementById('p-cal').className = 'pill pill-on';
-    document.getElementById('cal-start-btn').textContent = 'RECALIBRATE';
-    document.getElementById('cal-skip-btn').textContent = 'USE SAVED · CONTINUE';
-    let autoT = setTimeout(enterLive, 8000);
-    document.getElementById('cal-start-btn').addEventListener('click', () => { clearTimeout(autoT); startCalibration(); }, { once: true });
-    document.getElementById('cal-skip-btn').addEventListener('click', () => { clearTimeout(autoT); calRunning = false; enterLive(); }, { once: true });
-  } else {
-    document.getElementById('cal-start-btn').addEventListener('click', () => { startCalibration(); }, { once: true });
-    document.getElementById('cal-skip-btn').addEventListener('click', () => { clearInterval(calTimer); calRunning = false; enterLive(); }, { once: true });
+  if(cal.done){
+    document.getElementById('cal-status').textContent='Using saved calibration ✓';
+    document.getElementById('cal-result').textContent=`Noise floor ${cal.noiseFloor} m/s²  ·  Jerk threshold ${cal.jerkThresh} m/s³`;
+    document.getElementById('cal-bar').style.width='100%';
+    document.getElementById('p-cal').className='pill pill-on';
+    document.getElementById('cal-start-btn').textContent='RECALIBRATE';
+    document.getElementById('cal-skip-btn').textContent='USE SAVED · CONTINUE';
+    let autoT=setTimeout(enterLive,8000);
+    document.getElementById('cal-start-btn').addEventListener('click',()=>{clearTimeout(autoT);startCalibration();},{once:true});
+    document.getElementById('cal-skip-btn').addEventListener('click',()=>{clearTimeout(autoT);calRunning=false;enterLive();},{once:true});
+  }else{
+    document.getElementById('cal-start-btn').addEventListener('click',()=>startCalibration(),{once:true});
+    document.getElementById('cal-skip-btn').addEventListener('click',()=>{clearInterval(calTimer);calRunning=false;enterLive();},{once:true});
   }
 });
 
-/* ════════════════════════════════════════
+/* ═══════════════════════════════════════════════════
    ANALYSIS LIST
-════════════════════════════════════════ */
-function renderAnalysisList() {
-  const sessions = loadSess();
-  document.getElementById('scnt').textContent = `${sessions.length} session${sessions.length !== 1 ? 's' : ''}`;
-  const list = document.getElementById('slist');
-  list.querySelectorAll('.scard').forEach(e => e.remove());
-  document.getElementById('no-sess').style.display = sessions.length ? 'none' : 'block';
-  sessions.forEach(s => {
-    const synced = isSynced(s.id), el = document.createElement('div'); el.className = 'scard';
-    el.innerHTML = `<div class="scard-date"><span>${fmtDate(s.startTime)}</span>${s.hrTrace ? '<span>🫀</span>' : ''}${s.detectedAxis ? '<span>AX:' + s.detectedAxis.toUpperCase() + '</span>' : ''}${synced ? '<span class="sync-badge">☁ synced</span>' : ''}</div><div class="scard-stats"><div><span class="scs-v">${(s.distance / 1000).toFixed(2)}</span><span class="scs-l">km</span></div><div><span class="scs-v">${fmtH(s.duration)}</span><span class="scs-l">time</span></div><div><span class="scs-v">${s.avgPace > 0 ? fmt(s.avgPace) : '—'}</span><span class="scs-l">avg pace</span></div><div><span class="scs-v">${s.strokeCount || 0}</span><span class="scs-l">strokes</span></div></div>`;
-    el.addEventListener('click', () => showDetail(s.id)); list.appendChild(el);
+═══════════════════════════════════════════════════ */
+function renderAnalysisList(){
+  const sessions=loadSess();
+  document.getElementById('scnt').textContent=`${sessions.length} session${sessions.length!==1?'s':''}`;
+  const list=document.getElementById('slist');
+  list.querySelectorAll('.scard').forEach(e=>e.remove());
+  document.getElementById('no-sess').style.display=sessions.length?'none':'block';
+  sessions.forEach(s=>{
+    const synced=isSynced(s.id),el=document.createElement('div');el.className='scard';
+    el.innerHTML=`<div class="scard-date"><span>${fmtDate(s.startTime)}</span>${s.hrTrace?'<span>🫀</span>':''}${s.detectedAxis?'<span>AX:'+s.detectedAxis.toUpperCase()+'</span>':''}${synced?'<span class="sync-badge">☁ synced</span>':''}</div><div class="scard-stats"><div><span class="scs-v">${(s.distance/1000).toFixed(2)}</span><span class="scs-l">km</span></div><div><span class="scs-v">${fmtH(s.duration)}</span><span class="scs-l">time</span></div><div><span class="scs-v">${s.avgPace>0?fmt(s.avgPace):'—'}</span><span class="scs-l">avg pace</span></div><div><span class="scs-v">${s.strokeCount||0}</span><span class="scs-l">strokes</span></div></div>`;
+    el.addEventListener('click',()=>showDetail(s.id));list.appendChild(el);
   });
 }
 
