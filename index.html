@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#1a5276"/>
 <title>Scull · Metrics v4</title>
 <script>
-(function(){var h=new URLSearchParams(location.hash.slice(1)),t=h.get('access_token');if(!t)return;history.replaceState({},'',location.pathname);sessionStorage.setItem('_oauth_token',JSON.stringify({token:t,expires:parseInt(h.get('expires_in')||'3600')}));})();
+(function(){try{var h=new URLSearchParams(location.hash.slice(1)),t=h.get('access_token');if(!t)return;try{history.replaceState({},'',location.pathname);}catch{}try{sessionStorage.setItem('_oauth_token',JSON.stringify({token:t,expires:parseInt(h.get('expires_in')||'3600')}));}catch{}}catch{}})();
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet"/>
 <style>
@@ -340,16 +340,19 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <script>
 'use strict';
 
-/* Storage safety shim
-   typeof localStorage !== 'undefined' does NOT prevent SecurityError in sandboxed
-   iframes — the property exists but throws on access. Must use try/catch with
-   bracket notation. We then shadow the globals with const so all code below
-   automatically uses safe versions. No Object.defineProperty needed. */
-const _mem=(()=>{const m={};return{getItem:k=>m[k]??null,setItem:(k,v)=>{m[k]=String(v);},removeItem:k=>{delete m[k];},clear:()=>{for(const k in m)delete m[k];},key:i=>Object.keys(m)[i]??null,get length(){return Object.keys(m).length;}};})();
-let _ls=_mem,_ss=_mem;
-try{window['localStorage'].getItem('');_ls=window['localStorage'];}catch{}
-try{window['sessionStorage'].getItem('');_ss=window['sessionStorage'];}catch{}
-const localStorage=_ls,sessionStorage=_ss;
+/* Storage safety shim — works in sandboxed iframes, private browsing, iOS.
+   Uses explicit _LS / _SS variables (no shadowing of globals, avoids any
+   browser quirks with const redeclaration of built-in identifiers). */
+const _LS = (()=>{
+  const m={};
+  const fake={getItem:k=>m[k]??null,setItem:(k,v)=>{m[k]=String(v);},removeItem:k=>{delete m[k];},clear:()=>{for(const k in m)delete m[k];},key:i=>Object.keys(m)[i]??null,get length(){return Object.keys(m).length;}};
+  try{window._LS.getItem('');return window.localStorage;}catch{return fake;}
+})();
+const _SS = (()=>{
+  const m={};
+  const fake={getItem:k=>m[k]??null,setItem:(k,v)=>{m[k]=String(v);},removeItem:k=>{delete m[k];},clear:()=>{for(const k in m)delete m[k];},key:i=>Object.keys(m)[i]??null,get length(){return Object.keys(m).length;}};
+  try{window._SS.getItem('');return window.sessionStorage;}catch{return fake;}
+})();
 
 /* ══════════════════════════════════════════════════
    CONFIG — single source of truth
@@ -427,15 +430,15 @@ function toast(m) { const t=document.getElementById('toast'); t.textContent=m; t
    STORAGE
 ══════════════════════════════════════════════════ */
 const DB='scull_v3',AUTOSAVE_DB='scull_autosave',SYNCED_DB='scull_drive_synced',PENDING_KEY='scull_drive_pending';
-const loadSess   = () => { try { return JSON.parse(localStorage.getItem(DB)||'[]'); } catch { return []; } };
-const loadSynced = () => { try { return new Set(JSON.parse(localStorage.getItem(SYNCED_DB)||'[]')); } catch { return new Set(); } };
-const markSynced = id => { try { const s=loadSynced(); s.add(id); localStorage.setItem(SYNCED_DB,JSON.stringify([...s])); } catch {} };
+const loadSess   = () => { try { return JSON.parse(_LS.getItem(DB)||'[]'); } catch { return []; } };
+const loadSynced = () => { try { return new Set(JSON.parse(_LS.getItem(SYNCED_DB)||'[]')); } catch { return new Set(); } };
+const markSynced = id => { try { const s=loadSynced(); s.add(id); _LS.setItem(SYNCED_DB,JSON.stringify([...s])); } catch {} };
 const isSynced   = id => loadSynced().has(id);
 const delSess    = id => saveSess(loadSess().filter(s=>s.id!==id));
 function saveSess(a) {
-  try { localStorage.setItem(DB,JSON.stringify(a)); } catch {
-    try { const slim=a.map(s=>s.strokes?{...s,strokes:s.strokes.map(({dbg,...r})=>r),gpsRawTrace:undefined}:s); localStorage.setItem(DB,JSON.stringify(slim)); toast('Storage full — debug data trimmed'); }
-    catch { try { localStorage.setItem(DB,JSON.stringify(a.slice(0,Math.max(1,a.length-1)))); toast('Storage full — oldest session removed'); } catch {} }
+  try { _LS.setItem(DB,JSON.stringify(a)); } catch {
+    try { const slim=a.map(s=>s.strokes?{...s,strokes:s.strokes.map(({dbg,...r})=>r),gpsRawTrace:undefined}:s); _LS.setItem(DB,JSON.stringify(slim)); toast('Storage full — debug data trimmed'); }
+    catch { try { _LS.setItem(DB,JSON.stringify(a.slice(0,Math.max(1,a.length-1)))); toast('Storage full — oldest session removed'); } catch {} }
   }
 }
 function addSess(s) {
@@ -444,13 +447,13 @@ function addSess(s) {
     DriveSync.upload(s).then(()=>{markSynced(s.id);updateDriveBtn();toast('✓ Saved to Drive');}).catch(()=>{queuePending(s.id);toast('Saved locally — Drive sync pending');});
   }
 }
-function queuePending(id) { try { const q=JSON.parse(localStorage.getItem(PENDING_KEY)||'[]'); if(!q.includes(id)){q.push(id);localStorage.setItem(PENDING_KEY,JSON.stringify(q));} } catch {} }
+function queuePending(id) { try { const q=JSON.parse(_LS.getItem(PENDING_KEY)||'[]'); if(!q.includes(id)){q.push(id);_LS.setItem(PENDING_KEY,JSON.stringify(q));} } catch {} }
 async function flushQueue() {
   try {
-    const q=JSON.parse(localStorage.getItem(PENDING_KEY)||'[]'); if(!q.length||!DriveSync.isSignedIn()) return;
+    const q=JSON.parse(_LS.getItem(PENDING_KEY)||'[]'); if(!q.length||!DriveSync.isSignedIn()) return;
     const sessions=loadSess(); let n=0;
     for (const id of q) { const s=sessions.find(x=>x.id===id); if(!s) continue; try{await DriveSync.upload(s);markSynced(id);n++;}catch{} }
-    localStorage.removeItem(PENDING_KEY);
+    _LS.removeItem(PENDING_KEY);
     if (n) { toast(`✓ ${n} session${n>1?'s':''} synced to Drive`); renderAnalysisList(); }
   } catch(e) { toast('Drive sync failed: '+e.message); }
 }
@@ -461,9 +464,9 @@ async function flushQueue() {
 const DriveSync = (() => {
   let _tok=null,_exp=0; const KEY='_ds_tok';
   return {
-    _injectToken(t,s){_tok=t;_exp=Date.now()+s*1000;try{sessionStorage.setItem(KEY,JSON.stringify({t:_tok,e:_exp}));}catch{}},
+    _injectToken(t,s){_tok=t;_exp=Date.now()+s*1000;try{_SS.setItem(KEY,JSON.stringify({t:_tok,e:_exp}));}catch{}},
     isSignedIn(){return!!_tok&&Date.now()<_exp;},
-    async init(){try{const r=sessionStorage.getItem(KEY);if(!r)return;const{t,e}=JSON.parse(r);if(Date.now()<e){_tok=t;_exp=e;}else sessionStorage.removeItem(KEY);}catch{}},
+    async init(){try{const r=_SS.getItem(KEY);if(!r)return;const{t,e}=JSON.parse(r);if(Date.now()<e){_tok=t;_exp=e;}else _SS.removeItem(KEY);}catch{}},
     async upload(session){
       if(!this.isSignedIn())throw new Error('Not signed in');
       const meta={name:`scull_${session.id}.json`,mimeType:'application/json'};
@@ -473,18 +476,18 @@ const DriveSync = (() => {
       const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{Authorization:`Bearer ${_tok}`},body:form});
       if(!r.ok)throw new Error(`Drive upload failed: ${r.status}`);
     },
-    signOut(){_tok=null;_exp=0;try{sessionStorage.removeItem(KEY);}catch{}}
+    signOut(){_tok=null;_exp=0;try{_SS.removeItem(KEY);}catch{}}
   };
 })();
 const DRIVE_CLIENT_ID='729480414852-kko8e7bi3r38tcg2rf6iiupptagoegpc.apps.googleusercontent.com';
 const DRIVE_SCOPE    ='https://www.googleapis.com/auth/drive.file';
 const OAUTH_REDIRECT ='https://kstg4cnkwh-netizen.github.io/Scull-metrics/';
-function driveSignIn(){sessionStorage.setItem('_oauth_screen',document.querySelector('.screen.active')?.id||'')||'';const p=new URLSearchParams({client_id:DRIVE_CLIENT_ID,redirect_uri:OAUTH_REDIRECT,response_type:'token',scope:DRIVE_SCOPE,include_granted_scopes:'true'});window.location.href='https://accounts.google.com/o/oauth2/v2/auth?'+p;}
+function driveSignIn(){_SS.setItem('_oauth_screen',document.querySelector('.screen.active')?.id||'')||'';const p=new URLSearchParams({client_id:DRIVE_CLIENT_ID,redirect_uri:OAUTH_REDIRECT,response_type:'token',scope:DRIVE_SCOPE,include_granted_scopes:'true'});window.location.href='https://accounts.google.com/o/oauth2/v2/auth?'+p;}
 function handleDriveBtnTap(){if(DriveSync.isSignedIn()){if(confirm('Unlink Google Drive?')){DriveSync.signOut();updateDriveBtn();toast('Drive unlinked');}}else driveSignIn();}
 function updateDriveBtn(){const btn=document.getElementById('drive-btn');if(!btn)return;DriveSync.isSignedIn()?(btn.textContent='☁ Linked',btn.classList.add('drive-linked')):(btn.textContent='☁ Drive',btn.classList.remove('drive-linked'));}
 function checkOAuthReturn(){
-  const raw=sessionStorage.getItem('_oauth_token'); if(!raw) return false;
-  sessionStorage.removeItem('_oauth_token');
+  const raw=_SS.getItem('_oauth_token'); if(!raw) return false;
+  _SS.removeItem('_oauth_token');
   try{const{token,expires}=JSON.parse(raw);DriveSync._injectToken(token,expires);wireTabButtons();document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById('screen-analysis')?.classList.add('active');renderAnalysisList();requestAnimationFrame(renderCtrl);updateDriveBtn();toast('✓ Drive linked');flushQueue();return true;}
   catch(e){toast('Drive auth failed: '+e.message);return false;}
 }
@@ -494,7 +497,7 @@ function checkOAuthReturn(){
 ══════════════════════════════════════════════════ */
 const CAL_DB='scull_cal_v2';
 let cal={done:false,noiseFloor:2.0,jerkThresh:8.0,accThresh:0.8,bestAxis:null};
-(()=>{try{const c=JSON.parse(localStorage.getItem(CAL_DB));if(c?.done)cal=c;}catch{}})();
+(()=>{try{const c=JSON.parse(_LS.getItem(CAL_DB));if(c?.done)cal=c;}catch{}})();
 const CAL_SECS=8;
 let calSamples={x:[],y:[],z:[]},calTimer=null,calRunning=false;
 function startCalibration(){
@@ -510,7 +513,7 @@ function finishCalibration(){
   const rms=ax=>{const a=calSamples[ax];return Math.sqrt(a.reduce((s,v)=>s+v*v,0)/a.length);};
   const nf=Math.min(rms('x'),rms('y')),jt=clamp(nf*5.0,5.0,25.0),at=clamp(nf*1.5,0.4,2.0);
   cal={done:true,noiseFloor:+nf.toFixed(3),jerkThresh:+jt.toFixed(2),accThresh:+at.toFixed(2),bestAxis:null};
-  localStorage.setItem(CAL_DB,JSON.stringify(cal));
+  _LS.setItem(CAL_DB,JSON.stringify(cal));
   document.getElementById('cal-status').textContent='Calibration complete ✓';
   document.getElementById('cal-result').textContent=`Noise ${nf.toFixed(2)} m/s²  ·  Jerk threshold ${jt.toFixed(1)} m/s³`;
   document.getElementById('p-cal').className='pill pill-on';
@@ -983,11 +986,11 @@ function updateUI(){
 ══════════════════════════════════════════════════ */
 const CFG_OPTIONS=['total-time','total-dist','tod','lap-pace','lap-time','lap-dist','avg-pace'];
 const CFG_LABELS={'tod':'Time of day','total-time':'Total time','lap-time':'Lap time','lap-pace':'Lap pace','total-dist':'Total distance','lap-dist':'Lap distance','avg-pace':'Avg pace'};
-let cfgTop=(()=>{try{const v=localStorage.getItem('scull_cfg_top');return(v&&CFG_OPTIONS.includes(v))?v:'total-time';}catch{return'total-time';}})();
-let cfgBot=(()=>{try{const v=localStorage.getItem('scull_cfg_bot');return(v&&CFG_OPTIONS.includes(v))?v:'total-dist';}catch{return'total-dist';}})();
+let cfgTop=(()=>{try{const v=_LS.getItem('scull_cfg_top');return(v&&CFG_OPTIONS.includes(v))?v:'total-time';}catch{return'total-time';}})();
+let cfgBot=(()=>{try{const v=_LS.getItem('scull_cfg_bot');return(v&&CFG_OPTIONS.includes(v))?v:'total-dist';}catch{return'total-dist';}})();
 function cycleCfg(w){
   const cur=w==='top'?cfgTop:cfgBot,next=CFG_OPTIONS[(CFG_OPTIONS.indexOf(cur)+1)%CFG_OPTIONS.length];
-  if(w==='top'){cfgTop=next;localStorage.setItem('scull_cfg_top',next);}else{cfgBot=next;localStorage.setItem('scull_cfg_bot',next);}
+  if(w==='top'){cfgTop=next;_LS.setItem('scull_cfg_top',next);}else{cfgBot=next;_LS.setItem('scull_cfg_bot',next);}
   updateCfgTile(w);
 }
 function cfgValue(key){
@@ -1023,7 +1026,7 @@ function wireCfgTiles(){
 const CURVE_TILE_OPTIONS=['stroke-rate','catch-slope','dps','impulse','run-loss','char','pace'];
 const CURVE_TILE_LABELS={'stroke-rate':'Stroke rate','catch-slope':'Catch slope','dps':'Dist/stroke','impulse':'Impulse','run-loss':'Run loss','char':'Char %','pace':'Pace'};
 const CURVE_TILE_SUBS={'stroke-rate':'str/min','catch-slope':'m/s³','dps':'m','impulse':'','run-loss':'m/str','char':'%','pace':'/500m'};
-let curveTileKeys=(()=>{try{const s=JSON.parse(localStorage.getItem('scull_ctiles')||'null');if(s&&s.length===4&&s.every(k=>CURVE_TILE_OPTIONS.includes(k)))return s;}catch{}return['stroke-rate','catch-slope','dps','impulse'];})();
+let curveTileKeys=(()=>{try{const s=JSON.parse(_LS.getItem('scull_ctiles')||'null');if(s&&s.length===4&&s.every(k=>CURVE_TILE_OPTIONS.includes(k)))return s;}catch{}return['stroke-rate','catch-slope','dps','impulse'];})();
 function curveTileValue(key){
   const on=running&&!paused;
   switch(key){
@@ -1048,7 +1051,7 @@ function updateCurveTiles(){
 function wireCurveTiles(){
   document.querySelectorAll('.curve-tile').forEach(el=>{
     const i=parseInt(el.dataset.cw);
-    el.addEventListener('click',()=>{const cur=curveTileKeys[i],next=CURVE_TILE_OPTIONS[(CURVE_TILE_OPTIONS.indexOf(cur)+1)%CURVE_TILE_OPTIONS.length];curveTileKeys[i]=next;try{localStorage.setItem('scull_ctiles',JSON.stringify(curveTileKeys));}catch{}updateCurveTiles();});
+    el.addEventListener('click',()=>{const cur=curveTileKeys[i],next=CURVE_TILE_OPTIONS[(CURVE_TILE_OPTIONS.indexOf(cur)+1)%CURVE_TILE_OPTIONS.length];curveTileKeys[i]=next;try{_LS.setItem('scull_ctiles',JSON.stringify(curveTileKeys));}catch{}updateCurveTiles();});
   });
 }
 let activeSubTab='live';function curveTabActive(){return document.getElementById('screen-live').classList.contains('active')&&activeSubTab==='curve';}
@@ -1129,14 +1132,14 @@ function stopSess(){
       });
       sessSaved=true;toast('Session saved');
     }catch(e){toast('Save error — export CSV to recover data');}
-    localStorage.removeItem(AUTOSAVE_DB);
+    _LS.removeItem(AUTOSAVE_DB);
   }
   requestAnimationFrame(renderCtrl);
 }
 function resetSess(){
   if(elapsed>10&&sessStrokes.length>0&&!sessSaved){if(confirm('Save before reset?'))stopSess();else{clearInterval(timerInt);clearInterval(autosaveInt);}}
   else{clearInterval(timerInt);clearInterval(autosaveInt);}
-  running=false;paused=false;sessSaved=false;localStorage.removeItem(AUTOSAVE_DB);
+  running=false;paused=false;sessSaved=false;_LS.removeItem(AUTOSAVE_DB);
   elapsed=0;distance=0;pace=0;strokeRate=0;strokeCount=0;acRate=0;acConf=0;distPerStroke=0;dpsValsArr.length=0;maxDPS=0;
   lapStartDist=0;lapStartTime=0;catchLast=null;catchPeakSess=null;catchAvg8=null;catchValsArr.length=0;catchConsistency=null;
   strokeChar=50;charValsArr.length=0;rdi=null;rdiValsArr.length=0;
@@ -1163,10 +1166,10 @@ function recordLap(){
 }
 function saveInProgress(){
   if(!running||!sessStart||sessStrokes.length===0)return;
-  try{const snap={id:sessStart.toString(),startTime:sessStart,duration:elapsed,distance:Math.round(distance),avgPace:sessPaceTrace.length?Math.round(sessPaceTrace.reduce((a,b)=>a+b,0)/sessPaceTrace.length):0,avgRate:sessStrokes.length?Math.round(sessStrokes.reduce((a,b)=>a+b.rate,0)/sessStrokes.length):0,maxRate:sessStrokes.length?Math.max(...sessStrokes.map(s=>s.rate)):0,strokeCount,catchPeakSess,catchAvg8,laps,strokes:sessStrokes,paceTrace:sessPaceTrace,gpsTrace:sessGpsTrace,_autosave:true,_savedAt:Date.now()};localStorage.setItem(AUTOSAVE_DB,JSON.stringify(snap));}catch{}
+  try{const snap={id:sessStart.toString(),startTime:sessStart,duration:elapsed,distance:Math.round(distance),avgPace:sessPaceTrace.length?Math.round(sessPaceTrace.reduce((a,b)=>a+b,0)/sessPaceTrace.length):0,avgRate:sessStrokes.length?Math.round(sessStrokes.reduce((a,b)=>a+b.rate,0)/sessStrokes.length):0,maxRate:sessStrokes.length?Math.max(...sessStrokes.map(s=>s.rate)):0,strokeCount,catchPeakSess,catchAvg8,laps,strokes:sessStrokes,paceTrace:sessPaceTrace,gpsTrace:sessGpsTrace,_autosave:true,_savedAt:Date.now()};_LS.setItem(AUTOSAVE_DB,JSON.stringify(snap));}catch{}
 }
 function checkAutosave(){
-  try{const raw=localStorage.getItem(AUTOSAVE_DB);if(!raw)return;const snap=JSON.parse(raw);if(!snap||!snap._autosave||!snap.strokeCount)return;const age=Date.now()-snap._savedAt;if(age>12*3600*1000){localStorage.removeItem(AUTOSAVE_DB);return;}const mins=Math.round(snap.duration/60),km=(snap.distance/1000).toFixed(2);if(confirm(`Recover autosaved session?\n${km} km · ${mins} min · ${snap.strokeCount} strokes\n(Saved ${Math.round(age/60000)} min ago)`)){snap._autosave=false;const a=loadSess();a.unshift(snap);saveSess(a);localStorage.removeItem(AUTOSAVE_DB);alert('Session recovered. View in Analysis.');}else localStorage.removeItem(AUTOSAVE_DB);}catch{localStorage.removeItem(AUTOSAVE_DB);}
+  try{const raw=_LS.getItem(AUTOSAVE_DB);if(!raw)return;const snap=JSON.parse(raw);if(!snap||!snap._autosave||!snap.strokeCount)return;const age=Date.now()-snap._savedAt;if(age>12*3600*1000){_LS.removeItem(AUTOSAVE_DB);return;}const mins=Math.round(snap.duration/60),km=(snap.distance/1000).toFixed(2);if(confirm(`Recover autosaved session?\n${km} km · ${mins} min · ${snap.strokeCount} strokes\n(Saved ${Math.round(age/60000)} min ago)`)){snap._autosave=false;const a=loadSess();a.unshift(snap);saveSess(a);_LS.removeItem(AUTOSAVE_DB);alert('Session recovered. View in Analysis.');}else _LS.removeItem(AUTOSAVE_DB);}catch{_LS.removeItem(AUTOSAVE_DB);}
 }
 function wireButtons(){
   const s=id=>document.getElementById(`cc-${id}`);
@@ -1335,7 +1338,7 @@ function showDetail(id) {
       e.preventDefault(); e.stopPropagation();
       if (DriveSync.isSignedIn()) {
         try { const btn = document.getElementById('sync-btn'); if (btn) btn.textContent = 'Uploading…'; await DriveSync.upload(s); markSynced(s.id); updateDriveBtn(); if (btn) { btn.textContent = '☁ Synced ✓'; btn.style.background = '#27ae60'; } toast('✓ Saved to Drive'); renderAnalysisList(); } catch(err) { toast('Drive sync failed: ' + err.message); }
-      } else { queuePending(s.id); sessionStorage.setItem('_oauth_screen', document.querySelector('.screen.active')?.id || ''); driveSignIn(); }
+      } else { queuePending(s.id); _SS.setItem('_oauth_screen', document.querySelector('.screen.active')?.id || ''); driveSignIn(); }
     });
     document.getElementById('del-btn').addEventListener('click', () => { if (confirm('Delete this session?')) { delSess(s.id); document.getElementById('adetail-view').style.display = 'none'; document.getElementById('alist-view').style.display = 'block'; renderAnalysisList(); toast('Deleted'); } });
   });
@@ -1699,7 +1702,7 @@ function exportDebugCSV(s) {
 /* ── service worker ── */
 if ('serviceWorker' in navigator) {
   const sw = `const C='scull-v16';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
-  navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw], { type: 'application/javascript' }))).catch(() => {});
+  try{navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw],{type:'application/javascript'}))).catch(()=>{});}catch{}
 }
 
 /* ── init ── */
