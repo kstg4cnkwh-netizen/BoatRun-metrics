@@ -560,15 +560,41 @@ const DriveSync = (() => {
       if(!this.isSignedIn())throw new Error('Not signed in');
       const filename=formatSessionFilename(sessionId);
       const q=encodeURIComponent(`name='${filename}' and trashed=false`);
-      const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`,
+      
+      console.log('🗑️ Searching Drive for:', filename);
+      
+      const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`,
         {headers:{Authorization:`Bearer ${_tok}`}});
-      if(r.ok){const d=await r.json();if(d.files&&d.files.length){
-        const fileId=d.files[0].id;
-        const del=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`,
-          {method:'DELETE',headers:{Authorization:`Bearer ${_tok}`}});
-        if(!del.ok)throw new Error(`Drive delete failed ${del.status}`);
-      }}
+      
+      if(!r.ok){
+        const err=await r.text();
+        console.error('Search failed:', r.status, err);
+        throw new Error(`Drive search failed ${r.status}`);
+      }
+      
+      const d=await r.json();
+      console.log('Search results:', d.files?.length || 0, 'files');
+      
+      if(!d.files||!d.files.length){
+        console.warn('File not found on Drive:', filename);
+        throw new Error(`Session '${filename}' not found on Drive`);
+      }
+      
+      const fileId=d.files[0].id;
+      console.log('Deleting fileId:', fileId);
+      
+      const del=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`,
+        {method:'DELETE',headers:{Authorization:`Bearer ${_tok}`}});
+      
+      if(!del.ok){
+        const err=await del.text();
+        console.error('Delete failed:', del.status, err);
+        throw new Error(`Drive delete failed ${del.status}`);
+      }
+      
+      console.log('✓ Deleted from Drive');
     },
+
     signOut(){_tok=null;_exp=0;try{_SS.removeItem(KEY);}catch{}_LS.removeItem(DIR_KEY);}
   };
 })();
