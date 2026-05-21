@@ -325,6 +325,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
       <button class="btn btn-lap"    id="cc-lap"    style="display:none">Lap</button>
       <button class="btn btn-stop"   id="cc-stop"   style="display:none">Stop</button>
       <button class="btn btn-reset"  id="cc-reset"  style="display:none">Reset</button>
+      <button class="btn btn-lap" id="cc-lock" style="display:none;font-size:clamp(9px,1.1vw,11px)">🔓 Lock</button>
     </div>
     <div class="tab-bar" id="live-tabs">
       <button class="tab active" id="tab-live-ls"><span class="tab-icon">🚣</span><span class="tab-txt">LIVE</span></button>
@@ -1142,11 +1143,19 @@ function handleGpsErr(err){const p=document.getElementById('p-gps');p.className=
 let running=false,paused=false,elapsed=0;
 let distance=0,lapStartDist=0,lapStartTime=0;
 let laps=[],sessStart=null,sessStrokes=[],sessPaceTrace=[];
-let sessSaved=false,timerInt=null,autosaveInt=null,wakeLock=null;
+let sessSaved=false,timerInt=null,autosaveInt=null,wakeLock=null,sessLocked=false;
 
 /* ══════════════════════════════════════════════════
    UPDATE UI + QUALITY PILLS
 ══════════════════════════════════════════════════ */
+
+function toggleSessLock() {
+  sessLocked = !sessLocked;
+  const btn = document.getElementById('cc-lock');
+  if (btn) { btn.textContent = sessLocked ? '🔒 Unlock' : '🔓 Lock'; btn.style.background = sessLocked ? '#f39c12' : 'rgba(255,255,255,.18)'; btn.style.color = sessLocked ? '#000' : '#fff'; }
+  renderCtrl();
+}
+
 function updateUI(){
   const on=running&&!paused;
 
@@ -1313,9 +1322,16 @@ function renderCurveCanvas(){
 function renderCtrl(){
   const show=(id,vis)=>document.getElementById(`cc-${id}`).style.display=vis?'flex':'none';
   const sr=!running&&!paused,rv=!running&&paused&&elapsed>0;
-  show('start',sr&&!rv);show('resume',rv);show('pause',running&&!paused);show('lap',running&&!paused);show('stop',running&&!paused);show('reset',!running&&elapsed>0);
+  show('start',sr&&!rv);
+  show('resume',rv);
+  show('pause',running&&!paused&&!sessLocked);
+  show('lap',running&&!paused);
+  show('stop',running&&!paused&&!sessLocked);
+  show('reset',!running&&elapsed>0&&!sessLocked);
+  show('lock',running||(!running&&elapsed>0));
   document.getElementById('rec-ind').style.display=(running&&!paused)?'flex':'none';
 }
+
 function startSess(){
   if(!sessStart)sessStart=Date.now();lapStartDist=distance;lapStartTime=elapsed;running=true;paused=false;
   timerInt=setInterval(()=>{elapsed++;updateUI();},1000);saveInProgress();
@@ -1357,6 +1373,7 @@ function stopSess(){
   requestAnimationFrame(renderCtrl);
 }
 function resetSess(){
+  sessLocked = false;
   if(elapsed>10&&sessStrokes.length>0&&!sessSaved){if(confirm('Save before reset?'))stopSess();else{clearInterval(timerInt);clearInterval(autosaveInt);}}
   else{clearInterval(timerInt);clearInterval(autosaveInt);}
   running=false;paused=false;sessSaved=false;_LS.removeItem(AUTOSAVE_DB);
@@ -1396,6 +1413,8 @@ function wireButtons(){
   s('start').addEventListener('click',startSess);s('resume').addEventListener('click',resumeSess);
   s('pause').addEventListener('click',pauseSess);s('lap').addEventListener('click',recordLap);
   s('stop').addEventListener('click',stopSess);s('reset').addEventListener('click',resetSess);
+  document.getElementById('cc-lock').addEventListener('click', toggleSessLock);
+
 }
 
 /* ══════════════════════════════════════════════════
@@ -1571,7 +1590,14 @@ function showDetail(id) {
     const hrs = s.hrTrace.map(h => h.hr), avgHr = Math.round(hrs.reduce((a, b) => a + b, 0) / hrs.length), maxHr = Math.max(...hrs), minHr = Math.min(...hrs);
     const MHR = 185, zones = [0, 0, 0, 0, 0]; hrs.forEach(h => { const p = h / MHR; if (p < .6) zones[0]++; else if (p < .7) zones[1]++; else if (p < .8) zones[2]++; else if (p < .9) zones[3]++; else zones[4]++; });
     const tot = hrs.length, zc = ['#3498db', '#27ae60', '#f39c12', '#e67e22', '#c0392b'], zn = ['Z1', 'Z2', 'Z3', 'Z4', 'Z5'];
-    hrHTML = `<div class="sgrid"><div class="sbox r"><span class="sbox-v">${avgHr}</span><span class="sbox-l">Avg HR</span><span class="sbox-u">BPM</span></div><div class="sbox r"><span class="sbox-v">${maxHr}</span><span class="sbox-l">Max HR</span><span class="sbox-u">BPM</span></div><div class="sbox r"><span class="sbox-v">${minHr}</span><span class="sbox-l">Min HR</span><span class="sbox-u">BPM</span></div></div><div class="hr-zones">${zn.map((z, i) => `<div class="hrz" style="background:${zc[i]}18;border:1px solid ${zc[i]}33"><span class="hrz-l" style="color:${zc[i]}">${z}</span><span class="hrz-p" style="color:${zc[i]}">${Math.round(zones[i] / tot * 100)}%</span></div>`).join('')}</div><div class="chart-card r"><div class="chart-lbl"><span>Heart Rate</span><span>bpm</span></div><canvas id="a-hr" class="acanvas"></canvas></div>`;
+    hrHTML = `<div class="sgrid"><div class="sbox r"><span class="sbox-v">${avgHr}</span><span class="sbox-l">Avg HR</span><span class="sbox-u">BPM</span></div><div class="sbox r"><span class="sbox-v">${maxHr}</span><span class="sbox-l">Max HR</span><span class="sbox-u">BPM</span></div><div class="sbox r"><span class="sbox-v">${minHr}</span><span class="sbox-l">Min HR</span><span class="sbox-u">BPM</span></div></div>
+    <div class="chart-card r"><div class="chart-lbl"><span>Heart Rate</span><span>bpm</span></div>
+    <div style="position:relative;">
+      <canvas id="a-hr" class="acanvas"></canvas>
+      <div style="position:absolute;bottom:0;left:0;right:0;display:flex;height:14px;pointer-events:none;">
+        ${zn.map((z,i)=>zones[i]?`<div style="flex:${zones[i]};background:${zc[i]}66;display:flex;align-items:center;justify-content:center;overflow:hidden;min-width:0;"><span style="font-size:7px;font-weight:800;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.7);white-space:nowrap;">${z} ${Math.round(zones[i]/tot*100)}%</span></div>`:'').join('')}
+      </div>
+    </div></div>`;
   } else {
     hrHTML = `<div class="fit-zone" id="fit-zone"><div class="fit-txt">🫀 Import Garmin FIT / TCX / GPX<br/><span style="color:#aaa;font-size:11px">Tap to select file · FIT preferred</span><br/><span style="color:#27ae60;font-size:10px">Inline parser — works fully offline</span><br/><span style="color:#ccc;font-size:10px">Garmin Connect app → Activity → ··· → Export as FIT</span></div></div><div class="fit-st" id="fit-st"></div>`;
   }
@@ -1612,7 +1638,7 @@ function showDetail(id) {
     ${s.strokes && s.strokes.length > 2 ? `
       <div class="chart-card b"><div class="chart-lbl"><span>Catch Slope</span><span>m/s³</span></div><canvas id="a-catch" class="acanvas"></canvas></div>
       <div class="chart-card a"><div class="chart-lbl"><span>Stroke Rate</span><span>str/min</span></div><canvas id="a-rate" class="acanvas"></canvas></div>
-      <div class="chart-card"><div class="chart-lbl"><span>Run Loss</span><span>%</span></div><canvas id="a-runloss" class="acanvas"></canvas></div>
+      <div class="chart-card"><div class="chart-lbl"><span>Run Loss</span><span>m/str</span></div><canvas id="a-runloss" class="acanvas"></canvas></div>
       <div class="chart-card"><div class="chart-lbl"><span>Impulse</span></div><canvas id="a-eff" class="acanvas"></canvas></div>
       <div class="chart-card"><div class="chart-lbl"><span>Dist / Stroke</span><span>m</span></div><canvas id="a-dps" class="acanvas"></canvas></div>
       <div class="chart-card"><div class="chart-lbl"><span>Stroke Characteristic</span><span>%</span></div><canvas id="a-char" class="acanvas"></canvas></div>
