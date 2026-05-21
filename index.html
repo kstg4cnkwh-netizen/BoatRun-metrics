@@ -642,7 +642,7 @@ const DriveSync = (() => {
       } catch(e) {
         toast('Drive sync failed: ' + e.message);
       }
-    }
+    },
 
     signOut(){_tok=null;_exp=0;try{_SS.removeItem(KEY);}catch{}_LS.removeItem(DIR_KEY);}
   };
