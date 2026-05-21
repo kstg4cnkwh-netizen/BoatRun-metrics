@@ -457,7 +457,24 @@ const loadSess   = () => { try { return JSON.parse(_LS.getItem(DB)||'[]'); } cat
 const loadSynced = () => { try { return new Set(JSON.parse(_LS.getItem(SYNCED_DB)||'[]')); } catch { return new Set(); } };
 const markSynced = id => { try { const s=loadSynced(); s.add(id); _LS.setItem(SYNCED_DB,JSON.stringify([...s])); } catch {} };
 const isSynced   = id => loadSynced().has(id);
-const delSess    = id => saveSess(loadSess().filter(s=>s.id!==id));
+const delSess = async id => {
+  saveSess(loadSess().filter(s => s.id !== id));
+  
+  // Also delete from Drive if synced
+  if (isSynced(id)) {
+    try {
+      if (DriveSync.isSignedIn()) {
+        await DriveSync.delete(id);
+        loadSynced().delete(id);
+        _LS.setItem(SYNCED_DB, JSON.stringify([...loadSynced()]));
+      }
+    } catch (e) {
+      console.warn('Drive delete failed:', e.message);
+      // Still deleted locally; Drive will clean up on next sync
+    }
+  }
+};
+
 function saveSess(a) {
   try { _LS.setItem(DB,JSON.stringify(a)); } catch {
     try { const slim=a.map(s=>s.strokes?{...s,strokes:s.strokes.map(({dbg,...r})=>r),gpsRawTrace:undefined}:s); _LS.setItem(DB,JSON.stringify(slim)); toast('Storage full — debug data trimmed'); }
@@ -538,6 +555,19 @@ const DriveSync = (() => {
         const body=await r.text().catch(()=>'');
         throw new Error(`Drive upload failed ${r.status}: ${body.slice(0,120)}`);
       }
+    },
+    async delete(sessionId){
+      if(!this.isSignedIn())throw new Error('Not signed in');
+      const filename=formatSessionFilename(sessionId);
+      const q=encodeURIComponent(`name='${filename}' and trashed=false`);
+      const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`,
+        {headers:{Authorization:`Bearer ${_tok}`}});
+      if(r.ok){const d=await r.json();if(d.files&&d.files.length){
+        const fileId=d.files[0].id;
+        const del=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`,
+          {method:'DELETE',headers:{Authorization:`Bearer ${_tok}`}});
+        if(!del.ok)throw new Error(`Drive delete failed ${del.status}`);
+      }}
     },
     signOut(){_tok=null;_exp=0;try{_SS.removeItem(KEY);}catch{}_LS.removeItem(DIR_KEY);}
   };
