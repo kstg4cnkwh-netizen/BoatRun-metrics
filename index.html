@@ -512,6 +512,23 @@ function formatSessionFilename(sessionId) {
   const min = String(d.getMinutes()).padStart(2, '0');
   return `RowSess_${y}-${m}-${day}_${h}${min}.json`;
 }
+async function migrateLocalSessionsToDrive() {
+  const sessions = loadSess();
+  if (!sessions.length || !DriveSync.isSignedIn()) return;
+  
+  // Only upload sessions not already synced
+  const synced = loadSynced();
+  const toUpload = sessions.filter(s => !synced.has(s.id));
+  if (!toUpload.length) return;
+
+  toast(`Migrating ${toUpload.length} session${toUpload.length > 1 ? 's' : ''} to Drive…`);
+  let n = 0;
+  for (const s of toUpload) {
+    try { await DriveSync.upload(s); markSynced(s.id); n++; } catch {}
+  }
+  if (n) toast(`✓ ${n} session${n > 1 ? 's' : ''} migrated to Drive`);
+}
+
 
 const DriveSync = (() => {
   let _tok=null,_exp=0; const KEY='_ds_tok',DIR_KEY='_scull_dir';
@@ -587,7 +604,6 @@ const DriveSync = (() => {
       if(!r.ok) throw new Error(`Drive list failed ${r.status}`);
       return (await r.json()).files || [];
     },
-
 
     async downloadSession(fileId) {
       if(!this.isSignedIn()) throw new Error('Not signed in');
@@ -668,12 +684,10 @@ function driveSignIn(){
 }
 function handleDriveBtnTap(){if(DriveSync.isSignedIn()){if(confirm('Unlink Google Drive?')){DriveSync.signOut();updateDriveBtn();toast('Drive unlinked');}}else driveSignIn();}
 function updateDriveBtn(){const btn=document.getElementById('drive-btn');if(!btn)return;DriveSync.isSignedIn()?(btn.textContent='☁ Linked',btn.classList.add('drive-linked')):(btn.textContent='☁ Drive',btn.classList.remove('drive-linked'));}
-function checkOAuthReturn(){
-  // Prefer window._scullOAuth (set by OAuth IIFE, works with no sessionStorage)
+async function checkOAuthReturn(){
   let pending = window._scullOAuth || null;
   window._scullOAuth = null;
   if (!pending) {
-    // Fall back to sessionStorage (persisted across navigations when available)
     const raw = _SS.getItem('_oauth_token');
     if (!raw) return false;
     _SS.removeItem('_oauth_token');
@@ -686,9 +700,14 @@ function checkOAuthReturn(){
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     document.getElementById('screen-analysis')?.classList.add('active');
     renderAnalysisListWithSwipe();requestAnimationFrame(renderCtrl);updateDriveBtn();
-    toast('✓ Drive linked');flushQueue();DriveSync.syncFromDrive().catch(console.warn);return true;
+    toast('✓ Drive linked');
+    flushQueue();
+    await migrateLocalSessionsToDrive();
+    await DriveSync.syncFromDrive();
+    return true;
   }catch(e){toast('Drive auth failed: '+e.message);return false;}
 }
+
 
 /* ══════════════════════════════════════════════════
    CALIBRATION
@@ -1412,7 +1431,18 @@ document.getElementById('perm-btn').addEventListener('click',async()=>{
   }
   window.addEventListener('devicemotion',handleMotion,{passive:true});
   document.getElementById('p-acc').className='pill pill-on';document.getElementById('p-acc').textContent='ACC';
-  DriveSync.init().then(()=>{if(DriveSync.isSignedIn()){updateDriveBtn();flushQueue();DriveSync.syncFromDrive();}}).catch(console.warn);
+  DriveSync.init().then(async () => {
+      if (DriveSync.isSignedIn()) {
+        updateDriveBtn();
+        await flushQueue();
+        await migrateLocalSessionsToDrive();
+      await DriveSync.syncFromDrive();
+      }
+    }).catch(e => {
+      console.warn(e);
+      toast('Drive sync failed: ' + (e && e.message ? e.message : e));
+    });
+
   if(navigator.geolocation){
     navigator.geolocation.getCurrentPosition(pos=>{handlePos(pos);navigator.geolocation.watchPosition(handlePos,handleGpsErr,{enableHighAccuracy:true,maximumAge:500,timeout:20000});},handleGpsErr,{enableHighAccuracy:true,timeout:20000});
   }else{document.getElementById('p-gps').className='pill pill-err';document.getElementById('p-gps').textContent='NO GPS';}
@@ -1985,7 +2015,15 @@ if ('serviceWorker' in navigator) {
 
 /* ── init ── */
 wireTabButtons();
-DriveSync.init().then(() => { const hadOAuth = checkOAuthReturn(); if (!hadOAuth && DriveSync.isSignedIn()) { updateDriveBtn(); flushQueue().catch(console.warn); DriveSync.syncFromDrive().catch(console.warn); } }).catch(console.warn);
+DriveSync.init().then(async () => {
+  const hadOAuth = await checkOAuthReturn();
+  if (!hadOAuth && DriveSync.isSignedIn()) {
+    updateDriveBtn();
+    flushQueue().catch(console.warn);
+    await migrateLocalSessionsToDrive();
+    DriveSync.syncFromDrive().catch(console.warn);
+  }
+}).catch(console.warn);
 wireCfgTiles(); updateCfgTile('top'); updateCfgTile('bot');
 checkAutosave();
 window.addEventListener('online', () => { if (DriveSync.isSignedIn()) flushQueue().catch(console.warn); });
