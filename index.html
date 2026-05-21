@@ -489,14 +489,18 @@ function addSess(s) {
 }
 function queuePending(id) { try { const q=JSON.parse(_LS.getItem(PENDING_KEY)||'[]'); if(!q.includes(id)){q.push(id);_LS.setItem(PENDING_KEY,JSON.stringify(q));} } catch {} }
 async function flushQueue() {
+  let needsRender = false;
   try {
-    const q=JSON.parse(_LS.getItem(PENDING_KEY)||'[]'); if(!q.length||!DriveSync.isSignedIn()) return;
+    const q=JSON.parse(_LS.getItem(PENDING_KEY)||'[]');
+    if(!q.length||!DriveSync.isSignedIn()) return;
     const sessions=loadSess(); let n=0;
     for (const id of q) { const s=sessions.find(x=>x.id===id); if(!s) continue; try{await DriveSync.upload(s);markSynced(id);n++;}catch{} }
     _LS.removeItem(PENDING_KEY);
-    if (n) { toast(`✓ ${n} session${n>1?'s':''} synced to Drive`); renderAnalysisListWithSwipe(); }
+    if (n) { toast(`✓ ${n} session${n>1?'s':''} synced to Drive`); needsRender = true; }
   } catch(e) { toast('Drive sync failed: '+e.message); }
+  if (needsRender) renderAnalysisListWithSwipe();
 }
+
 
 /* ══════════════════════════════════════════════════
    DRIVE SYNC (inline — no external dependency)
@@ -564,7 +568,7 @@ const DriveSync = (() => {
       
       console.log('🗑️ Searching Drive for:', filename);
       
-      const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`,
+      const r=await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,name)`,
         {headers:{Authorization:`Bearer ${_tok}`}});
       
       if(!r.ok){
@@ -639,11 +643,11 @@ const DriveSync = (() => {
           saveSess(local);
           _LS.setItem(SYNCED_DB, JSON.stringify([...synced]));
           toast(`✓ Synced ${merged} session${merged>1?'s':''} from Drive`);
-          renderAnalysisListWithSwipe();
         }
       } catch(e) {
         toast('Drive sync failed: ' + e.message);
       }
+      if (needsRender) renderAnalysisListWithSwipe();
     },
 
     signOut(){_tok=null;_exp=0;try{_SS.removeItem(KEY);}catch{}_LS.removeItem(DIR_KEY);}
