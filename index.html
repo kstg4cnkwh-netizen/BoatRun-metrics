@@ -536,6 +536,7 @@ async function migrateLocalSessionsToDrive() {
 
 const DriveSync = (() => {
   let _tok=null,_exp=0; const KEY='_ds_tok',DIR_KEY='_scull_dir';
+  let needsRender = false;
   return {
     _injectToken(t,s){_tok=t;_exp=Date.now()+s*1000;try{_SS.setItem(KEY,JSON.stringify({t:_tok,e:_exp}));}catch{}},
     isSignedIn(){return!!_tok&&Date.now()<_exp;},
@@ -642,7 +643,7 @@ const DriveSync = (() => {
         if (merged > 0) {
           saveSess(local);
           _LS.setItem(SYNCED_DB, JSON.stringify([...synced]));
-          toast(`✓ Synced ${merged} session${merged>1?'s':''} from Drive`);
+          toast(`✓ Synced ${merged} session${merged>1?'s':''} from Drive`); needsRender = true;
         }
       } catch(e) {
         toast('Drive sync failed: ' + e.message);
