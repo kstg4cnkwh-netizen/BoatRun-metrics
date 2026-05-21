@@ -154,7 +154,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .sync-badge{font-size:9px;color:#27ae60;font-weight:700;letter-spacing:.04em;margin-left:4px;}
 .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#efefef}
 .slist{padding:8px}
-.scard{background:#fff;border-radius:4px;margin-bottom:6px;padding:12px 14px;cursor:pointer;border-left:4px solid #1a5276;box-shadow:0 1px 3px rgba(0,0,0,.07);}
+.scard{background:#fff;border-radius:4px;margin-bottom:6px;padding:12px 14px;cursor:pointer;border-left:4px solid #1a5276;box-shadow:0 1px 3px rgba(0,0,0,.07); will-change: transform;}
 .scard:active{background:#f5f5f5}
 .scard-date{font-size:10px;color:#999;margin-bottom:6px;letter-spacing:.04em;display:flex;align-items:center;gap:4px;flex-wrap:wrap;}
 .scard-stats{display:flex;gap:14px}
@@ -342,6 +342,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
   </div>
   <div id="alist-view" class="scroll"><div class="slist" id="slist"><div class="no-sess" id="no-sess">No sessions yet.<br/>Start rowing to record your first session.<br/><span id="storage-note" style="font-size:10px;color:#bbb;display:none">⚠ Local storage unavailable in this context.<br/>Sessions persist when app is hosted or added to Home Screen.</span></div></div></div>
   <div id="adetail-view" class="scroll" style="display:none"><div class="detail-wrap" id="detail-content"></div></div>
+  <div class="list-hint">← Swipe to delete</div>
   <div class="tab-bar">
     <button class="tab" id="tab-live-an"><span class="tab-icon">🚣</span>LIVE</button>
     <button class="tab active" id="tab-anal-an"><span class="tab-icon">📊</span>ANALYSIS</button>
@@ -476,7 +477,7 @@ async function flushQueue() {
     const sessions=loadSess(); let n=0;
     for (const id of q) { const s=sessions.find(x=>x.id===id); if(!s) continue; try{await DriveSync.upload(s);markSynced(id);n++;}catch{} }
     _LS.removeItem(PENDING_KEY);
-    if (n) { toast(`✓ ${n} session${n>1?'s':''} synced to Drive`); renderAnalysisList(); }
+    if (n) { toast(`✓ ${n} session${n>1?'s':''} synced to Drive`); renderAnalysisListWithSwipe(); }
   } catch(e) { toast('Drive sync failed: '+e.message); }
 }
 
@@ -561,7 +562,7 @@ function driveSignIn(){
         DriveSync._injectToken(token,expires);
         updateDriveBtn();toast('✓ Drive linked');
         flushQueue().catch(console.warn);
-        renderAnalysisList();
+        renderAnalysisListWithSwipe();
       };
       window.addEventListener('message',handler);
       // Clean up if popup closes without sending token
@@ -592,7 +593,7 @@ function checkOAuthReturn(){
     wireTabButtons();
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     document.getElementById('screen-analysis')?.classList.add('active');
-    renderAnalysisList();requestAnimationFrame(renderCtrl);updateDriveBtn();
+    renderAnalysisListWithSwipe();requestAnimationFrame(renderCtrl);updateDriveBtn();
     toast('✓ Drive linked');flushQueue();return true;
   }catch(e){toast('Drive auth failed: '+e.message);return false;}
 }
@@ -1295,7 +1296,7 @@ function showTab(tab){
     const grid=document.getElementById('tile-grid'),cp=document.getElementById('curve-panel');
     if(grid)grid.style.display=tab==='curve'?'none':'';if(cp)cp.classList.toggle('cpanel-active',tab==='curve');
     if(tab==='curve')requestAnimationFrame(()=>{renderCurveCanvas();updateCurveTiles();});
-  }else{document.getElementById('screen-analysis').classList.add('active');renderAnalysisList();}
+  }else{document.getElementById('screen-analysis').classList.add('active');renderAnalysisListWithSwipe();}
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   if(tab==='live')['tab-live-ls','tab-live-an'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('active');});
   else if(tab==='curve'){const el=document.getElementById('tab-curve-ls');if(el)el.classList.add('active');}
@@ -1343,21 +1344,98 @@ document.getElementById('perm-btn').addEventListener('click',async()=>{
 /* ══════════════════════════════════════════════════
    ANALYSIS LIST
 ══════════════════════════════════════════════════ */
-function renderAnalysisList(){
+// Swipe-to-delete for session cards
+function attachSwipeDelete(cardEl, sessionId) {
+  let startX = 0;
+  let currentX = 0;
+  let isDragging = false;
+
+  cardEl.addEventListener('touchstart', (e) => {
+    startX = e.touches[0].clientX;
+    isDragging = true;
+    cardEl.style.transition = 'none';
+  }, false);
+
+  cardEl.addEventListener('touchmove', (e) => {
+    if (!isDragging) return;
+    currentX = e.touches[0].clientX;
+    const diff = currentX - startX;
+    
+    // Only allow swiping left (negative diff)
+    if (diff < 0) {
+      const translate = Math.max(diff, -150); // Cap at 150px
+      cardEl.style.transform = `translateX(${translate}px)`;
+      cardEl.style.opacity = 1 - Math.abs(translate) / 150 * 0.2;
+    }
+  }, false);
+
+  cardEl.addEventListener('touchend', (e) => {
+    if (!isDragging) return;
+    isDragging = false;
+    
+    const diff = currentX - startX;
+    const threshold = -80; // Swipe left more than 80px to trigger delete
+    
+    if (diff < threshold) {
+      // Delete action
+      cardEl.style.transition = 'all 0.3s ease';
+      cardEl.style.transform = 'translateX(-100%)';
+      cardEl.style.opacity = '0';
+      
+      setTimeout(() => {
+        if (confirm('Delete this session?')) {
+          delSess(sessionId);
+          renderAnalysisListWithSwipe();
+          toast('Deleted');
+        } else {
+          // Cancel delete — restore card
+          cardEl.style.transition = 'all 0.3s ease';
+          cardEl.style.transform = 'translateX(0)';
+          cardEl.style.opacity = '1';
+        }
+      }, 150);
+    } else {
+      // Snap back to original position
+      cardEl.style.transition = 'all 0.2s ease';
+      cardEl.style.transform = 'translateX(0)';
+      cardEl.style.opacity = '1';
+    }
+  }, false);
+}
+
+// Update renderAnalysisList to attach swipe listeners
+function renderAnalysisListWithSwipe(){
   const sessions=loadSess();
   document.getElementById('scnt').textContent=`${sessions.length} session${sessions.length!==1?'s':''}`;
   const list=document.getElementById('slist');
   list.querySelectorAll('.scard').forEach(e=>e.remove());
   document.getElementById('no-sess').style.display=sessions.length?'none':'block';
-  // Show storage warning if _LS is the in-memory fallback (sandboxed context)
+  
   const storNote=document.getElementById('storage-note');
-  if(storNote){const isSandboxed=(() => { try { _LS.setItem('_t','1'); _LS.removeItem('_t'); return false; } catch { return true; } })(); storNote.style.display=(!sessions.length&&isSandboxed)?'block':'none';}
+  if(storNote){
+    const isSandboxed=(() => { 
+      try { 
+        _LS.setItem('_t','1'); 
+        _LS.removeItem('_t'); 
+        return false; 
+      } catch { 
+        return true; 
+      } 
+    })(); 
+    storNote.style.display=(!sessions.length&&isSandboxed)?'block':'none';
+  }
+  
   sessions.forEach(s=>{
-    const synced=isSynced(s.id),el=document.createElement('div');el.className='scard';
+    const synced=isSynced(s.id),el=document.createElement('div');
+    el.className='scard';
     el.innerHTML=`<div class="scard-date"><span>${fmtDate(s.startTime)}</span>${s.hrTrace?'<span>🫀</span>':''}${s.detectedAxis?'<span>AX:'+s.detectedAxis.toUpperCase()+'</span>':''}${synced?'<span class="sync-badge">☁ synced</span>':''}</div><div class="scard-stats"><div><span class="scs-v">${(s.distance/1000).toFixed(2)}</span><span class="scs-l">km</span></div><div><span class="scs-v">${fmtH(s.duration)}</span><span class="scs-l">time</span></div><div><span class="scs-v">${s.avgPace>0?fmt(s.avgPace):'—'}</span><span class="scs-l">avg pace</span></div><div><span class="scs-v">${s.strokeCount||0}</span><span class="scs-l">strokes</span></div></div>`;
-    el.addEventListener('click',()=>showDetail(s.id));list.appendChild(el);
+    
+    el.addEventListener('click',()=>showDetail(s.id));
+    attachSwipeDelete(el, s.id);
+    list.appendChild(el);
   });
 }
+
 function showDetail(id) {
   const s = loadSess().find(x => x.id === id); if (!s) return;
   document.getElementById('alist-view').style.display = 'none';
@@ -1422,7 +1500,7 @@ function showDetail(id) {
     <div style="height:20px"></div>`;
 
   requestAnimationFrame(() => {
-    document.getElementById('dback-btn').addEventListener('click', () => { document.getElementById('adetail-view').style.display = 'none'; document.getElementById('alist-view').style.display = 'block'; renderAnalysisList(); });
+    document.getElementById('dback-btn').addEventListener('click', () => { document.getElementById('adetail-view').style.display = 'none'; document.getElementById('alist-view').style.display = 'block'; renderAnalysisListWithSwipe(); });
     /* FIX F10 applied in drawChart below — pace chart called with invertY=true */
     if (s.paceTrace && s.paceTrace.length > 2) drawChart('a-pace', s.paceTrace, '#27ae60', true);
     if (s.strokes && s.strokes.length > 2) {
@@ -1445,10 +1523,10 @@ function showDetail(id) {
     document.getElementById('sync-btn').addEventListener('click', async (e) => {
       e.preventDefault(); e.stopPropagation();
       if (DriveSync.isSignedIn()) {
-        try { const btn = document.getElementById('sync-btn'); if (btn) btn.textContent = 'Uploading…'; await DriveSync.upload(s); markSynced(s.id); updateDriveBtn(); if (btn) { btn.textContent = '☁ Synced ✓'; btn.style.background = '#27ae60'; } toast('✓ Saved to Drive'); renderAnalysisList(); } catch(err) { toast('Drive sync failed: ' + err.message); }
+        try { const btn = document.getElementById('sync-btn'); if (btn) btn.textContent = 'Uploading…'; await DriveSync.upload(s); markSynced(s.id); updateDriveBtn(); if (btn) { btn.textContent = '☁ Synced ✓'; btn.style.background = '#27ae60'; } toast('✓ Saved to Drive'); renderAnalysisListWithSwipe(); } catch(err) { toast('Drive sync failed: ' + err.message); }
       } else { queuePending(s.id); _SS.setItem('_oauth_screen', document.querySelector('.screen.active')?.id || ''); driveSignIn(); }
     });
-    document.getElementById('del-btn').addEventListener('click', () => { if (confirm('Delete this session?')) { delSess(s.id); document.getElementById('adetail-view').style.display = 'none'; document.getElementById('alist-view').style.display = 'block'; renderAnalysisList(); toast('Deleted'); } });
+    document.getElementById('del-btn').addEventListener('click', () => { if (confirm('Delete this session?')) { delSess(s.id); document.getElementById('adetail-view').style.display = 'none'; document.getElementById('alist-view').style.display = 'block'; renderAnalysisListWithSwipe(); toast('Deleted'); } });
   });
 }
 
