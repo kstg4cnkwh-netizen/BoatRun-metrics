@@ -483,6 +483,18 @@ async function flushQueue() {
 /* ══════════════════════════════════════════════════
    DRIVE SYNC (inline — no external dependency)
 ══════════════════════════════════════════════════ */
+
+/* Format session timestamp as RowSess_YYYY-MM-DD_HHMM.json */
+function formatSessionFilename(sessionId) {
+  const d = new Date(parseInt(sessionId));
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const h = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `RowSess_${y}-${m}-${day}_${h}${min}.json`;
+}
+
 const DriveSync = (() => {
   let _tok=null,_exp=0; const KEY='_ds_tok',DIR_KEY='_scull_dir';
   return {
@@ -515,7 +527,7 @@ const DriveSync = (() => {
       let parents=[];
       try{const fid=await this._ensureFolder();parents=[fid];}
       catch(e){console.warn('ScullMetrics folder unavailable, uploading to root:',e.message);}
-      const meta={name:`scull_${session.id}.json`,mimeType:'application/json',...(parents.length?{parents}:{})};
+      const meta={name:formatSessionFilename(session.id),mimeType:'application/json',...(parents.length?{parents}:{})};
       const form=new FormData();
       form.append('metadata',new Blob([JSON.stringify(meta)],{type:'application/json'}));
       form.append('file',new Blob([JSON.stringify(session)],{type:'application/json'}));
