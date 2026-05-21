@@ -1518,7 +1518,7 @@ function attachSwipeDelete(cardEl, sessionId) {
     isDragging = false;
     
     const diff = currentX - startX;
-    const threshold = -80; // Swipe left more than 80px to trigger delete
+    const threshold = -300; // Swipe left more than 300px to trigger delete
     
     if (diff < threshold) {
       // Delete action
