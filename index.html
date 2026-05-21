@@ -15,7 +15,7 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html{height:100%;-webkit-text-size-adjust:none}
-body{height:100dvh;font-family:"Roboto",sans-serif;background:#000;overflow:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);}
+body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);}
 .screen{display:none;width:100%;height:100%}.screen.active{display:flex;flex-direction:column}
 #screen-perm,#screen-cal{background:#1a5276;align-items:center;justify-content:center;overflow-y:auto;}
 .perm-inner{display:flex;flex-direction:column;align-items:center;gap:16px;padding:28px;text-align:center;max-width:420px;width:100%;}
@@ -138,7 +138,7 @@ body{height:100dvh;font-family:"Roboto",sans-serif;background:#000;overflow:hidd
 .ctrl-col .btn{flex:1;width:100%;padding:0 2px;font-size:clamp(9px,1vw,12px);letter-spacing:.03em;}
 
 /* ── TABS — always at bottom, always horizontal (P4) ── */
-.tab-bar,#live-tabs{display:flex;flex-direction:row;background:#0f3a54;flex-shrink:0;border-top:1px solid rgba(255,255,255,.1);padding-bottom:env(safe-area-inset-bottom);}
+.tab-bar,#live-tabs{display:flex;flex-direction:row;background:#0f3a54;flex-shrink:0;border-top:1px solid rgba(255,255,255,.1);padding-bottom:calc(env(safe-area-inset-bottom) + 2px);}
 .tab{flex:1;padding:6px 0 5px;text-align:center;border:none;background:none;color:rgba(255,255,255,.38);font-family:"Roboto",sans-serif;font-size:8px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;touch-action:manipulation;}
 .tab.active{color:#fff;border-top:2px solid #fff}
 .tab-icon{font-size:14px;display:block;margin-bottom:1px}.tab-txt{font-size:7px;display:block;letter-spacing:.1em;}
@@ -409,10 +409,10 @@ body{height:100dvh;font-family:"Roboto",sans-serif;background:#000;overflow:hidd
 </div>
 <!-- Tabs ALWAYS at bottom (P4) — P3: HOME|CURVE|INTERVALS|LIVE -->
 <div class="tab-bar" id="live-tabs">
-<button class="tab" id="tab-home-ls"><span class="tab-icon">&#x1F3E0;</span><span class="tab-txt">HOME</span></button>
+<button class="tab active" id="tab-live-ls"><span class="tab-icon">&#x1F6A3;</span><span class="tab-txt">LIVE</span></button>
 <button class="tab" id="tab-curve-ls"><span class="tab-icon">&#x1F4C8;</span><span class="tab-txt">CURVE</span></button>
 <button class="tab" id="tab-int-ls"><span class="tab-icon">&#x1F3C1;</span><span class="tab-txt">INTERVALS</span></button>
-<button class="tab active" id="tab-live-ls"><span class="tab-icon">&#x1F6A3;</span><span class="tab-txt">LIVE</span></button>
+<button class="tab" id="tab-home-ls"><span class="tab-icon">&#x1F3E0;</span><span class="tab-txt">HOME</span></button>
 </div>
 </div>
 
@@ -476,8 +476,8 @@ body{height:100dvh;font-family:"Roboto",sans-serif;background:#000;overflow:hidd
 </div>
 <!-- Home screen nav tabs -->
 <div class="tab-bar">
-<button class="tab active" id="tab-home-hm"><span class="tab-icon">&#x1F3E0;</span>HOME</button>
 <button class="tab" id="tab-live-hm"><span class="tab-icon">&#x1F6A3;</span>LIVE</button>
+<button class="tab active" id="tab-home-hm"><span class="tab-icon">&#x1F3E0;</span>HOME</button>
 </div>
 </div>
 
@@ -1320,40 +1320,116 @@ function renderBuilderSteps(){
   // Wire checkboxes + inline value editors
   _wktSteps.forEach((s,i)=>{
     const chk=document.getElementById('schk-'+i);
-    if(chk)chk.onclick=()=>{if(_wktSelectedSteps.has(i))_wktSelectedSteps.delete(i);else _wktSelectedSteps.add(i);renderBuilderSteps();};
+    if(chk)chk.onclick=()=>{
+      if(_wktSelectedSteps.has(i))_wktSelectedSteps.delete(i);
+      else _wktSelectedSteps.add(i);
+      renderBuilderSteps();
+    };
   });
 }
+
 function renderBuilderStep(s,i){
   const sel=_wktSelectedSteps.has(i);
   if(s.type==='repeat'){
-    const inner=(s.steps||[]).map((iv,si)=>
-      '<div style="display:flex;align-items:center;gap:6px;padding:4px 0 4px 16px;border-bottom:1px solid #f5f5f5;">'
-      +'<span class="step-badge '+iv.type+'">'+iv.type.toUpperCase().slice(0,4)+'</span>'
-      +'<span class="step-dur">'+fmtIvDesc(iv)+'</span>'
-      +'<button class="step-edit-btn" onclick="editInnerStep('+i+','+si+')">edit</button>'
-      +'<button class="step-del" onclick="delInnerStep('+i+','+si+')">×</button></div>'
-    ).join('');
+    const inner=(s.steps||[]).map((iv,si)=>renderInnerStep(iv,i,si)).join('');
     return '<div class="repeat-group" style="'+(sel?'border-color:#27ae60;background:#f0fff4;':'')+'">'+
       '<div class="repeat-group-hdr">'+
-      '<span style="font-size:11px;font-weight:700;color:#1a5276;">REPEAT</span>'+
-      '<input class="repeat-count-input" type="number" value="'+(s.count||2)+'" min="1" max="99" onchange="_wktSteps['+i+'].count=+this.value" style="width:44px;font-size:13px;font-weight:700;padding:3px;border:1px solid #ddd;border-radius:3px;text-align:center;"/>'+
-      '<span style="font-size:10px;color:#888;">times</span>'+
-      '<button class="step-del" onclick="delBuilderStep('+i+')">×</button>'+
+      '<div id="schk-'+i+'" class="step-check'+(sel?' checked':'')+'">'+( sel?'&#x2713;':'')+'</div>'+
+      '<span style="font-size:11px;font-weight:700;color:#1a5276;flex-shrink:0;">REPEAT</span>'+
+      '<input class="repeat-count-input" type="number" value="'+(s.count||2)+'" min="1" max="99"'+
+        ' onchange="_wktSteps['+i+'].count=+this.value"/>'+
+      '<span style="font-size:10px;color:#888;">x</span>'+
+      '<div style="flex:1;"></div>'+
+      '<button class="step-del" onclick="delBuilderStep('+i+')">&#215;</button>'+
       '</div>'+inner+
-      '<div class="skip-rest-row"><input type="checkbox" class="skip-rest-cb" '+(s.skipLastRest?'checked':'')+' onchange="_wktSteps['+i+'].skipLastRest=this.checked"/><span>Skip last rest</span></div>'+
+      '<div class="skip-rest-row"><input type="checkbox" class="skip-rest-cb"'+
+        (s.skipLastRest?' checked':'')+' onchange="_wktSteps['+i+'].skipLastRest=this.checked"/>'+
+        '<span>Skip last rest</span></div>'+
       '</div>';
   }
-  const durStr=s.mode==='open'?'Press LAP':fmtIvDesc(s);
-  return '<div class="step-row'+(sel?' step-sel':'')+'">'+
-    '<div id="schk-'+i+'" class="step-check'+(sel?' checked':'')+'">'+( sel?'&#x2713;':'')+'</div>'+
+  return stepRowHTML(s,i,'_wktSteps',sel,i===0,i===_wktSteps.length-1);
+}
+
+function renderInnerStep(s,gi,si){
+  return stepRowHTML(s,si,'_wktSteps['+gi+'].steps',false,si===0,si===(_wktSteps[gi].steps||[]).length-1,gi,si);
+}
+
+/* Shared row renderer for top-level and inner steps */
+function stepRowHTML(s,i,arr,sel,isFirst,isLast,gi,si){
+  const isOpen=s.mode==='open';
+  const displayVal=s.mode==='time'?Math.round(s.value/60):s.mode==='distance'?s.value:0;
+  const adjustFn=gi!=null
+    ?'adjustInnerStep('+gi+','+si+',$DIR)'
+    :'adjustStep('+i+',$DIR)';
+  const modeFn=gi!=null
+    ?'setInnerStepMode('+gi+','+si+',$MODE)'
+    :'setStepMode('+i+',$MODE)';
+  const moveFn=gi!=null?null:'moveStep('+i+',$DIR)';
+  const delFn=gi!=null?'delInnerStep('+gi+','+si+')':'delBuilderStep('+i+')';
+  const chkId='schk-'+(gi!=null?gi+'-'+si:i);
+
+  return '<div class="step-row'+(sel?' step-sel':'')+'" style="'+(gi!=null?'padding-left:8px;':'')+'">'+
+    '<div id="'+chkId+'" class="step-check'+(sel?' checked':'')+'">'+(sel?'&#x2713;':'')+'</div>'+
     '<span class="step-badge '+s.type+'">'+s.type.toUpperCase().slice(0,4)+'</span>'+
-    '<span class="step-dur" onclick="editBuilderStep('+i+')" style="flex:1;cursor:pointer;">'+durStr+'</span>'+
-    '<div class="step-reorder">'+
-    '<button class="reorder-btn" onclick="moveStep('+i+',-1)" '+(i===0?'disabled':'')+'>&#9650;</button>'+
-    '<button class="reorder-btn" onclick="moveStep('+i+',1)" '+(i===_wktSteps.length-1?'disabled':'')+'>&#9660;</button>'+
-    '</div>'+
-    '<button class="step-del" onclick="delBuilderStep('+i+')">&#215;</button>'+
+    // Value editor
+    (isOpen
+      ? '<span style="font-size:11px;color:#bbb;flex:1;">Press LAP</span>'
+      : '<div style="display:flex;align-items:center;gap:3px;flex:1;">'+
+        '<button class="stepper-btn" style="width:26px;height:26px;font-size:16px;"'+
+          ' onclick="'+adjustFn.replace('$DIR','-1')+'">&#8722;</button>'+
+        '<span style="font-size:14px;font-weight:700;min-width:32px;text-align:center;">'+displayVal+'</span>'+
+        '<button class="stepper-btn" style="width:26px;height:26px;font-size:16px;"'+
+          ' onclick="'+adjustFn.replace('$DIR','1')+'">+</button>'+
+        '</div>'
+    )+
+    // Mode toggle (not for warmup/cooldown)
+    (s.type==='warmup'||s.type==='cooldown'
+      ? '<span style="font-size:9px;color:#aaa;padding:0 4px;">open</span>'
+      : '<div class="mode-toggle">'+
+        '<button class="mode-toggle-btn'+(s.mode==='time'?' sel':'')+'"'+
+          ' onclick="'+modeFn.replace('$MODE',"'time'")+'" style="padding:4px 6px;">MIN</button>'+
+        '<button class="mode-toggle-btn'+(s.mode==='distance'?' sel':'')+'"'+
+          ' onclick="'+modeFn.replace('$MODE',"'distance'")+'" style="padding:4px 6px;">m</button>'+
+        '</div>'
+    )+
+    // Reorder (top-level only)
+    (moveFn
+      ? '<div class="step-reorder">'+
+        '<button class="reorder-btn" onclick="'+moveFn.replace('$DIR','-1')+'" '+(isFirst?'disabled':'')+'>&#9650;</button>'+
+        '<button class="reorder-btn" onclick="'+moveFn.replace('$DIR','1')+'" '+(isLast?'disabled':'')+'>&#9660;</button>'+
+        '</div>'
+      : ''
+    )+
+    '<button class="step-del" onclick="'+delFn+'">&#215;</button>'+
     '</div>';
+}
+
+/* Step value adjustment helpers */
+function adjustStep(i,dir){
+  const s=_wktSteps[i];if(!s)return;
+  if(s.mode==='time')s.value=Math.max(60,(s.value||60)+dir*60);
+  else if(s.mode==='distance')s.value=Math.max(50,(s.value||500)+dir*50);
+  renderBuilderSteps();
+}
+function adjustInnerStep(gi,si,dir){
+  const s=_wktSteps[gi]&&_wktSteps[gi].steps&&_wktSteps[gi].steps[si];if(!s)return;
+  if(s.mode==='time')s.value=Math.max(60,(s.value||60)+dir*60);
+  else if(s.mode==='distance')s.value=Math.max(50,(s.value||500)+dir*50);
+  renderBuilderSteps();
+}
+function setStepMode(i,mode){
+  const s=_wktSteps[i];if(!s||mode===s.mode)return;
+  s.mode=mode;
+  if(mode==='time'&&!(s.value>=60))s.value=s.type==='work'?300:120;
+  if(mode==='distance'&&!(s.value>=50))s.value=s.type==='work'?1000:500;
+  renderBuilderSteps();
+}
+function setInnerStepMode(gi,si,mode){
+  const s=_wktSteps[gi]&&_wktSteps[gi].steps&&_wktSteps[gi].steps[si];if(!s||mode===s.mode)return;
+  s.mode=mode;
+  if(mode==='time'&&!(s.value>=60))s.value=s.type==='work'?300:120;
+  if(mode==='distance'&&!(s.value>=50))s.value=s.type==='work'?1000:500;
+  renderBuilderSteps();
 }
 function moveStep(i,dir){
   const j=i+dir;if(j<0||j>=_wktSteps.length)return;
@@ -1362,18 +1438,7 @@ function moveStep(i,dir){
 }
 function delBuilderStep(i){_wktSteps.splice(i,1);_wktSelectedSteps=new Set();renderBuilderSteps();}
 function delInnerStep(gi,si){if(_wktSteps[gi]&&_wktSteps[gi].steps)_wktSteps[gi].steps.splice(si,1);renderBuilderSteps();}
-function editBuilderStep(i){
-  const s=_wktSteps[i];if(!s||s.type==='repeat')return;
-  if(s.mode==='open'){
-    // Toggle to time mode
-    s.mode='time';s.value=s.type==='work'?300:120;renderBuilderSteps();return;
-  }
-  // Cycle: time -> distance -> open (for non-warmup/cooldown)
-  if(s.type==='warmup'||s.type==='cooldown'){s.mode='open';delete s.value;}
-  else if(s.mode==='time'){s.mode='distance';s.value=s.type==='work'?1000:500;}
-  else if(s.mode==='distance'){s.mode='open';delete s.value;}
-  renderBuilderSteps();
-}
+
 function editInnerStep(gi,si){
   const s=_wktSteps[gi]&&_wktSteps[gi].steps&&_wktSteps[gi].steps[si];if(!s)return;
   editBuilderStep(-1); // won't do anything, need direct edit
