@@ -443,138 +443,103 @@ function toast(m) { const t=document.getElementById('toast'); t.textContent=m; t
 /* ══════════════════════════════════════════════════
    STORAGE
 ══════════════════════════════════════════════════ */
-const DB='scull_v3',AUTOSAVE_DB='scull_autosave',SYNCED_DB='scull_drive_synced',PENDING_KEY='scull_drive_pending';
-const loadSess   = () => { try { return JSON.parse(_LS.getItem(DB)||'[]'); } catch { return []; } };
-const loadSynced = () => { try { return new Set(JSON.parse(_LS.getItem(SYNCED_DB)||'[]')); } catch { return new Set(); } };
-const markSynced = id => { try { const s=loadSynced(); s.add(id); _LS.setItem(SYNCED_DB,JSON.stringify([...s])); } catch {} };
-const isSynced   = id => loadSynced().has(id);
-const delSess    = id => saveSess(loadSess().filter(s=>s.id!==id));
-function saveSess(a) {
-  try { _LS.setItem(DB,JSON.stringify(a)); } catch {
-    try { const slim=a.map(s=>s.strokes?{...s,strokes:s.strokes.map(({dbg,...r})=>r),gpsRawTrace:undefined}:s); _LS.setItem(DB,JSON.stringify(slim)); toast('Storage full — debug data trimmed'); }
-    catch { try { _LS.setItem(DB,JSON.stringify(a.slice(0,Math.max(1,a.length-1)))); toast('Storage full — oldest session removed'); } catch {} }
-  }
-}
-function addSess(s) {
-  try { const a=loadSess(); a.unshift(s); saveSess(a); } catch {}
-  if (DriveSync.isSignedIn()) {
-    DriveSync.upload(s).then(()=>{markSynced(s.id);updateDriveBtn();toast('✓ Saved to Drive');}).catch(e=>{queuePending(s.id);toast('Saved locally · Drive: '+(e?.message||'sync pending'));});
-  }
-}
-function queuePending(id) { try { const q=JSON.parse(_LS.getItem(PENDING_KEY)||'[]'); if(!q.includes(id)){q.push(id);_LS.setItem(PENDING_KEY,JSON.stringify(q));} } catch {} }
-async function flushQueue() {
-  try {
-    const q=JSON.parse(_LS.getItem(PENDING_KEY)||'[]'); if(!q.length||!DriveSync.isSignedIn()) return;
-    const sessions=loadSess(); let n=0;
-    for (const id of q) { const s=sessions.find(x=>x.id===id); if(!s) continue; try{await DriveSync.upload(s);markSynced(id);n++;}catch{} }
-    _LS.removeItem(PENDING_KEY);
-    if (n) { toast(`✓ ${n} session${n>1?'s':''} synced to Drive`); renderAnalysisList(); }
-  } catch(e) { toast('Drive sync failed: '+e.message); }
+const DB = 'scull_v3';
+const AUTOSAVE_DB = 'scull_autosave';
+const SYNCED_DB = 'scull_drive_synced';
+const loadSess = () => { try { return JSON.parse(localStorage.getItem(DB) || '[]'); } catch { return []; } };
+const loadSynced = () => { try { return new Set(JSON.parse(localStorage.getItem(SYNCED_DB) || '[]')); } catch { return new Set(); } };
+
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+const DRIVE_CLIENT_ID = '729480414852-kko8e7bi3r38tcg2rf6iiupptagoegpc.apps.googleusercontent.com';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const OAUTH_REDIRECT = 'https://kstg4cnkwh-netizen.github.io/Scull-metrics/';
+
+async function driveSignIn() {
+  sessionStorage.setItem('_oauth_screen', document.querySelector('.screen.active')?.id || '');
+  const params = new URLSearchParams({ client_id: DRIVE_CLIENT_ID, redirect_uri: OAUTH_REDIRECT, response_type: 'token', scope: DRIVE_SCOPE, include_granted_scopes: 'true' });
+  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params;
 }
 
-/* ══════════════════════════════════════════════════
-   DRIVE SYNC (inline — no external dependency)
-══════════════════════════════════════════════════ */
-const DriveSync = (() => {
-  let _tok=null,_exp=0; const KEY='_ds_tok',DIR_KEY='_scull_dir';
-  return {
-    _injectToken(t,s){_tok=t;_exp=Date.now()+s*1000;try{_SS.setItem(KEY,JSON.stringify({t:_tok,e:_exp}));}catch{}},
-    isSignedIn(){return!!_tok&&Date.now()<_exp;},
-    async init(){try{const r=_SS.getItem(KEY);if(!r)return;const{t,e}=JSON.parse(r);if(Date.now()<e){_tok=t;_exp=e;}else _SS.removeItem(KEY);}catch{}},
-    /** Find or create the ScullMetrics folder and return its Drive ID.
-     *  Cached in localStorage so only one API call is needed per device. */
-    async _ensureFolder(){
-      const cached=_LS.getItem(DIR_KEY);if(cached)return cached;
-      // Try to find an existing ScullMetrics folder (works for app-created folders)
-      try{
-        const q=encodeURIComponent("name='ScullMetrics' and mimeType='application/vnd.google-apps.folder' and trashed=false");
-        const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`,
-          {headers:{Authorization:`Bearer ${_tok}`}});
-        if(r.ok){const d=await r.json();if(d.files&&d.files.length){const id=d.files[0].id;_LS.setItem(DIR_KEY,id);return id;}}
-      }catch{}
-      // Create new ScullMetrics folder
-      const r=await fetch('https://www.googleapis.com/drive/v3/files',{
-        method:'POST',
-        headers:{Authorization:`Bearer ${_tok}`,'Content-Type':'application/json'},
-        body:JSON.stringify({name:'ScullMetrics',mimeType:'application/vnd.google-apps.folder'})
-      });
-      if(!r.ok)throw new Error(`Cannot create ScullMetrics folder: ${r.status}`);
-      const d=await r.json();_LS.setItem(DIR_KEY,d.id);return d.id;
-    },
-    async upload(session){
-      if(!this.isSignedIn())throw new Error('Not signed in');
-      // Try with ScullMetrics folder; fall back to Drive root if folder step fails
-      let parents=[];
-      try{const fid=await this._ensureFolder();parents=[fid];}
-      catch(e){console.warn('ScullMetrics folder unavailable, uploading to root:',e.message);}
-      const meta={name:`scull_${session.id}.json`,mimeType:'application/json',...(parents.length?{parents}:{})};
-      const form=new FormData();
-      form.append('metadata',new Blob([JSON.stringify(meta)],{type:'application/json'}));
-      form.append('file',new Blob([JSON.stringify(session)],{type:'application/json'}));
-      const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
-        {method:'POST',headers:{Authorization:`Bearer ${_tok}`},body:form});
-      if(!r.ok){
-        const body=await r.text().catch(()=>'');
-        throw new Error(`Drive upload failed ${r.status}: ${body.slice(0,120)}`);
-      }
-    },
-    signOut(){_tok=null;_exp=0;try{_SS.removeItem(KEY);}catch{}_LS.removeItem(DIR_KEY);}
-  };
-})();
-const DRIVE_CLIENT_ID='729480414852-kko8e7bi3r38tcg2rf6iiupptagoegpc.apps.googleusercontent.com';
-const DRIVE_SCOPE    ='https://www.googleapis.com/auth/drive.file';
-const OAUTH_REDIRECT ='https://kstg4cnkwh-netizen.github.io/Scull-metrics/';
-function driveSignIn(){
-  const p=new URLSearchParams({client_id:DRIVE_CLIENT_ID,redirect_uri:OAUTH_REDIRECT,
-    response_type:'token',scope:DRIVE_SCOPE,include_granted_scopes:'true'});
-  const url='https://accounts.google.com/o/oauth2/v2/auth?'+p;
-  // Try popup first — keeps in-memory state (sessions, calibration) alive
-  try{
-    const popup=window.open(url,'_oauth','width=520,height=660,scrollbars=yes,resizable=yes');
-    if(popup&&!popup.closed){
-      // Listen for postMessage from popup when it captures the token
-      const handler=(ev)=>{
-        if(!ev.data||ev.data.type!=='_scullOAuth')return;
-        window.removeEventListener('message',handler);
-        const{token,expires}=ev.data;
-        if(!token)return;
-        DriveSync._injectToken(token,expires);
-        updateDriveBtn();toast('✓ Drive linked');
-        flushQueue().catch(console.warn);
-        renderAnalysisList();
-      };
-      window.addEventListener('message',handler);
-      // Clean up if popup closes without sending token
-      const poll=setInterval(()=>{if(popup.closed){clearInterval(poll);window.removeEventListener('message',handler);}},800);
-      return;
-    }
-  }catch{}
-  // Popup blocked — fall back to redirect
-  try{_SS.setItem('_oauth_screen',document.querySelector('.screen.active')?.id||'');}catch{}
-  window.location.href=url;
+function handleDriveBtnTap() {
+  if (DriveSync.isSignedIn()) {
+    if (confirm('Unlink Google Drive?')) { DriveSync.signOut(); updateDriveBtn(); toast('Drive unlinked'); }
+  } else { driveSignIn(); }
 }
-function handleDriveBtnTap(){if(DriveSync.isSignedIn()){if(confirm('Unlink Google Drive?')){DriveSync.signOut();updateDriveBtn();toast('Drive unlinked');}}else driveSignIn();}
-function updateDriveBtn(){const btn=document.getElementById('drive-btn');if(!btn)return;DriveSync.isSignedIn()?(btn.textContent='☁ Linked',btn.classList.add('drive-linked')):(btn.textContent='☁ Drive',btn.classList.remove('drive-linked'));}
-function checkOAuthReturn(){
-  // Prefer window._scullOAuth (set by OAuth IIFE, works with no sessionStorage)
-  let pending = window._scullOAuth || null;
-  window._scullOAuth = null;
-  if (!pending) {
-    // Fall back to sessionStorage (persisted across navigations when available)
-    const raw = _SS.getItem('_oauth_token');
-    if (!raw) return false;
-    _SS.removeItem('_oauth_token');
-    try { pending = JSON.parse(raw); } catch { return false; }
-  }
-  try{
-    const{token,expires}=pending;
-    DriveSync._injectToken(token,expires);
+
+function updateDriveBtn() {
+  const btn = document.getElementById('drive-btn'); if (!btn) return;
+  if (DriveSync.isSignedIn()) { btn.textContent = '☁ Linked'; btn.classList.add('drive-linked'); }
+  else { btn.textContent = '☁ Drive'; btn.classList.remove('drive-linked'); }
+}
+
+function markSynced(id) { try { const s = loadSynced(); s.add(id); localStorage.setItem(SYNCED_DB, JSON.stringify([...s])); } catch(e) {} }
+function isSynced(id) { return loadSynced().has(id); }
+
+function checkOAuthReturn() {
+  const raw = sessionStorage.getItem('_oauth_token'); if (!raw) return false;
+  sessionStorage.removeItem('_oauth_token');
+  try {
+    const { token, expires } = JSON.parse(raw);
+    DriveSync._injectToken(token, expires);
     wireTabButtons();
-    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById('screen-analysis')?.classList.add('active');
-    renderAnalysisList();requestAnimationFrame(renderCtrl);updateDriveBtn();
-    toast('✓ Drive linked');flushQueue();return true;
-  }catch(e){toast('Drive auth failed: '+e.message);return false;}
+    renderAnalysisList(); requestAnimationFrame(renderCtrl); updateDriveBtn(); toast('✓ Drive linked'); flushQueue(); return true;
+  } catch(e) { toast('Drive auth failed: ' + e.message); return false; }
+}
+
+function saveSess(a) {
+  try { localStorage.setItem(DB, JSON.stringify(a)); } catch(e) {
+    try {
+      const slim = a.map(s => { if (!s.strokes) return s; return { ...s, strokes: s.strokes.map(({ dbg, ...rest }) => rest), gpsRawTrace: undefined }; });
+      localStorage.setItem(DB, JSON.stringify(slim)); toast('Storage full — debug data trimmed');
+    } catch(e2) {
+      toast('Storage full — oldest session removed');
+      try { const pruned = a.slice(0, Math.max(1, a.length - 1)); localStorage.setItem(DB, JSON.stringify(pruned)); } catch(e3) {}
+    }
+  }
+}
+
+function addSess(s) {
+  try { const a = loadSess(); a.unshift(s); saveSess(a); } catch(e) {}
+  if (DriveSync.isSignedIn()) {
+    DriveSync.upload(s).then(() => { markSynced(s.id); updateDriveBtn(); toast('✓ Saved to Drive'); }).catch(() => { queuePending(s.id); toast('Saved locally — Drive sync pending'); });
+  }
+}
+
+const PENDING_KEY = 'scull_drive_pending';
+function queuePending(id) { try { const q = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); if (!q.includes(id)) { q.push(id); localStorage.setItem(PENDING_KEY, JSON.stringify(q)); } } catch(e) {} }
+
+async function flushQueue() {
+  try {
+    const q = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); if (!q.length || !DriveSync.isSignedIn()) return;
+    const sessions = loadSess(); let uploaded = 0;
+    for (const id of q) { const s = sessions.find(x => x.id === id); if (!s) continue; try { await DriveSync.upload(s); markSynced(id); uploaded++; } catch(e) {} }
+    localStorage.removeItem(PENDING_KEY);
+    if (uploaded) { toast(`✓ ${uploaded} session${uploaded>1?'s':''} synced to Drive`); renderAnalysisList(); }
+  } catch(e) { toast('Drive sync failed: ' + e.message); }
+}
+
+const delSess = id => saveSess(loadSess().filter(s => s.id !== id));
+
+function saveInProgress() {
+  if (!running || !sessStart || sessStrokes.length === 0) return;
+  try {
+    const snap = { id: sessStart.toString(), startTime: sessStart, duration: elapsed, distance: Math.round(distance), avgPace: sessPaceTrace.length ? Math.round(sessPaceTrace.reduce((a,b)=>a+b,0)/sessPaceTrace.length) : 0, avgRate: sessStrokes.length ? Math.round(sessStrokes.reduce((a,b)=>a+b.rate,0)/sessStrokes.length) : 0, maxRate: sessStrokes.length ? Math.max(...sessStrokes.map(s=>s.rate)) : 0, strokeCount, catchPeakSess, catchAvg8, laps, strokes: sessStrokes, paceTrace: sessPaceTrace, gpsTrace: sessGpsTrace, avgDPS: dpsValsArr.length ? dpsValsArr.reduce((a,b)=>a+b,0)/dpsValsArr.length : null, avgRunLoss: runLossPct, avgImpulse: null, avgRdi: null, _autosave: true, _savedAt: Date.now() };
+    localStorage.setItem(AUTOSAVE_DB, JSON.stringify(snap));
+  } catch(e) {}
+}
+
+function checkAutosave() {
+  try {
+    const raw = localStorage.getItem(AUTOSAVE_DB); if (!raw) return;
+    const snap = JSON.parse(raw); if (!snap || !snap._autosave || !snap.strokeCount) return;
+    const age = Date.now() - snap._savedAt; if (age > 12 * 3600 * 1000) { localStorage.removeItem(AUTOSAVE_DB); return; }
+    const mins = Math.round(snap.duration / 60), km = (snap.distance / 1000).toFixed(2);
+    if (confirm(`Recover autosaved session?\n${km} km · ${mins} min · ${snap.strokeCount} strokes\n(Saved ${Math.round(age/60000)} min ago)`)) {
+      snap._autosave = false; const a = loadSess(); a.unshift(snap); saveSess(a); localStorage.removeItem(AUTOSAVE_DB); alert('Session recovered and saved. View it in Analysis.');
+    } else { localStorage.removeItem(AUTOSAVE_DB); }
+  } catch(e) { localStorage.removeItem(AUTOSAVE_DB); }
 }
 
 /* ══════════════════════════════════════════════════
@@ -1338,6 +1303,7 @@ function renderAnalysisList(){
     el.addEventListener('click',()=>showDetail(s.id));list.appendChild(el);
   });
 }
+
 function showDetail(id) {
   const s = loadSess().find(x => x.id === id); if (!s) return;
   document.getElementById('alist-view').style.display = 'none';
