@@ -667,6 +667,7 @@ function driveSignIn(){
         DriveSync._injectToken(token,expires);
         updateDriveBtn();toast('✓ Drive linked');
         flushQueue().catch(console.warn);
+        DriveSync.syncFromDrive().catch(console.warn);
         renderAnalysisListWithSwipe();
       };
       window.addEventListener('message',handler);
@@ -699,7 +700,7 @@ function checkOAuthReturn(){
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     document.getElementById('screen-analysis')?.classList.add('active');
     renderAnalysisListWithSwipe();requestAnimationFrame(renderCtrl);updateDriveBtn();
-    toast('✓ Drive linked');flushQueue();DriveSync.syncFromDrive();return true;
+    toast('✓ Drive linked');flushQueue();DriveSync.syncFromDrive().catch(console.warn);return true;
   }catch(e){toast('Drive auth failed: '+e.message);return false;}
 }
 
@@ -1425,7 +1426,7 @@ document.getElementById('perm-btn').addEventListener('click',async()=>{
   }
   window.addEventListener('devicemotion',handleMotion,{passive:true});
   document.getElementById('p-acc').className='pill pill-on';document.getElementById('p-acc').textContent='ACC';
-  DriveSync.init().then(()=>{if(DriveSync.isSignedIn()){updateDriveBtn();flushQueue();}}).catch(console.warn);
+  DriveSync.init().then(()=>{if(DriveSync.isSignedIn()){updateDriveBtn();flushQueue();DriveSync.syncFromDrive();}}).catch(console.warn);
   if(navigator.geolocation){
     navigator.geolocation.getCurrentPosition(pos=>{handlePos(pos);navigator.geolocation.watchPosition(handlePos,handleGpsErr,{enableHighAccuracy:true,maximumAge:500,timeout:20000});},handleGpsErr,{enableHighAccuracy:true,timeout:20000});
   }else{document.getElementById('p-gps').className='pill pill-err';document.getElementById('p-gps').textContent='NO GPS';}
@@ -1998,7 +1999,7 @@ if ('serviceWorker' in navigator) {
 
 /* ── init ── */
 wireTabButtons();
-DriveSync.init().then(() => { const hadOAuth = checkOAuthReturn(); if (!hadOAuth && DriveSync.isSignedIn()) { updateDriveBtn(); flushQueue().catch(console.warn); } }).catch(console.warn);
+DriveSync.init().then(() => { const hadOAuth = checkOAuthReturn(); if (!hadOAuth && DriveSync.isSignedIn()) { updateDriveBtn(); flushQueue().catch(console.warn); DriveSync.syncFromDrive().catch(console.warn); } }).catch(console.warn);
 wireCfgTiles(); updateCfgTile('top'); updateCfgTile('bot');
 checkAutosave();
 window.addEventListener('online', () => { if (DriveSync.isSignedIn()) flushQueue().catch(console.warn); });
