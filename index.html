@@ -1314,6 +1314,18 @@ function onStrokeFinish(now, driveDur) {
     prevStrokeDistT = driveStartT;
     const driveImpulse = computeDriveImpulse(driveAccSamples);
     const prlStroke = strokeCount + 1;
+    if (pendingRun) {
+        const t = performance.now();
+        if (t >= pendingRun.endAt) {
+            // Window already elapsed — close it now
+            updatePendingRunLoss();
+        } else if (pendingRun.startSpeed !== null) {
+            // Window still open but we're at next catch — use current EMA as floor
+            pendingRun.minSpeed = Math.min(pendingRun.minSpeed, gpsSpeedEma > 0.2 ? gpsSpeedEma : pendingRun.minSpeed);
+            pendingRun.endAt = t; // force-close on next GPS call
+        }
+        // If startSpeed is still null, just let it be orphaned — no data to save
+    }
     pendingRun = {
         startAt: now + CONFIG.runLoss.startAfterDriveMs,
         endAt: now + CONFIG.runLoss.startAfterDriveMs + CONFIG.runLoss.windowMs,
