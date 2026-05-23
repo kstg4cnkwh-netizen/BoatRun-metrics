@@ -1211,6 +1211,7 @@ let prevStrokeDist = 0, prevStrokeDistT = 0;
 const MAX_STROKE_TS = 4, strokeTs = [];
 const CATCH_TS_BUF = 7, catchTsBuf = [];
 let rdi = null, rdiValsArr = [];
+let strokeRatio = null, strokeRatioValsArr = [];
 function rateFromMedianIntervals() {
     if (catchTsBuf.length < 2) return 0;
     const iv = [];
@@ -1283,6 +1284,7 @@ function onStrokeFinish(now, driveDur) {
     strokeTs.push(driveStartT);
     if (strokeTs.length > MAX_STROKE_TS) strokeTs.shift();
     rdi = null;
+    strokeRatio = null;
     if (strokeTs.length >= 2) {
         const prev = strokeTs[strokeTs.length - 2], cur = strokeTs[strokeTs.length - 1];
         const rec = (cur - prev - driveDur) / 1000, drv = driveDur / 1000;
@@ -1291,6 +1293,11 @@ function onStrokeFinish(now, driveDur) {
             rdiValsArr.push(rv);
             if (rdiValsArr.length > 10) rdiValsArr.shift();
             rdi = clamp(rdiValsArr.reduce((a, b) => a + b, 0) / rdiValsArr.length, -1, 1);
+            const rawRatio = rec / drv;
+            if (rawRatio > 0.3 && rawRatio < 8) {
+                pushLimit(strokeRatioValsArr, rawRatio, 8);
+                strokeRatio = +(median(strokeRatioValsArr) ?? rawRatio).toFixed(2);
+            }
         }
     }
     const rateToLog = strokeRate;
@@ -1314,18 +1321,6 @@ function onStrokeFinish(now, driveDur) {
     prevStrokeDistT = driveStartT;
     const driveImpulse = computeDriveImpulse(driveAccSamples);
     const prlStroke = strokeCount + 1;
-    if (pendingRun) {
-        const t = performance.now();
-        if (t >= pendingRun.endAt) {
-            // Window already elapsed — close it now
-            updatePendingRunLoss();
-        } else if (pendingRun.startSpeed !== null) {
-            // Window still open but we're at next catch — use current EMA as floor
-            pendingRun.minSpeed = Math.min(pendingRun.minSpeed, gpsSpeedEma > 0.2 ? gpsSpeedEma : pendingRun.minSpeed);
-            pendingRun.endAt = t; // force-close on next GPS call
-        }
-        // If startSpeed is still null, just let it be orphaned — no data to save
-    }
     pendingRun = {
         startAt: now + CONFIG.runLoss.startAfterDriveMs,
         endAt: now + CONFIG.runLoss.startAfterDriveMs + CONFIG.runLoss.windowMs,
@@ -1337,7 +1332,7 @@ function onStrokeFinish(now, driveDur) {
         t: Date.now(), catchPeak: catchSlope, char: strokeChar,
         rate: rateToLog, pace: pace > 0 ? pace : null,
         dist: distance, dps: distPerStroke, runLossM: null,
-        driveImpulse, catchConsistency, rdi,
+        driveImpulse, catchConsistency, rdi, strokeRatio,
         _prlStroke: prlStroke,
         dbg: {
             intervalMs: catchTsBuf.length >= 2 ? Math.round(catchTsBuf[catchTsBuf.length - 1] - catchTsBuf[catchTsBuf.length - 2]) : null,
@@ -1502,6 +1497,7 @@ const METRIC_DEFS = {
     rate:         { label: 'Stroke Rate',    short: 'Rate',        primary: true,  bar: null },
     dps:          { label: 'Dist / Stroke',  short: 'DPS',         primary: true,  bar: null },
     rdi:          { label: 'Recovery Index', short: 'Rec. Idx',    primary: false, bar: 'rdi' },
+    ratio:        { label: 'Stroke Ratio',   short: 'Ratio',       primary: false, bar: null },
     catch:        { label: 'Catch Slope',    short: 'Catch',       primary: false, bar: 'catch' },
     runloss:      { label: 'Run Loss',       short: 'Run Loss',    primary: false, bar: null },
     impulse:      { label: 'Impulse',        short: 'Impulse',     primary: false, bar: null },
@@ -1665,6 +1661,13 @@ function renderMetricSlot(i, key) {
             const sq = document.getElementById(`sq-${i}`);
             if (sq) setQEl(sq, ok ? (rdiValsArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
                               ok ? (rdiValsArr.length >= 3 ? 'w' : 'b') : '');
+            break;
+        }
+        case 'ratio': {
+            const ok = strokeRatio != null && on;
+            setVal(i, ok ? strokeRatio.toFixed(2) : '--', 'rec÷drive', !ok,
+                ok ? (strokeRatioValsArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
+                ok ? (strokeRatioValsArr.length >= 3 ? 'w' : 'b') : '');
             break;
         }
         case 'catch': {
@@ -2128,6 +2131,7 @@ function stopSess(){
         avgRunLossM:avg(sessStrokes,'runLossM'),avgDPS:avg(sessStrokes,'dps'),
         avgCatch:avg(sessStrokes,'catchPeak'),avgChar:avg(sessStrokes,'char'),
         avgConsistency:ac,avgImpulse:avg(sessStrokes,'driveImpulse'),avgRdi:avg(sessStrokes,'rdi'),
+        avgRatio:avg(sessStrokes,'strokeRatio'),
         strokes:sessStrokes.map(({_prlStroke,...r})=>r),
         paceTrace:sessPaceTrace.slice(),gpsTrace:sessGpsTrace.slice(),
         gpsRawTrace:sessGpsRawTrace.slice(),rlDebug:rlDebug.slice(),
@@ -2148,7 +2152,7 @@ function resetSess(){
   if(elapsed>10&&sessStrokes.length>0&&!sessSaved){if(confirm('Save before reset?'))stopSess();else{clearInterval(timerInt);clearInterval(autosaveInt);}}
   else{clearInterval(timerInt);clearInterval(autosaveInt);}
   running=false;paused=false;sessSaved=false;_LS.removeItem(AUTOSAVE_DB);
-  elapsed=0;distance=0;pace=0;strokeRate=0;strokeCount=0;acRate=0;acConf=0;distPerStroke=0;dpsValsArr.length=0;maxDPS=0;lapStartDist=0;lapStartTime=0;catchLast=null;catchPeakSess=null;catchAvg8=null;catchValsArr.length=0;catchConsistency=null;strokeChar=50;charValsArr.length=0;rdi=null;rdiValsArr.length=0;pendingRun=null;runLosses.length=0;runLossM=null;rlDebug.length=0;laps=[];sessStrokes.length=0;sessPaceTrace.length=0;sessGpsTrace.length=0;sessGpsRawTrace.length=0;strokeTs.length=0;paceDistWindow.length=0;velocityWindow.length=0;speedSamples.length=0;prevStrokeDist=0;prevStrokeDistT=0;gpsLastValidT=0;gpsSpeedEma=-1;gpsWasStopped=false;gpsAccuracyM=null;fsmState=FS.IDLE;catchPeakJerk=0;catchStartT=0;lastCatchAbsT=0;lastDriveEndT=0;strokesDetected=0;jerkThreshActive=jerkThreshBase;adaptReady=false;acBuf.length=0;acLastUpdate=0;jerkBuf.length=0;catchTsBuf.length=0;axisLocked=false;axisAutoDetected=false;lastAxisCheck=0;sessStart=null;lastStrokeCurve=null;strokeCurveHistory.length=0;catchToCatchSamples=[];pendingCurveDriveCount=0;motionSamples=0;motionStartedAt=0;lastMotionT=0;
+  elapsed=0;distance=0;pace=0;strokeRate=0;strokeCount=0;acRate=0;acConf=0;distPerStroke=0;dpsValsArr.length=0;maxDPS=0;lapStartDist=0;lapStartTime=0;catchLast=null;catchPeakSess=null;catchAvg8=null;catchValsArr.length=0;catchConsistency=null;strokeChar=50;charValsArr.length=0;rdi=null;rdiValsArr.length=0;strokeRatio=null;strokeRatioValsArr.length=0;pendingRun=null;runLosses.length=0;runLossM=null;rlDebug.length=0;laps=[];sessStrokes.length=0;sessPaceTrace.length=0;sessGpsTrace.length=0;sessGpsRawTrace.length=0;strokeTs.length=0;paceDistWindow.length=0;velocityWindow.length=0;speedSamples.length=0;prevStrokeDist=0;prevStrokeDistT=0;gpsLastValidT=0;gpsSpeedEma=-1;gpsWasStopped=false;gpsAccuracyM=null;fsmState=FS.IDLE;catchPeakJerk=0;catchStartT=0;lastCatchAbsT=0;lastDriveEndT=0;strokesDetected=0;jerkThreshActive=jerkThreshBase;adaptReady=false;acBuf.length=0;acLastUpdate=0;jerkBuf.length=0;catchTsBuf.length=0;axisLocked=false;axisAutoDetected=false;lastAxisCheck=0;sessStart=null;lastStrokeCurve=null;strokeCurveHistory.length=0;catchToCatchSamples=[];pendingCurveDriveCount=0;motionSamples=0;motionStartedAt=0;lastMotionT=0;
   for(const k of AXES){gravity[k]=0;axFast[k]=0;axSmooth[k]=0;}
   wkt={active:false,def:null,sequence:[],seqIdx:0,startDist:0,startElapsed:0,lapMetrics:[],countdownActive:false};
   const bar=document.getElementById('wkt-bar');if(bar)bar.classList.remove('wactive');
@@ -2348,14 +2352,15 @@ function showDetail(id){
     +'<div class="sgrid"><div class="sbox a"><span class="sbox-v">'+(s.avgRate||'--')+'</span><span class="sbox-l">Avg Rate</span><span class="sbox-u">S/MIN</span></div><div class="sbox a"><span class="sbox-v">'+(s.maxRate||'--')+'</span><span class="sbox-l">Max Rate</span><span class="sbox-u">S/MIN</span></div><div class="sbox"><span class="sbox-v">'+(s.strokeCount||0)+'</span><span class="sbox-l">Strokes</span></div></div>'
     +'<div class="sgrid"><div class="sbox"><span class="sbox-v">'+(s.catchPeakSess!=null?'+'+Math.round(s.catchPeakSess):'--')+'</span><span class="sbox-l">Catch Peak</span></div><div class="sbox"><span class="sbox-v">'+(avgCatch!=='--'?'+'+avgCatch:avgCatch)+'</span><span class="sbox-l">Catch Avg</span></div><div class="sbox"><span class="sbox-v">'+(s.avgConsistency?s.avgConsistency.toFixed(1):'--')+'</span><span class="sbox-l">Consistency</span></div></div>'
     +'<div class="sgrid"><div class="sbox"><span class="sbox-v">'+(s.avgDPS?s.avgDPS.toFixed(1):'--')+'</span><span class="sbox-l">DPS</span><span class="sbox-u">m</span></div><div class="sbox"><span class="sbox-v">'+(s.avgImpulse!=null?s.avgImpulse.toFixed(2):'--')+'</span><span class="sbox-l">Impulse</span></div><div class="sbox"><span class="sbox-v">'+(s.avgRdi?s.avgRdi.toFixed(2):'--')+'</span><span class="sbox-l">Rec. Idx</span></div></div>'
-    +'<div class="sgrid"><div class="sbox '+(s.avgRunLossM?s.avgRunLossM<0.35?'g':s.avgRunLossM<0.80?'a':'r':'')+'"><span class="sbox-v">'+(s.avgRunLossM!=null?s.avgRunLossM.toFixed(2):'--')+'</span><span class="sbox-l">Run Loss</span><span class="sbox-u">m/stroke</span></div><div class="sbox"><span class="sbox-v">'+(s.laps?s.laps.length:0)+'</span><span class="sbox-l">Laps</span></div><div class="sbox"><span class="sbox-v" style="font-size:11px">'+(s.workoutName||'--')+'</span><span class="sbox-l">Workout</span></div></div>'
+    +'<div class="sgrid"><div class="sbox '+(s.avgRunLossM?s.avgRunLossM<0.35?'g':s.avgRunLossM<0.80?'a':'r':'')+'"><span class="sbox-v">'+(s.avgRunLossM!=null?s.avgRunLossM.toFixed(2):'--')+'</span><span class="sbox-l">Run Loss</span><span class="sbox-u">m/stroke</span></div><div class="sbox '+(s.avgRatio?s.avgRatio>=1.5&&s.avgRatio<=2.5?'g':s.avgRatio<1.2||s.avgRatio>3.5?'r':'a':'')+'"><span class="sbox-v">'+(s.avgRatio!=null?s.avgRatio.toFixed(2):'--')+'</span><span class="sbox-l">Stroke Ratio</span><span class="sbox-u">rec÷drive</span></div><div class="sbox"><span class="sbox-v">'+(s.laps?s.laps.length:0)+'</span><span class="sbox-l">Laps</span></div></div>'
+    +'<div class="sgrid"><div class="sbox" style="grid-column:1/4"><span class="sbox-v" style="font-size:11px">'+(s.workoutName||'--')+'</span><span class="sbox-l">Workout</span></div></div>'
     +(s.calNoiseFloor!=null?'<div style="font-size:9px;color:#aaa;text-align:center;margin-bottom:6px;">CAL noise '+s.calNoiseFloor+' jerk '+s.calThresh+'</div>':'')
     +wktHTML
     +(s.garminLaps&&s.garminLaps.length?'<div class="chart-card" style="border-color:#8e44ad"><div class="chart-lbl"><span>Garmin Laps</span></div><table class="lap-tbl"><tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>HR</th><th>SPM</th><th>DPS</th></tr>'+s.garminLaps.map(l=>'<tr><td>'+l.n+'</td><td>'+l.dist+'m</td><td>'+fmt(l.time)+'</td><td>'+(l.pace>0?fmt(l.pace):'--')+'</td><td>'+(l.avgHr||'--')+'</td><td>'+(l.garminAvgSpm||'--')+'</td><td>'+(l.avgStrokeDist?l.avgStrokeDist+'m':'--')+'</td></tr>').join('')+'</table></div>':'')
     +hrHTML
     +(s.garminSpeedTrace&&s.garminSpeedTrace.length>2?'<div class="chart-card" style="border-color:#8e44ad"><div class="chart-lbl"><span>Garmin Pace</span><span>min/500m</span></div><canvas id="a-gspeed" class="acanvas"></canvas></div>':'')
     +(s.paceTrace&&s.paceTrace.length>2?'<div class="chart-card g"><div class="chart-lbl"><span>GPS Pace</span><span>min/500m faster=up</span></div><canvas id="a-pace" class="acanvas"></canvas></div>':'')
-    +(s.strokes&&s.strokes.length>2?'<div class="chart-card b"><div class="chart-lbl"><span>Catch Slope</span></div><canvas id="a-catch" class="acanvas"></canvas></div><div class="chart-card a"><div class="chart-lbl"><span>Stroke Rate</span></div><canvas id="a-rate" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Run Loss</span></div><canvas id="a-runloss" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Impulse</span></div><canvas id="a-eff" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>DPS</span></div><canvas id="a-dps" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Recovery Index</span></div><canvas id="a-rdi" class="acanvas"></canvas></div>':'')
+    +(s.strokes&&s.strokes.length>2?'<div class="chart-card b"><div class="chart-lbl"><span>Catch Slope</span></div><canvas id="a-catch" class="acanvas"></canvas></div><div class="chart-card a"><div class="chart-lbl"><span>Stroke Rate</span></div><canvas id="a-rate" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Run Loss</span></div><canvas id="a-runloss" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Impulse</span></div><canvas id="a-eff" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>DPS</span></div><canvas id="a-dps" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Recovery Index</span></div><canvas id="a-rdi" class="acanvas"></canvas></div><div class="chart-card g"><div class="chart-lbl"><span>Stroke Ratio</span><span>rec÷drive · 1.5–2.5 green</span></div><canvas id="a-ratio" class="acanvas"></canvas></div>':'')
     +(s.laps&&s.laps.length?'<div class="chart-card" style="border-color:#ddd"><div class="chart-lbl"><span>Laps</span></div><table class="lap-tbl"><tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>Rate</th><th>Catch</th><th>DPS</th><th>Imp</th><th>RL</th><th>RDI</th></tr>'+(()=>{const best=s.laps.length>1?s.laps.reduce((b,l)=>l.pace>0&&l.pace<b.pace?l:b,s.laps[0]):null;return s.laps.map(l=>'<tr class="'+(best&&l.n===best.n?'best':'')+'"><td>'+l.n+'</td><td>'+l.dist+'m</td><td>'+fmt(l.time)+'</td><td>'+(l.pace>0?fmt(l.pace):'--')+'</td><td>'+(l.rate||'--')+'</td><td>'+(l.avgCatch||'--')+'</td><td>'+(l.avgDPS?l.avgDPS.toFixed(1):'--')+'</td><td>'+(l.avgImpulse?l.avgImpulse.toFixed(2):'--')+'</td><td>'+(l.avgRunLoss?l.avgRunLoss.toFixed(2):'--')+'</td><td>'+(l.avgRdi?l.avgRdi.toFixed(2):'--')+'</td></tr>').join('');})()+'</table></div>':'')
     +'<button class="exp-btn" id="exp-btn">Export CSV</button>'
     +'<button class="exp-btn" id="dbg-btn" style="background:#2e4057;margin-top:4px">Debug CSV</button>'
@@ -2365,7 +2370,7 @@ function showDetail(id){
   requestAnimationFrame(()=>{
     document.getElementById('dback-btn').addEventListener('click',()=>{dw.style.display='none';document.getElementById('ht-log-list').style.display='block';renderSessionList();});
     if(s.paceTrace&&s.paceTrace.length>2)drawChart('a-pace',s.paceTrace,'#27ae60',true);
-    if(s.strokes&&s.strokes.length>2){drawChart('a-catch',s.strokes.map(x=>x.catchPeak),'#1a5276',false,50,true);drawChart('a-rate',s.strokes.map(x=>x.rate),'#f39c12',false);drawChart('a-runloss',s.strokes.map(x=>x.runLossM||0),'#c0392b',false,null,true);drawChart('a-eff',s.strokes.map(x=>x.driveImpulse||0),'#27ae60',false,null,true);drawChart('a-dps',s.strokes.map(x=>x.dps||0),'#1a5276',false,20);drawChart('a-rdi',s.strokes.map(x=>x.rdi||0),'#8e44ad',false,1,true,-1);}
+    if(s.strokes&&s.strokes.length>2){drawChart('a-catch',s.strokes.map(x=>x.catchPeak),'#1a5276',false,50,true);drawChart('a-rate',s.strokes.map(x=>x.rate),'#f39c12',false);drawChart('a-runloss',s.strokes.map(x=>x.runLossM||0),'#c0392b',false,null,true);drawChart('a-eff',s.strokes.map(x=>x.driveImpulse||0),'#27ae60',false,null,true);drawChart('a-dps',s.strokes.map(x=>x.dps||0),'#1a5276',false,20);drawChart('a-rdi',s.strokes.map(x=>x.rdi||0),'#8e44ad',false,1,true,-1);const ratioData=s.strokes.map(x=>x.strokeRatio||0).filter(v=>v>0);if(ratioData.length>1)drawChart('a-ratio',s.strokes.map(x=>x.strokeRatio||0),'#27ae60',false,4,true,0);}
     if(s.hrTrace&&s.hrTrace.length>2)drawChart('a-hr',s.hrTrace.map(x=>x.hr),'#c0392b',false);
     if(s.garminSpeedTrace&&s.garminSpeedTrace.length>2)drawChart('a-gspeed',s.garminSpeedTrace.filter(x=>x.spd>0.3).map(x=>500/x.spd),'#8e44ad',true);
     const fz=document.getElementById('fit-zone');if(fz)fz.addEventListener('click',()=>{const inp=document.getElementById('fit-input');inp.onchange=ev=>handleGPX(ev,s.id);inp.click();});
@@ -2784,9 +2789,9 @@ function parseGPX(text){const doc=new DOMParser().parseFromString(text,'applicat
 /* ══ CSV EXPORT ══ */
 function exportCSV(s){
   const n=v=>(v!=null&&!isNaN(v))?v:'';const f1=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(1):'';const f2=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(2):'';
-  const rows=[['SESSION SUMMARY'],['start_time',new Date(s.startTime).toISOString()],['end_time',new Date(s.endTime||s.startTime+s.duration*1000).toISOString()],['duration_s',n(s.duration),'distance_m',n(s.distance),'stroke_count',n(s.strokeCount)],['avg_pace_s500',n(s.avgPace),'avg_rate_spm',n(s.avgRate),'max_rate_spm',n(s.maxRate)],['catch_peak_ms3',n(s.catchPeakSess),'avg_dps_m',f1(s.avgDPS),'avg_run_loss_m',f2(s.avgRunLossM)],['avg_impulse',f2(s.avgImpulse),'avg_rdi',f2(s.avgRdi),'workout',s.workoutName||''],[]];
-  rows.push(['STROKE DATA'],['n','timestamp','catch_ms3','rate_spm','pace_s500','dist_m','dps_m','run_loss_m','impulse','rdi','char','consistency']);
-  if(s.strokes)s.strokes.forEach((r,i)=>rows.push([i+1,new Date(r.t).toISOString(),f1(r.catchPeak),n(r.rate),r.pace>0?f1(r.pace):'',f1(r.dist),f1(r.dps),f2(r.runLossM),f2(r.driveImpulse),f2(r.rdi),n(r.char),f1(r.catchConsistency)]));
+  const rows=[['SESSION SUMMARY'],['start_time',new Date(s.startTime).toISOString()],['end_time',new Date(s.endTime||s.startTime+s.duration*1000).toISOString()],['duration_s',n(s.duration),'distance_m',n(s.distance),'stroke_count',n(s.strokeCount)],['avg_pace_s500',n(s.avgPace),'avg_rate_spm',n(s.avgRate),'max_rate_spm',n(s.maxRate)],['catch_peak_ms3',n(s.catchPeakSess),'avg_dps_m',f1(s.avgDPS),'avg_run_loss_m',f2(s.avgRunLossM)],['avg_impulse',f2(s.avgImpulse),'avg_rdi',f2(s.avgRdi),'avg_ratio',f2(s.avgRatio),'workout',s.workoutName||''],[]];
+  rows.push(['STROKE DATA'],['n','timestamp','catch_ms3','rate_spm','pace_s500','dist_m','dps_m','run_loss_m','impulse','rdi','ratio','char','consistency']);
+  if(s.strokes)s.strokes.forEach((r,i)=>rows.push([i+1,new Date(r.t).toISOString(),f1(r.catchPeak),n(r.rate),r.pace>0?f1(r.pace):'',f1(r.dist),f1(r.dps),f2(r.runLossM),f2(r.driveImpulse),f2(r.rdi),f2(r.strokeRatio),n(r.char),f1(r.catchConsistency)]));
   rows.push([]);
   if(s.laps&&s.laps.length){rows.push(['LAPS'],['lap','dist_m','time_s','pace_s500','rate_spm','avg_catch','avg_dps_m','avg_impulse','avg_run_loss_m','avg_rdi']);s.laps.forEach(l=>rows.push([l.n,l.dist,l.time,l.pace>0?f1(l.pace):'',n(l.rate),n(l.avgCatch),l.avgDPS?f1(l.avgDPS):'',l.avgImpulse?f2(l.avgImpulse):'',l.avgRunLoss?f2(l.avgRunLoss):'',l.avgRdi?f2(l.avgRdi):'']));rows.push([]);}
   if(s.workoutLapMetrics&&s.workoutLapMetrics.length){rows.push(['WORKOUT INTERVALS'],['n','type','dist_m','time_s','pace_s500','rate','catch','dps_m','impulse','run_loss_m']);s.workoutLapMetrics.forEach(l=>rows.push([l.n,l.type,l.dist,l.time,l.lapPace>0?f1(l.lapPace):'',n(l.rate),n(l.catchAvg),l.dps?f1(l.dps):'',l.impulse?f2(l.impulse):'',l.runLoss?f2(l.runLoss):'']));rows.push([]);}
@@ -2801,7 +2806,7 @@ function exportDebugCSV(s){
   const t0=s.startTime;const el=t=>(+(t-t0)/1000).toFixed(2);const rows=[['##ENV'],['session_id',s.id,'start_utc',new Date(t0).toISOString()],['duration_s',n(s.duration),'distance_m',n(s.distance),'strokes',n(s.strokeCount)]];
   const cfg=s.config||{},rl=cfg.rl||{},gps=cfg.gps||{};
   rows.push(['rl_startAfterDriveMs',n(rl.startAfterDriveMs??CONFIG.runLoss.startAfterDriveMs),'rl_windowMs',n(rl.windowMs??CONFIG.runLoss.windowMs)]);rows.push(['gps_emaAlpha',n(gps.alpha??CONFIG.gps.speedEmaAlpha),'gps_medianN',n(gps.medN??CONFIG.gps.speedMedianN)]);rows.push([]);
-  rows.push(['##STR'],['n','elapsed_s','rate','catch_jerk','dps','run_loss_m','impulse','rdi']);(s.strokes||[]).forEach((r,i)=>{const d=r.dbg||{};rows.push([i+1,el(r.t),n(r.rate),f2(d.catchJerkRaw),f2(r.dps),f2(r.runLossM),f2(r.driveImpulse),f2(r.rdi)]);});rows.push([]);
+  rows.push(['##STR'],['n','elapsed_s','rate','catch_jerk','dps','run_loss_m','impulse','rdi','ratio']);(s.strokes||[]).forEach((r,i)=>{const d=r.dbg||{};rows.push([i+1,el(r.t),n(r.rate),f2(d.catchJerkRaw),f2(r.dps),f2(r.runLossM),f2(r.driveImpulse),f2(r.rdi),f2(r.strokeRatio)]);});rows.push([]);
   rows.push(['##RL'],['stroke_n','start_spd_ms','min_spd_ms','dv_ms','raw_loss_m','med_loss_m','n_samples']);(s.rlDebug||[]).forEach(r=>rows.push([n(r.strokeN),f3(r.startSpeed),f3(r.minSpeed),f3(r.dv),f4(r.rawLoss),f4(r.medLoss),n(r.nSamples)]));rows.push([]);
   if(s.gpsRawTrace&&s.gpsRawTrace.length){rows.push(['##GPS'],['elapsed_s','gps_raw_ms','gps_ema_ms','acc_m','stroke_n','rl_phase']);s.gpsRawTrace.forEach(p=>rows.push([el(p.t),f3(p.rawSpd),f3(p.emaSpd),f2(p.acc),n(p.strokeN),p.rlPhase||'none']));rows.push([]);}
   if(s.hrTrace&&s.hrTrace.length){rows.push(['##HR'],['elapsed_s','hr_bpm']);s.hrTrace.forEach(h=>rows.push([el(h.t),h.hr]));rows.push([]);}
