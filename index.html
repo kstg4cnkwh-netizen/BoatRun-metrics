@@ -1536,13 +1536,13 @@ const PROFILES_KEY = 'scull_profiles_v1', ACTIVE_PROFILE_KEY = 'scull_active_pro
 const DEFAULT_PROFILES = [
     {
         name: 'Race',
-        landscape: { layout: '3x3', cells: ['pace','rate','dps','catch','rdi','runloss','impulse','totaltime','totaldist'] },
-        portrait:  { layout: '2x4', cells: ['pace','rate','dps','catch','rdi','runloss','impulse','totaldist'] }
+        landscape: { layout: '2x2', cells: ['pace','rate','dps','workout'] },
+        portrait:  { layout: '2x2', cells: ['pace','rate','dps','workout'] }
     },
     {
         name: 'Training',
-        landscape: { layout: '3x2', cells: ['pace','rate','dps','catch','runloss','impulse'] },
-        portrait:  { layout: '2x3', cells: ['pace','rate','dps','catch','runloss','impulse'] }
+        landscape: { layout: '3x3', cells: ['pace','rate','dps','catch','rdi','runloss','impulse','totaltime','totaldist'] },
+        portrait:  { layout: '2x4', cells: ['pace','rate','dps','catch','rdi','runloss','impulse','totaldist'] }
     },
     {
         name: 'Intervals',
@@ -1904,7 +1904,19 @@ function renderCurveCanvas(){
    Runtime: flatten steps into a sequence at start.
 ══════════════════════════════════════════════════ */
 const WORKOUT_KEY='scull_workouts_v2';
-function loadWorkouts(){try{const w=JSON.parse(_LS.getItem(WORKOUT_KEY));if(w&&w.length)return w;}catch{}return[];}
+const DEFAULT_WORKOUTS=[
+  {id:'default_race1000',name:'Race 1000m',steps:[
+    {type:'warmup',mode:'open'},
+    {type:'work',mode:'distance',value:1000},
+    {type:'cooldown',mode:'open'}
+  ]},
+  {id:'default_race2000',name:'Race 2000m',steps:[
+    {type:'warmup',mode:'open'},
+    {type:'work',mode:'distance',value:2000},
+    {type:'cooldown',mode:'open'}
+  ]}
+];
+function loadWorkouts(){try{const w=JSON.parse(_LS.getItem(WORKOUT_KEY));if(w&&w.length)return w;}catch{}return JSON.parse(JSON.stringify(DEFAULT_WORKOUTS));}
 function saveWorkouts(ws){try{_LS.setItem(WORKOUT_KEY,JSON.stringify(ws));}catch{}}
 
 /* Flatten a workout definition into a runtime sequence */
