@@ -46,7 +46,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .wkt-bar.wactive{display:flex;}
 .wkt-phase{font-size:11px;font-weight:700;letter-spacing:.12em;padding:3px 8px;border-radius:3px;flex-shrink:0;}
 .wkt-phase.warmup{background:#5dade2;color:#fff;}.wkt-phase.work{background:#27ae60;color:#fff;}
-.wkt-phase.rest{background:#f39c12;color:#000;}.wkt-phase.cooldown{background:#8e44ad;color:#fff;}.wkt-phase.done{background:#888;color:#fff;}
+.wkt-phase.rest{background:#f39c12;color:#000;}.wkt-phase.cooldown{background:#8e44ad;color:#fff;}.wkt-phase.done{background:#888;color:#fff;}.wkt-phase.ready{background:#2980b9;color:#fff;}
 .wkt-countdown{font-family:"Roboto Condensed",sans-serif;font-size:18px;font-weight:700;color:#fff;flex-shrink:0;min-width:52px;text-align:center;}
 .wkt-info{font-size:9px;color:rgba(255,255,255,.55);letter-spacing:.06em;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .wkt-ctrl-btn{background:rgba(255,255,255,.18);color:#fff;border:none;font-family:"Roboto",sans-serif;font-size:9px;font-weight:700;letter-spacing:.08em;padding:4px 8px;border-radius:3px;cursor:pointer;touch-action:manipulation;flex-shrink:0;}
@@ -131,7 +131,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 /* Workout tile */
 .wkt-tile-phase{font-size:clamp(10px,2dvh,22px);font-weight:700;letter-spacing:.1em;padding:2px 8px;border-radius:3px;margin-bottom:2px;}
 .wkt-tile-phase.warmup{background:#5dade2;color:#fff;}.wkt-tile-phase.work{background:#27ae60;color:#fff;}
-.wkt-tile-phase.rest{background:#f39c12;color:#000;}.wkt-tile-phase.cooldown{background:#8e44ad;color:#fff;}.wkt-tile-phase.done{background:#888;color:#fff;}
+.wkt-tile-phase.rest{background:#f39c12;color:#000;}.wkt-tile-phase.cooldown{background:#8e44ad;color:#fff;}.wkt-tile-phase.done{background:#888;color:#fff;}.wkt-tile-phase.ready{background:#2980b9;color:#fff;}
 
 /* ── CONTROL COLUMN ── */
 .ctrl-col{display:flex;flex-direction:column;gap:4px;background:#1a5276;flex-shrink:0;width:clamp(64px,9vw,96px);padding:5px;}
@@ -1351,6 +1351,8 @@ function onStrokeFinish(now, driveDur) {
     });
     pendingCurveDriveCount = catchToCatchSamples.length;
     updateUI();
+    // Race mode: first stroke while in 'ready' phase fires the race start
+    if (wkt.active && running && !paused && wktCurrentStep()?.type === 'ready') wktAdvance();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1744,28 +1746,48 @@ function renderMetricSlot(i, key) {
 function renderWorkoutTile(i) {
     const phasEl = document.getElementById(`wtp-${i}`);
     const sq = document.getElementById(`sq-${i}`);
+    const sv = document.getElementById(`sv-${i}`);
+    const ss = document.getElementById(`ss-${i}`);
     if (!wkt.active) {
-        const sv = document.getElementById(`sv-${i}`);
         if (phasEl) { phasEl.textContent = '—'; phasEl.className = 'wkt-tile-phase done'; }
         if (sv) { sv.textContent = '--'; sv.className = 'metric-val dim'; }
-        const ss = document.getElementById(`ss-${i}`);
         if (ss) ss.textContent = 'no workout';
         if (sq) setQEl(sq, 'OFF', '');
         return;
     }
-    const rem = wktGetRemaining(), ci = wktCurrentInterval();
-    if (phasEl) { phasEl.textContent = wkt.phase.toUpperCase(); phasEl.className = 'wkt-tile-phase ' + wkt.phase; }
-    const sv = document.getElementById(`sv-${i}`);
+    const s = wktCurrentStep();
+    const type = s ? s.type : 'done';
+    const rem = wktGetRemaining();
+    const prog = `${wkt.seqIdx + 1}/${wkt.sequence.length}`;
+    if (phasEl) { phasEl.textContent = type.toUpperCase(); phasEl.className = 'wkt-tile-phase ' + type; }
     if (sv) {
-        sv.textContent = ci && ci.mode === 'distance' ? Math.max(0, Math.round(rem)) + 'm' : fmt(Math.max(0, rem));
-        sv.className = 'metric-val' + (wkt.phase === 'done' ? ' dim' : '');
+        let display;
+        if (type === 'ready') {
+            display = 'WAIT';
+        } else if (type === 'work' && s.mode === 'distance') {
+            // Race timer — counts up from 0 the moment racing begins
+            display = fmt(elapsed - wkt.startElapsed);
+        } else if (s && s.mode === 'distance') {
+            display = Math.max(0, Math.round(rem)) + 'm';
+        } else if (isFinite(rem)) {
+            display = fmt(Math.max(0, rem));
+        } else {
+            display = 'LAP >';
+        }
+        sv.textContent = display;
+        sv.className = 'metric-val' + (type === 'done' ? ' dim' : '');
     }
-    const ss = document.getElementById(`ss-${i}`);
     if (ss) {
-        const tot = wkt.totalIntervals > 0 ? `${wkt.intervalIdx + 1}/${wkt.totalIntervals}` : `#${wkt.intervalIdx + 1}`;
-        ss.textContent = `Int ${tot}`;
+        if (type === 'ready') ss.textContent = 'first stroke starts';
+        else if (type === 'work' && s.mode === 'distance') ss.textContent = Math.max(0, Math.round(rem)) + 'm to go · ' + prog;
+        else ss.textContent = prog;
     }
-    if (sq) setQEl(sq, wkt.phase === 'work' ? 'WORK' : 'REST', wkt.phase === 'work' ? 'g' : 'w');
+    if (sq) setQEl(sq,
+        type === 'work'    ? 'RACE'  :
+        type === 'ready'   ? 'READY' :
+        type === 'warmup'  ? 'WARM'  :
+        type === 'cooldown'? 'COOL'  : type.toUpperCase(),
+        type === 'work' ? 'g' : type === 'ready' ? 'w' : '');
 }
 function updateUI() {
     const cells = getCurrentCells();
@@ -1907,11 +1929,13 @@ const WORKOUT_KEY='scull_workouts_v2';
 const DEFAULT_WORKOUTS=[
   {id:'default_race1000',name:'Race 1000m',steps:[
     {type:'warmup',mode:'open'},
+    {type:'ready',mode:'open'},
     {type:'work',mode:'distance',value:1000},
     {type:'cooldown',mode:'open'}
   ]},
   {id:'default_race2000',name:'Race 2000m',steps:[
     {type:'warmup',mode:'open'},
+    {type:'ready',mode:'open'},
     {type:'work',mode:'distance',value:2000},
     {type:'cooldown',mode:'open'}
   ]}
@@ -1963,7 +1987,7 @@ function wktCurrentStep(){return wkt.active?wkt.sequence[wkt.seqIdx]||null:null;
 function wktGetRemaining(){
   if(!wkt.active)return 0;
   const s=wktCurrentStep();if(!s)return 0;
-  if(s.mode==='open')return Infinity; // press lap to advance
+  if(s.mode==='open'||s.type==='ready')return Infinity; // press lap (or auto) to advance
   if(s.mode==='time')return s.value-(elapsed-wkt.startElapsed);
   if(s.mode==='distance')return s.value-(distance-wkt.startDist);
   return 0;
@@ -1983,6 +2007,8 @@ function wktMaybeShowCountdown(){
   const s=wktCurrentStep();if(!s)return;
   if(s.type==='warmup'){
     showCountdownOverlay('warmup',null,s);
+  }else if(s.type==='ready'){
+    showCountdownOverlay('ready',null,s);
   }else if(s.type==='work'){
     showCountdownOverlay('go',5,s);
   }else if(s.type==='rest'){
@@ -2031,7 +2057,8 @@ function updateWorkoutBar(){
   if(phEl&&s){phEl.textContent=s.type.toUpperCase();phEl.className='wkt-phase '+(s.type||'done');}
   const cdEl=document.getElementById('wkt-countdown');
   if(cdEl&&s){
-    if(s.mode==='open')cdEl.textContent='LAP';
+    if(s.type==='ready')cdEl.textContent='GO!';
+    else if(s.mode==='open')cdEl.textContent='LAP';
     else if(s.mode==='distance')cdEl.textContent=Math.max(0,Math.round(rem))+'m';
     else cdEl.textContent=fmt(Math.max(0,rem));
   }
@@ -2056,7 +2083,7 @@ function updateIntervalsPanel(){
     return '<tr class="'+(active?'int-active':done?'int-done':'')+'">'+
       '<td><span class="int-badge-sm '+s.type+'">'+s.type.toUpperCase().slice(0,4)+'</span></td>'+
       '<td>'+(i+1)+'</td>'+
-      '<td>'+(m?fmt(m.time):(s.mode==='time'?fmt(s.value):s.mode==='open'?'LAP':s.value+'m'))+'</td>'+
+      '<td>'+(m?fmt(m.time):(s.type==='ready'?'AUTO':s.mode==='time'?fmt(s.value):s.mode==='open'?'LAP':s.value+'m'))+'</td>'+
       '<td>'+(m?m.dist+'m':'--')+'</td>'+
       '<td>'+(m&&m.lapPace>0?fmt(m.lapPace):'--')+'</td>'+
       '<td>'+(m&&m.rate?m.rate:'--')+'</td>'+
@@ -2093,6 +2120,10 @@ function showCountdownOverlay(mode,seconds,step,restSecs){
   }else if(mode==='warmup'){
     numEl.textContent='WARMUP';numEl.className='cdown-warmup';
     subEl.textContent='Press LAP when ready to start';
+    _cdownTimer=setTimeout(()=>hideCountdownOverlay(),4000);
+  }else if(mode==='ready'){
+    numEl.textContent='READY';numEl.className='cdown-num';
+    subEl.textContent='First stroke starts the race';
     _cdownTimer=setTimeout(()=>hideCountdownOverlay(),4000);
   }else if(mode==='cooldown'){
     numEl.textContent='COOL';numEl.className='cdown-cooldown';
