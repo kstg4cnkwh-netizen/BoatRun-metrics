@@ -1127,8 +1127,19 @@ function computeAutocorrelationRate(now) {
     if (bestR < 0.22) { acConf = Math.max(0, bestR); return; }
     const raw = 60000 / (bestLag * dtMs);
     if (raw < CONFIG.stroke.spmMin || raw > CONFIG.stroke.spmMax) return;
+    // Reject harmonic multiples of current FSM rate (2×, 3×, ½×)
+    const fsm = strokeRate || 0;
+    if (fsm > 0) {
+        for (const mult of [0.5, 2, 3]) {
+            if (Math.abs(raw - fsm * mult) < fsm * 0.18) {
+                acConf = Math.max(0, acConf * 0.4);
+                return;
+            }
+        }
+    }
     const ref = strokeRate || acRate || 0;
     if (ref > 0 && raw > ref * 0.72 && bestR < 0.65) { acConf = Math.max(0, acConf * 0.5); return; }
+
     acConf = Math.min(1, bestR);
     acRate = acRate === 0 ? raw : 0.35 * raw + 0.65 * acRate;
     acRate = Math.round(acRate * 2) / 2;
@@ -1312,11 +1323,16 @@ function onStrokeFinish(now, driveDur) {
     const medRate = rateFromMedianIntervals();
     if (medRate > 0) {
         let bl;
-        if (strokeRate === 0) bl = medRate;
-        else if (acConf > 0.50 && acRate > 0) {
-            const safe = (acRate > medRate * 1.35 || acRate < medRate * 0.72) ? medRate : acRate;
-            bl = 0.75 * medRate + 0.25 * safe;
-        } else bl = 0.65 * medRate + 0.35 * strokeRate;
+        if (strokeRate === 0) {
+            bl = medRate;
+        } else if (acConf > 0.55 && acRate > 0 && catchTsBuf.length < 4) {
+            // Only blend acRate when FSM has sparse intervals (start of piece, gaps)
+            const safe = (acRate > medRate * 1.25 || acRate < medRate * 0.80) ? medRate : acRate;
+            bl = 0.80 * medRate + 0.20 * safe;
+        } else {
+            // Steady rowing: trust FSM intervals, ignore acRate
+            bl = 0.70 * medRate + 0.30 * strokeRate;
+        }
         strokeRate = clamp(Math.round(bl * 2) / 2, CONFIG.stroke.spmMin, CONFIG.stroke.spmMax);
     }
     strokesDetected++;
@@ -3125,7 +3141,7 @@ function exportDebugCSV(s){
   const t0=s.startTime;const el=t=>(+(t-t0)/1000).toFixed(2);const rows=[['##ENV'],['session_id',s.id,'start_utc',new Date(t0).toISOString()],['duration_s',n(s.duration),'distance_m',n(s.distance),'strokes',n(s.strokeCount)]];
   const cfg=s.config||{},rl=cfg.rl||{},gps=cfg.gps||{};
   rows.push(['rl_startAfterDriveMs',n(rl.startAfterDriveMs??CONFIG.runLoss.startAfterDriveMs),'rl_windowMs',n(rl.windowMs??CONFIG.runLoss.windowMs)]);rows.push(['gps_emaAlpha',n(gps.alpha??CONFIG.gps.speedEmaAlpha),'gps_medianN',n(gps.medN??CONFIG.gps.speedMedianN)]);rows.push([]);
-  rows.push(['##STR'],['n','elapsed_s','rate','catch_jerk','dps','run_loss_m','impulse','rdi','ratio']);(s.strokes||[]).forEach((r,i)=>{const d=r.dbg||{};rows.push([i+1,el(r.t),n(r.rate),f2(d.catchJerkRaw),f2(r.dps),f2(r.runLossM),f2(r.driveImpulse),f2(r.rdi),f2(r.strokeRatio)]);});rows.push([]);
+  rows.push(['##STR'],['n','elapsed_s','rate','catch_jerk','dps','run_loss_m','impulse','rdi','ratio','interval_ms','drive_ms','med_rate','ac_rate','ac_conf']);(s.strokes||[]).forEach((r,i)=>{const d=r.dbg||{};rows.push([i+1,el(r.t),n(r.rate),f2(d.catchJerkRaw),f2(r.dps),f2(r.runLossM),f2(r.driveImpulse),f2(r.rdi),f2(r.strokeRatio),n(d.intervalMs),n(d.driveDurMs),f1(d.medRateFsm),f1(d.acRate),f3(d.acConf)]);});rows.push([]);
   rows.push(['##RL'],['stroke_n','start_spd_ms','min_spd_ms','dv_ms','raw_loss_m','med_loss_m','n_samples']);(s.rlDebug||[]).forEach(r=>rows.push([n(r.strokeN),f3(r.startSpeed),f3(r.minSpeed),f3(r.dv),f4(r.rawLoss),f4(r.medLoss),n(r.nSamples)]));rows.push([]);
   if(s.gpsRawTrace&&s.gpsRawTrace.length){rows.push(['##GPS'],['elapsed_s','gps_raw_ms','gps_ema_ms','acc_m','stroke_n','rl_phase']);s.gpsRawTrace.forEach(p=>rows.push([el(p.t),f3(p.rawSpd),f3(p.emaSpd),f2(p.acc),n(p.strokeN),p.rlPhase||'none']));rows.push([]);}
   if(s.hrTrace&&s.hrTrace.length){rows.push(['##HR'],['elapsed_s','hr_bpm']);s.hrTrace.forEach(h=>rows.push([el(h.t),h.hr]));rows.push([]);}
