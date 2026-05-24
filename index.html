@@ -1158,20 +1158,35 @@ function runFSM(now, fast, jerk) {
         : CONFIG.stroke.refractoryMinMs;
     switch (fsmState) {
         case FS.IDLE:
-        case FS.RECOVERY:
+        case FS.RECOVERY: {
+            const wasRecovery = (fsmState === FS.RECOVERY);
             if (jerk > jerkThreshActive && fast > accThreshBase && tSinceCatch > ref
                     && (now - lastDriveEndT) > CONFIG.stroke.postDriveLockoutMs) {
-                onNewCatch();
+                onNewCatch(now);                               // ← now passed in
                 fsmState = FS.CATCH;
-                catchStartT = now;
-                catchPeakJerk = jerk;
+                catchStartT = now; catchPeakJerk = jerk;
                 driveAccSamples = [{ t: now, v: fast }];
-                drivePeakAcc = fast;
-                drivePeakAccT = now;
+                drivePeakAcc = fast; drivePeakAccT = now;
                 jerkBuf.length = 0;
             }
-            if (fsmState === FS.RECOVERY && tSinceCatch > CONFIG.stroke.periodMaxMs * 1.5) fsmState = FS.IDLE;
+            if (fsmState === FS.RECOVERY && tSinceCatch > CONFIG.stroke.periodMaxMs * 1.5)
+                fsmState = FS.IDLE;
+            // IMU run loss — accumulate only while still in RECOVERY (after catch, fsmState = CATCH)
+            if (wasRecovery && fsmState === FS.RECOVERY && imuRL && now >= imuRL.startAt) {
+                if (imuRL.lastT < 0) {
+                    imuRL.lastT = now;                         // first sample: set clock, skip dt
+                } else {
+                    const dt = (now - imuRL.lastT) / 1000;
+                    imuRL.lastT = now;
+                    if (dt > 0 && dt < 0.08) {                // guard against motion pauses
+                        imuRL.deltaV    += fast * dt;
+                        if (imuRL.deltaV < imuRL.minDeltaV) imuRL.minDeltaV = imuRL.deltaV;
+                        imuRL.nSamples++;
+                    }
+                }
+            }
             break;
+        }
         case FS.CATCH:
             driveAccSamples.push({ t: now, v: fast });
             if (fast > drivePeakAcc) { drivePeakAcc = fast; drivePeakAccT = now; }
@@ -1225,7 +1240,20 @@ function avgCurves(curves) {
     for (let i = 0; i < CURVE_POINTS; i++) out[i] /= curves.length;
     return { data: out, driveFrac: df / curves.length };
 }
-function onNewCatch() {
+function onNewCatch(now) {
+    // Finalise IMU run loss from the recovery that just ended
+    if (imuRL && imuRL.nSamples >= 8 && imuRL.v0 !== null) {
+        const dv       = Math.max(0, -imuRL.minDeltaV);           // m/s drop (positive)
+        const recovS   = clamp((now - imuRL.driveEndT) / 1000, 0.5, 4.0);
+        const rawLoss  = +(dv * recovS * 0.5).toFixed(4);         // triangle area
+        if (rawLoss >= 0 && rawLoss <= CONFIG.runLoss.maxLossM) {
+            pushLimit(runLosses, rawLoss, CONFIG.runLoss.medianN);
+            runLossM = median(runLosses);
+            const idx = sessStrokes.findIndex(x => x._prlStroke === imuRL.strokeN);
+            if (idx >= 0) sessStrokes[idx].runLossM = runLossM;
+        }
+    }
+    imuRL = null;
     if (pendingCurveDriveCount > 0 && catchToCatchSamples.length >= 8) {
         const norm = normalizeStrokeSamples(catchToCatchSamples, pendingCurveDriveCount);
         if (norm) {
@@ -1359,13 +1387,28 @@ function onStrokeFinish(now, driveDur) {
     prevStrokeDist = distance;
     prevStrokeDistT = driveStartT;
     const driveImpulse = computeDriveImpulse(driveAccSamples);
+    if (driveImpulse !== null) {
+        driveImpulseEma = driveImpulseEma === null
+            ? driveImpulse
+            : IMP_EMA_ALPHA * driveImpulse + (1 - IMP_EMA_ALPHA) * driveImpulseEma;
+    }
     const prlStroke = strokeCount + 1;
-    pendingRun = {
+    pendingRun = {          // kept for GPS debug phase logging only
         startAt: now + CONFIG.runLoss.startAfterDriveMs,
-        endAt: now + CONFIG.runLoss.startAfterDriveMs + CONFIG.runLoss.windowMs,
+        endAt:   now + CONFIG.runLoss.startAfterDriveMs + CONFIG.runLoss.windowMs,
         startSpeed: null, minSpeed: null,
         strokeN: prlStroke, driveEndT: now
     };
+    imuRL = {
+        startAt:    now + CONFIG.runLoss.startAfterDriveMs,
+        v0:         gpsSpeedEma > 0.3 ? gpsSpeedEma : null,  // GPS anchor (absolute speed)
+        deltaV:     0,       // cumulative ∫fast dt during recovery (m/s, goes negative)
+        minDeltaV:  0,       // most-negative value seen = peak speed drop
+        lastT:      -1,      // -1 = window not yet open
+        nSamples:   0,
+        strokeN:    prlStroke,
+        driveEndT:  now
+    };  
     strokeCount++;
     sessStrokes.push({
         t: Date.now(), catchPeak: catchSlope, char: strokeChar,
@@ -1405,9 +1448,12 @@ const speedSamples = [], paceDistWindow = [], velocityWindow = [];
 let lastPos = null;
 const sessGpsTrace = [], sessGpsRawTrace = [];
 let pendingRun = null;
+let imuRL = null;  // IMU-based run loss state for current recovery
 const runLosses = [];
 let runLossM = null;
 const rlDebug = [];
+let driveImpulseEma = null;
+const IMP_EMA_ALPHA = 0.35;   // effective ~3-stroke window for drive impulse smoothing
 function updatePendingRunLoss() {
     const p = pendingRun;
     if (!p) return;
@@ -1755,9 +1801,9 @@ function renderMetricSlot(i, key) {
             break;
         }
         case 'impulse': {
-            const lastImp = sessStrokes.length > 0 ? sessStrokes[sessStrokes.length - 1].driveImpulse : null;
-            const ok = lastImp != null && on;
-            setVal(i, ok ? lastImp.toFixed(2) : '--', 'higher=better', !ok, ok ? 'GOOD' : 'WAIT', ok ? 'g' : '');
+            const ok = driveImpulseEma != null && on;
+            setVal(i, ok ? driveImpulseEma.toFixed(2) : '--', 'higher=better',
+                  !ok, ok ? 'GOOD' : 'WAIT', ok ? 'g' : '');
             break;
         }
         case 'tod': {
@@ -2319,7 +2365,7 @@ function resetSess(){
   if(elapsed>10&&sessStrokes.length>0&&!sessSaved){if(confirm('Save before reset?'))stopSess();else{clearInterval(timerInt);clearInterval(autosaveInt);}}
   else{clearInterval(timerInt);clearInterval(autosaveInt);}
   running=false;paused=false;sessSaved=false;_LS.removeItem(AUTOSAVE_DB);
-  elapsed=0;distance=0;pace=0;strokeRate=0;strokeCount=0;acRate=0;acConf=0;distPerStroke=0;dpsValsArr.length=0;maxDPS=0;lapStartDist=0;lapStartTime=0;catchLast=null;catchPeakSess=null;catchAvg8=null;catchValsArr.length=0;catchConsistency=null;strokeChar=50;charValsArr.length=0;rdi=null;rdiValsArr.length=0;strokeRatio=null;strokeRatioValsArr.length=0;pendingRun=null;runLosses.length=0;runLossM=null;rlDebug.length=0;laps=[];sessStrokes.length=0;sessPaceTrace.length=0;sessGpsTrace.length=0;sessGpsRawTrace.length=0;strokeTs.length=0;paceDistWindow.length=0;velocityWindow.length=0;speedSamples.length=0;prevStrokeDist=0;prevStrokeDistT=0;gpsLastValidT=0;gpsSpeedEma=-1;gpsWasStopped=false;gpsAccuracyM=null;fsmState=FS.IDLE;catchPeakJerk=0;catchStartT=0;lastCatchAbsT=0;lastDriveEndT=0;strokesDetected=0;jerkThreshActive=jerkThreshBase;adaptReady=false;acBuf.length=0;acLastUpdate=0;jerkBuf.length=0;catchTsBuf.length=0;axisLocked=false;axisAutoDetected=false;lastAxisCheck=0;sessStart=null;lastStrokeCurve=null;strokeCurveHistory.length=0;catchToCatchSamples=[];pendingCurveDriveCount=0;motionSamples=0;motionStartedAt=0;lastMotionT=0;
+  elapsed=0;distance=0;pace=0;strokeRate=0;strokeCount=0;acRate=0;acConf=0;distPerStroke=0;dpsValsArr.length=0;maxDPS=0;lapStartDist=0;lapStartTime=0;catchLast=null;catchPeakSess=null;catchAvg8=null;catchValsArr.length=0;catchConsistency=null;strokeChar=50;charValsArr.length=0;rdi=null;rdiValsArr.length=0;strokeRatio=null;strokeRatioValsArr.length=0;pendingRun=null;runLosses.length=0;runLossM=null;rlDebug.length=0;laps=[];sessStrokes.length=0;sessPaceTrace.length=0;sessGpsTrace.length=0;sessGpsRawTrace.length=0;strokeTs.length=0;paceDistWindow.length=0;velocityWindow.length=0;speedSamples.length=0;prevStrokeDist=0;prevStrokeDistT=0;gpsLastValidT=0;gpsSpeedEma=-1;gpsWasStopped=false;gpsAccuracyM=null;fsmState=FS.IDLE;catchPeakJerk=0;catchStartT=0;lastCatchAbsT=0;lastDriveEndT=0;strokesDetected=0;jerkThreshActive=jerkThreshBase;adaptReady=false;acBuf.length=0;acLastUpdate=0;jerkBuf.length=0;catchTsBuf.length=0;axisLocked=false;axisAutoDetected=false;lastAxisCheck=0;sessStart=null;lastStrokeCurve=null;strokeCurveHistory.length=0;catchToCatchSamples=[];pendingCurveDriveCount=0;motionSamples=0;motionStartedAt=0;lastMotionT=0;imuRL = null;driveImpulseEma = null;
   for(const k of AXES){gravity[k]=0;axFast[k]=0;axSmooth[k]=0;}
   wkt={active:false,def:null,sequence:[],seqIdx:0,startDist:0,startElapsed:0,lapMetrics:[],countdownActive:false};
   const bar=document.getElementById('wkt-bar');if(bar)bar.classList.remove('wactive');
