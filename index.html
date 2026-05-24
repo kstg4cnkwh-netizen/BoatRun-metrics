@@ -55,6 +55,17 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 /* ── COUNTDOWN OVERLAY ── */
 .countdown-overlay{position:absolute;inset:0;background:rgba(0,0,0,.78);display:none;align-items:center;justify-content:center;z-index:200;flex-direction:column;gap:12px;pointer-events:none;}
 .countdown-overlay.show{display:flex;}
+/* Lap split overlay */
+.lap-split-overlay{position:absolute;inset:0;background:rgba(0,0,0,.80);display:none;align-items:center;justify-content:center;z-index:190;flex-direction:column;cursor:pointer;}
+.lap-split-overlay.show{display:flex;}
+.ls-card{background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.18);border-radius:14px;padding:18px 28px 16px;text-align:center;min-width:min(280px,82vw);}
+.ls-lapnum{font-family:"Roboto Condensed",sans-serif;font-size:12px;font-weight:700;letter-spacing:.22em;color:rgba(255,255,255,.45);margin-bottom:14px;}
+.ls-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;}
+.ls-item{display:flex;flex-direction:column;align-items:center;}
+.ls-val{font-family:"Roboto Condensed",sans-serif;font-size:clamp(26px,9vw,50px);font-weight:700;color:#fff;line-height:1;}
+.ls-lbl{font-size:9px;color:rgba(255,255,255,.45);letter-spacing:.1em;margin-top:3px;text-transform:uppercase;}
+.ls-bar{height:3px;background:rgba(255,255,255,.12);border-radius:2px;margin:16px 0 0;overflow:hidden;}
+.ls-bar-fill{height:100%;background:#27ae60;transform-origin:left;}
 .cdown-num{font-family:"Roboto Condensed",sans-serif;font-size:clamp(80px,28vw,220px);font-weight:700;color:#fff;line-height:1;text-shadow:0 4px 24px rgba(0,0,0,.6);}
 .cdown-num.go{color:#27ae60;}
 .cdown-sub{font-family:"Roboto Condensed",sans-serif;font-size:clamp(22px,6vw,58px);font-weight:700;color:rgba(255,255,255,.7);letter-spacing:.08em;text-align:center;padding:0 20px;}
@@ -86,30 +97,34 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .tile-grid[data-cells="12"] .metric-val,
 .tile-grid[data-cells="12"] .char-num{font-size:clamp(18px,6.5dvh,78px);}
 
-/* P1 FIX: Landscape font sizes — substantially larger (dvh = SHORT dimension in landscape) */
+/* P1 FIX: Landscape font sizes — dvh is the short dimension; scale up to match portrait physical size */
 @media(orientation:landscape){
 .tile-grid[data-cells="1"] .metric-val,
-.tile-grid[data-cells="1"] .char-num{font-size:clamp(100px,40dvh,380px);}
+.tile-grid[data-cells="1"] .char-num{font-size:clamp(120px,48dvh,380px);}
 .tile-grid[data-cells="2"] .metric-val,
-.tile-grid[data-cells="2"] .char-num{font-size:clamp(72px,29dvh,290px);}
+.tile-grid[data-cells="2"] .char-num{font-size:clamp(88px,36dvh,290px);}
 .tile-grid[data-cells="4"] .metric-val,
-.tile-grid[data-cells="4"] .char-num{font-size:clamp(52px,21dvh,220px);}
+.tile-grid[data-cells="4"] .char-num{font-size:clamp(64px,26dvh,220px);}
 .tile-grid[data-cells="6"] .metric-val,
-.tile-grid[data-cells="6"] .char-num{font-size:clamp(40px,16dvh,180px);}
+.tile-grid[data-cells="6"] .char-num{font-size:clamp(48px,20dvh,180px);}
 .tile-grid[data-cells="8"] .metric-val,
-.tile-grid[data-cells="8"] .char-num{font-size:clamp(32px,13dvh,150px);}
+.tile-grid[data-cells="8"] .char-num{font-size:clamp(38px,16dvh,150px);}
 .tile-grid[data-cells="9"] .metric-val,
-.tile-grid[data-cells="9"] .char-num{font-size:clamp(30px,12dvh,140px);}
+.tile-grid[data-cells="9"] .char-num{font-size:clamp(34px,14dvh,140px);}
 .tile-grid[data-cells="12"] .metric-val,
-.tile-grid[data-cells="12"] .char-num{font-size:clamp(26px,10dvh,115px);}
+.tile-grid[data-cells="12"] .char-num{font-size:clamp(28px,12dvh,115px);}
+.tlbl{font-size:clamp(10px,2.5dvh,16px);}
+.tlbl-primary{font-size:clamp(11px,2.8dvh,17px);}
+.tq{font-size:clamp(8px,1.8dvh,12px);}
+.sub-micro,.char-label-sm{font-size:clamp(8px,1.6dvh,13px);}
 }
 
-.sub-micro{font-size:clamp(7px,1.1dvh,11px);color:#aaa;font-weight:400;text-align:center;line-height:1;white-space:nowrap;overflow:hidden;max-width:100%;}
-.char-label-sm{font-size:clamp(7px,1.1dvh,11px);color:#aaa;font-weight:400;text-align:center;line-height:1;white-space:nowrap;overflow:hidden;max-width:100%;}
-.tlbl{background:#1a5276;color:#fff;font-size:clamp(7px,1.2vw,12px);font-weight:400;letter-spacing:.02em;padding:3px 5px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:3px;overflow:hidden;}
+.sub-micro{font-size:clamp(8px,1.4dvh,13px);color:#aaa;font-weight:400;text-align:center;line-height:1;white-space:nowrap;overflow:hidden;max-width:100%;}
+.char-label-sm{font-size:clamp(8px,1.4dvh,13px);color:#aaa;font-weight:400;text-align:center;line-height:1;white-space:nowrap;overflow:hidden;max-width:100%;}
+.tlbl{background:#1a5276;color:#fff;font-size:clamp(9px,1.6dvh,14px);font-weight:400;letter-spacing:.02em;padding:3px 5px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:3px;overflow:hidden;}
 .tlbl-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1;}
-.tlbl-primary{background:#154360;font-weight:700;font-size:clamp(8px,1.4vw,13px);border-top:3px solid #5dade2;padding:4px 5px 3px;}
-.tq{font-size:clamp(6px,.9vw,8px);font-weight:800;letter-spacing:.08em;padding:2px 5px;border-radius:99px;flex-shrink:0;color:rgba(255,255,255,.38);background:rgba(0,0,0,.18);white-space:nowrap;line-height:1.5;}
+.tlbl-primary{background:#154360;font-weight:700;font-size:clamp(10px,1.8dvh,15px);border-top:3px solid #5dade2;padding:4px 5px 3px;}
+.tq{font-size:clamp(7px,1.2dvh,10px);font-weight:800;letter-spacing:.08em;padding:2px 5px;border-radius:99px;flex-shrink:0;color:rgba(255,255,255,.38);background:rgba(0,0,0,.18);white-space:nowrap;line-height:1.5;}
 .tq.g{color:rgba(255,255,255,.95);background:rgba(39,174,96,.6);}.tq.w{color:#111;background:rgba(243,156,18,.85);}.tq.b{color:rgba(255,255,255,.9);background:rgba(192,57,43,.7);}
 
 /* Tile structure */
@@ -335,6 +350,16 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .hz-row{background:#fff;border-radius:3px;margin-bottom:4px;padding:10px 12px;display:flex;align-items:center;gap:10px;}
 .hz-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
 .hz-lbl{font-size:11px;font-weight:700;flex:1;color:#333;}.hz-range{font-size:11px;color:#666;}
+/* HR editor */
+.hr-editor{padding:2px 0;}
+.hr-inputs-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;}
+.hr-field{display:flex;flex-direction:column;gap:3px;}
+.hr-field label{font-size:9px;color:#888;font-weight:700;letter-spacing:.1em;}
+.hr-input{width:100%;padding:7px 6px;border:1px solid #ddd;border-radius:4px;font-size:15px;font-weight:700;text-align:center;-webkit-appearance:none;appearance:none;box-sizing:border-box;}
+.hr-model-row{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;}
+.hr-model-btn{padding:5px 9px;border:1px solid #ddd;border-radius:3px;background:#fff;font-size:10px;font-weight:700;cursor:pointer;touch-action:manipulation;color:#555;}
+.hr-model-btn.sel{background:#1a5276;color:#fff;border-color:#1a5276;}
+.hr-model-desc{font-size:10px;color:#888;margin-bottom:8px;line-height:1.45;font-style:italic;}
 </style>
 </head>
 <body>
@@ -382,6 +407,19 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div class="countdown-overlay" id="countdown-overlay">
 <div class="cdown-num" id="cdown-num">5</div>
 <div class="cdown-sub" id="cdown-sub"></div>
+</div>
+<!-- Lap split overlay -->
+<div class="lap-split-overlay" id="lap-split-overlay" onclick="hideLapSplit()">
+<div class="ls-card">
+  <div class="ls-lapnum" id="ls-lapnum">LAP 1</div>
+  <div class="ls-grid">
+    <div class="ls-item"><div class="ls-val" id="ls-time">--</div><div class="ls-lbl">time</div></div>
+    <div class="ls-item"><div class="ls-val" id="ls-dist">--</div><div class="ls-lbl">dist</div></div>
+    <div class="ls-item"><div class="ls-val" id="ls-pace">--</div><div class="ls-lbl">pace /500</div></div>
+    <div class="ls-item"><div class="ls-val" id="ls-rate">--</div><div class="ls-lbl">spm</div></div>
+  </div>
+  <div class="ls-bar"><div class="ls-bar-fill" id="ls-bar-fill"></div></div>
+</div>
 </div>
 <!-- Dynamic tile grid -->
 <div class="tile-grid" id="tile-grid"></div>
@@ -478,9 +516,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 </div>
 <!-- HR ZONES panel -->
 <div id="ht-hr" class="home-panel">
-<div class="setup-section">HR ZONES</div>
-<div id="hr-zones-display"></div>
-<div style="font-size:10px;color:#aaa;text-align:center;padding:8px;">Max 179 &middot; LTHR 165 &middot; Resting 51 &middot; Age 51</div>
+<div id="hr-editor-root"></div>
 </div>
 </div>
 <!-- Home screen nav tabs -->
@@ -2148,8 +2184,21 @@ function updateIntervalsPanel(){
   const el=document.getElementById('intervals-content');if(!el)return;
   const nm=document.getElementById('intervals-wkt-name');
   if(!wkt.active){
-    el.innerHTML='<div class="no-workout-msg">No workout active.<br/>Load a workout from HOME.</div>';
-    if(nm)nm.textContent='';return;
+    if(nm)nm.textContent=running?'Laps':'';
+    if(!laps.length){
+      el.innerHTML='<div class="no-workout-msg">No laps yet.<br/>Press LAP to record a split.</div>';
+      return;
+    }
+    const rows=[...laps].reverse().map(l=>
+      '<tr><td><span class="int-badge-sm work">#'+l.n+'</span></td>'+
+      '<td>'+fmt(l.time)+'</td>'+
+      '<td>'+(l.dist>0?l.dist+'m':'--')+'</td>'+
+      '<td>'+(l.pace>0?fmt(l.pace):'--')+'</td>'+
+      '<td>'+(l.rate?Math.round(l.rate):'--')+'</td>'+
+      '</tr>'
+    ).join('');
+    el.innerHTML='<table class="int-tbl"><tr><th>Lap</th><th>Time</th><th>Dist</th><th>Pace</th><th>SPM</th></tr>'+rows+'</table>';
+    return;
   }
   if(nm)nm.textContent=wkt.def?.name||'';
   const rows=wkt.sequence.map((s,i)=>{
@@ -2279,6 +2328,28 @@ function resetSess(){
   updateUI();updateIntervalsPanel();requestAnimationFrame(renderCtrl);
   const pill=document.getElementById('p-axis');if(pill){pill.textContent='AX:?';pill.className='pill pill-off';}
 }
+const LAP_SPLIT_MS = 4000;
+let _lapSplitTimer = null;
+function showLapSplit(lap) {
+  const ov = document.getElementById('lap-split-overlay'); if (!ov) return;
+  document.getElementById('ls-lapnum').textContent = 'LAP ' + lap.n;
+  document.getElementById('ls-time').textContent  = fmt(lap.time);
+  document.getElementById('ls-dist').textContent  = lap.dist + 'm';
+  document.getElementById('ls-pace').textContent  = lap.pace > 0 ? fmt(lap.pace) : '--:--';
+  document.getElementById('ls-rate').textContent  = lap.rate > 0 ? Math.round(lap.rate) : '--';
+  const fill = document.getElementById('ls-bar-fill');
+  if (fill) { fill.style.transition = 'none'; fill.style.transform = 'scaleX(1)'; }
+  ov.classList.add('show');
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    if (fill) { fill.style.transition = `transform ${LAP_SPLIT_MS}ms linear`; fill.style.transform = 'scaleX(0)'; }
+  }));
+  clearTimeout(_lapSplitTimer);
+  _lapSplitTimer = setTimeout(hideLapSplit, LAP_SPLIT_MS);
+}
+function hideLapSplit() {
+  clearTimeout(_lapSplitTimer);
+  document.getElementById('lap-split-overlay')?.classList.remove('show');
+}
 function recordLap(){
   if(!running||paused)return;
   const d=Math.round(distance-lapStartDist),t=elapsed-lapStartTime,p=d>5&&t>0?(t/d)*500:0;
@@ -2286,7 +2357,8 @@ function recordLap(){
   const avgI=sessStrokes.length>0?sessStrokes[sessStrokes.length-1].driveImpulse:null;
   laps.push({n:laps.length+1,dist:d,time:t,pace:p,rate:strokeRate,avgCatch:avgC,avgDPS:distPerStroke||null,avgImpulse:avgI,avgRunLoss:runLossM,avgRdi:rdi});
   lapStartDist=distance;lapStartTime=elapsed;
-  toast('Lap '+laps.length+' '+d+'m');
+  showLapSplit(laps[laps.length-1]);
+  updateIntervalsPanel();
   // P2: lap button advances current workout step
   if(wkt.active){wktAdvance();}
 }
@@ -2447,7 +2519,7 @@ function attachSwipeDelete(cardEl,sessionId){
   let startX=0,currentX=0,isDragging=false;
   cardEl.addEventListener('touchstart',e=>{startX=e.touches[0].clientX;isDragging=true;cardEl.style.transition='none';},false);
   cardEl.addEventListener('touchmove',e=>{if(!isDragging)return;currentX=e.touches[0].clientX;const diff=currentX-startX;if(diff<0){cardEl.style.transform='translateX('+Math.max(diff,-150)+'px)';}},false);
-  cardEl.addEventListener('touchend',e=>{if(!isDragging)return;isDragging=false;const diff=currentX-startX;if(diff<-150){cardEl.style.transition='all .3s ease';cardEl.style.transform='translateX(-100%)';cardEl.style.opacity='0';setTimeout(()=>{if(confirm('Delete?')){delSess(sessionId);renderSessionList();toast('Deleted');}else{cardEl.style.transition='all .3s ease';cardEl.style.transform='translateX(0)';cardEl.style.opacity='1';}},150);}else{cardEl.style.transition='all .2s ease';cardEl.style.transform='translateX(0)';}},false);
+  cardEl.addEventListener('touchend',e=>{if(!isDragging)return;isDragging=false;const diff=currentX-startX;if(diff<-250){cardEl.style.transition='all .3s ease';cardEl.style.transform='translateX(-100%)';cardEl.style.opacity='0';setTimeout(()=>{if(confirm('Delete?')){delSess(sessionId);renderSessionList();toast('Deleted');}else{cardEl.style.transition='all .3s ease';cardEl.style.transform='translateX(0)';cardEl.style.opacity='1';}},150);}else{cardEl.style.transition='all .2s ease';cardEl.style.transform='translateX(0)';}},false);
 }
 
 function showDetail(id){
@@ -2866,10 +2938,75 @@ function saveWorkoutFromBuilder(){
   renderWorkoutList();toast('"'+name+'" saved');
 }
 
-function renderHRZones(){
+const HR_KEY='scull_hr_v1';
+let _hrData=null;
+function getHRData(){
+  if(!_hrData){try{_hrData=JSON.parse(_LS.getItem(HR_KEY));}catch{}if(!_hrData||!_hrData.maxHR)_hrData={maxHR:179,lthr:165,restHR:51,age:51,model:'friel'};}
+  return _hrData;
+}
+const HR_MODEL_DESCS={
+  friel:'Friel/Coggan: zones based on Lactate Threshold HR (LTHR). Best for trained athletes with a field test.',
+  karvonen:'Karvonen: uses HR reserve (max − resting). Accounts for fitness level via resting HR.',
+  maxpct:'% Max HR: simple zones as percentage of max heart rate.',
+  age:'Age-predicted: estimates max HR as 220 − age, then applies % max zones.'
+};
+const HR_MODEL_NAMES={friel:'Friel',karvonen:'Karvonen',maxpct:'% Max HR',age:'Age-based'};
+function computeHRZones(d){
+  const{maxHR,lthr,restHR,age,model}=d,hrr=maxHR-restHR;
+  const Z=[{n:'Z1',color:'#3498db',desc:'Recovery'},{n:'Z2',color:'#27ae60',desc:'Aerobic'},{n:'Z3',color:'#f1c40f',desc:'Tempo'},{n:'Z4',color:'#e67e22',desc:'Threshold'},{n:'Z5',color:'#c0392b',desc:'VO2 max'}];
+  if(model==='friel'){
+    const p=[[null,0.84],[0.85,0.89],[0.90,0.94],[0.95,0.99],[1.00,null]];
+    return Z.map((z,i)=>({...z,lo:p[i][0]?Math.round(p[i][0]*lthr):restHR,hi:p[i][1]?Math.round(p[i][1]*lthr):maxHR}));
+  }
+  if(model==='karvonen'){
+    const p=[[.50,.60],[.60,.70],[.70,.80],[.80,.90],[.90,1.00]];
+    return Z.map((z,i)=>({...z,lo:Math.round(p[i][0]*hrr+restHR),hi:Math.round(p[i][1]*hrr+restHR)}));
+  }
+  const mhr=model==='age'?Math.round(220-age):maxHR;
+  const p=[[.50,.60],[.60,.70],[.70,.80],[.80,.90],[.90,1.00]];
+  return Z.map((z,i)=>({...z,lo:Math.round(p[i][0]*mhr),hi:Math.round(p[i][1]*mhr)}));
+}
+function readHRInputs(){
+  const g=id=>parseInt(document.getElementById(id)?.value)||0;
+  return{maxHR:g('hri-max')||getHRData().maxHR,lthr:g('hri-lthr')||getHRData().lthr,restHR:g('hri-rest')||getHRData().restHR,age:g('hri-age')||getHRData().age,model:getHRData().model};
+}
+function renderHRZoneRows(){
   const el=document.getElementById('hr-zones-display');if(!el)return;
-  const zones=[{n:'Z1',lo:90,hi:106,color:'#3498db',desc:'Recovery'},{n:'Z2',lo:107,hi:124,color:'#27ae60',desc:'Aerobic base'},{n:'Z3',lo:125,hi:142,color:'#f39c12',desc:'Aerobic dev'},{n:'Z4',lo:143,hi:160,color:'#e67e22',desc:'Threshold'},{n:'Z5',lo:161,hi:179,color:'#c0392b',desc:'VO2 max'}];
-  el.innerHTML=zones.map(z=>'<div class="hz-row"><div class="hz-dot" style="background:'+z.color+'"></div><span class="hz-lbl">'+z.n+' - '+z.desc+'</span><span class="hz-range">'+z.lo+'--'+z.hi+' bpm</span></div>').join('');
+  const zones=computeHRZones(readHRInputs());
+  el.innerHTML=zones.map(z=>`<div class="hz-row"><div class="hz-dot" style="background:${z.color}"></div><span class="hz-lbl">${z.n} · ${z.desc}</span><span class="hz-range">${z.lo}–${z.hi} bpm</span></div>`).join('');
+}
+function setHRModel(model){
+  getHRData().model=model;
+  document.querySelectorAll('.hr-model-btn').forEach(b=>b.classList.toggle('sel',b.dataset.model===model));
+  const desc=document.getElementById('hr-model-desc');if(desc)desc.textContent=HR_MODEL_DESCS[model]||'';
+  renderHRZoneRows();
+}
+function saveHRZones(){
+  const d=readHRInputs();
+  _hrData=d;
+  try{_LS.setItem(HR_KEY,JSON.stringify(_hrData));}catch{}
+  toast('HR zones saved');
+}
+function renderHRZones(){
+  const root=document.getElementById('hr-editor-root');if(!root)return;
+  const d=getHRData();
+  root.innerHTML=`
+<div class="setup-section">HR ZONES</div>
+<div class="hr-editor">
+  <div class="hr-inputs-grid">
+    <div class="hr-field"><label>MAX HR</label><input class="hr-input" id="hri-max" type="number" value="${d.maxHR}" min="100" max="230" oninput="renderHRZoneRows()"></div>
+    <div class="hr-field"><label>LTHR</label><input class="hr-input" id="hri-lthr" type="number" value="${d.lthr}" min="60" max="220" oninput="renderHRZoneRows()"></div>
+    <div class="hr-field"><label>RESTING HR</label><input class="hr-input" id="hri-rest" type="number" value="${d.restHR}" min="30" max="100" oninput="renderHRZoneRows()"></div>
+    <div class="hr-field"><label>AGE</label><input class="hr-input" id="hri-age" type="number" value="${d.age}" min="10" max="100" oninput="renderHRZoneRows()"></div>
+  </div>
+  <div class="hr-model-row">
+    ${Object.entries(HR_MODEL_NAMES).map(([m,label])=>`<button class="hr-model-btn${d.model===m?' sel':''}" data-model="${m}" onclick="setHRModel('${m}')">${label}</button>`).join('')}
+  </div>
+  <div class="hr-model-desc" id="hr-model-desc">${HR_MODEL_DESCS[d.model]||''}</div>
+  <div id="hr-zones-display"></div>
+  <button class="add-step-btn work" onclick="saveHRZones()" style="width:100%;margin-top:8px;padding:10px;">SAVE ZONES</button>
+</div>`;
+  renderHRZoneRows();
 }
 
 /* ══ CHARTS ══ */
