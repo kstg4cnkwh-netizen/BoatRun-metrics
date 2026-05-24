@@ -309,6 +309,8 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .repeat-count-input{width:44px;font-size:14px;font-weight:700;padding:4px;border:1px solid #ddd;border-radius:3px;text-align:center;-webkit-appearance:none;appearance: none;}
 .skip-rest-row{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:11px;color:#555;}
 .skip-rest-cb{width:16px;height:16px;}
+.start-row-btn{background:none;border:1px solid #ddd;border-radius:3px;padding:3px 7px;font-size:9px;font-weight:700;letter-spacing:.05em;color:#aaa;cursor:pointer;touch-action:manipulation;flex-shrink:0;}
+.start-row-btn.active{background:#27ae60;border-color:#27ae60;color:#fff;}
 /* Add step buttons */
 .add-step-row{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;}
 .add-step-btn{padding:7px 10px;border-radius:3px;border:1px solid #ddd;background:#fff;font-family:"Roboto",sans-serif;font-size:10px;font-weight:700;cursor:pointer;touch-action:manipulation;}
@@ -1351,8 +1353,11 @@ function onStrokeFinish(now, driveDur) {
     });
     pendingCurveDriveCount = catchToCatchSamples.length;
     updateUI();
-    // Race mode: first stroke while in 'ready' phase fires the race start
-    if (wkt.active && running && !paused && wktCurrentStep()?.type === 'ready') wktAdvance();
+    // startWhenRowing gate: require 2 consecutive strokes ≥12 spm before starting the step
+    if (wkt.active && running && !paused && wkt.waitingForRow) {
+        if (strokeRate >= 12) { wkt.waitStrokeCount++; } else { wkt.waitStrokeCount = 0; }
+        if (wkt.waitStrokeCount >= 2) wktBeginStep();
+    }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1755,17 +1760,24 @@ function renderWorkoutTile(i) {
         if (sq) setQEl(sq, 'OFF', '');
         return;
     }
+    // Gate active — show READY regardless of step
+    if (wkt.waitingForRow) {
+        if (phasEl) { phasEl.textContent = 'READY'; phasEl.className = 'wkt-tile-phase ready'; }
+        if (sv) { sv.textContent = 'WAIT'; sv.className = 'metric-val'; }
+        if (ss) ss.textContent = 'start rowing';
+        if (sq) setQEl(sq, 'READY', 'w');
+        return;
+    }
     const s = wktCurrentStep();
     const type = s ? s.type : 'done';
     const rem = wktGetRemaining();
     const prog = `${wkt.seqIdx + 1}/${wkt.sequence.length}`;
+    const isRacePiece = type === 'work' && s?.startWhenRowing;
     if (phasEl) { phasEl.textContent = type.toUpperCase(); phasEl.className = 'wkt-tile-phase ' + type; }
     if (sv) {
         let display;
-        if (type === 'ready') {
-            display = 'WAIT';
-        } else if (type === 'work' && s.mode === 'distance') {
-            // Race timer — counts up from 0 the moment racing begins
+        if (isRacePiece) {
+            // Race timer — counts up from 0 from the moment rowing started
             display = fmt(elapsed - wkt.startElapsed);
         } else if (s && s.mode === 'distance') {
             display = Math.max(0, Math.round(rem)) + 'm';
@@ -1778,16 +1790,15 @@ function renderWorkoutTile(i) {
         sv.className = 'metric-val' + (type === 'done' ? ' dim' : '');
     }
     if (ss) {
-        if (type === 'ready') ss.textContent = 'first stroke starts';
-        else if (type === 'work' && s.mode === 'distance') ss.textContent = Math.max(0, Math.round(rem)) + 'm to go · ' + prog;
+        if (isRacePiece) ss.textContent = Math.max(0, Math.round(rem)) + 'm to go · ' + prog;
         else ss.textContent = prog;
     }
     if (sq) setQEl(sq,
-        type === 'work'    ? 'RACE'  :
-        type === 'ready'   ? 'READY' :
+        isRacePiece        ? 'RACE'  :
+        type === 'work'    ? 'WORK'  :
         type === 'warmup'  ? 'WARM'  :
         type === 'cooldown'? 'COOL'  : type.toUpperCase(),
-        type === 'work' ? 'g' : type === 'ready' ? 'w' : '');
+        isRacePiece || type === 'work' ? 'g' : '');
 }
 function updateUI() {
     const cells = getCurrentCells();
@@ -1929,14 +1940,12 @@ const WORKOUT_KEY='scull_workouts_v2';
 const DEFAULT_WORKOUTS=[
   {id:'default_race1000',name:'Race 1000m',steps:[
     {type:'warmup',mode:'open'},
-    {type:'ready',mode:'open'},
-    {type:'work',mode:'distance',value:1000},
+    {type:'work',mode:'distance',value:1000,startWhenRowing:true},
     {type:'cooldown',mode:'open'}
   ]},
   {id:'default_race2000',name:'Race 2000m',steps:[
     {type:'warmup',mode:'open'},
-    {type:'ready',mode:'open'},
-    {type:'work',mode:'distance',value:2000},
+    {type:'work',mode:'distance',value:2000,startWhenRowing:true},
     {type:'cooldown',mode:'open'}
   ]}
 ];
@@ -1981,13 +1990,16 @@ let wkt={
   startDist:0,startElapsed:0,
   lapMetrics:[],     // collected per-step
   countdownActive:false,
+  waitingForRow:false,  // startWhenRowing gate active
+  waitStrokeCount:0,    // gate: strokes ≥12spm seen
 };
 
 function wktCurrentStep(){return wkt.active?wkt.sequence[wkt.seqIdx]||null:null;}
 function wktGetRemaining(){
   if(!wkt.active)return 0;
+  if(wkt.waitingForRow)return Infinity; // gate: waiting for rowing to start
   const s=wktCurrentStep();if(!s)return 0;
-  if(s.mode==='open'||s.type==='ready')return Infinity; // press lap (or auto) to advance
+  if(s.mode==='open')return Infinity; // press lap to advance
   if(s.mode==='time')return s.value-(elapsed-wkt.startElapsed);
   if(s.mode==='distance')return s.value-(distance-wkt.startDist);
   return 0;
@@ -1995,11 +2007,14 @@ function wktGetRemaining(){
 
 function wktStart(def){
   const seq=flattenWorkout(def);
-  wkt={active:true,def,sequence:seq,seqIdx:0,startDist:distance,startElapsed:elapsed,lapMetrics:[],countdownActive:false};
+  wkt={active:true,def,sequence:seq,seqIdx:0,startDist:distance,startElapsed:elapsed,
+       lapMetrics:[],countdownActive:false,waitingForRow:false,waitStrokeCount:0};
   const bar=document.getElementById('wkt-bar');if(bar)bar.classList.add('wactive');
   toast('Workout: '+def.name);
+  // Check if first step needs startWhenRowing
+  const first=wktCurrentStep();
+  if(first?.startWhenRowing){wkt.waitingForRow=true;updateWorkoutBar();updateUI();updateIntervalsPanel();showCountdownOverlay('ready',null,first);return;}
   updateWorkoutBar();updateUI();updateIntervalsPanel();
-  // Start countdown for first work step
   wktMaybeShowCountdown();
 }
 
@@ -2007,8 +2022,6 @@ function wktMaybeShowCountdown(){
   const s=wktCurrentStep();if(!s)return;
   if(s.type==='warmup'){
     showCountdownOverlay('warmup',null,s);
-  }else if(s.type==='ready'){
-    showCountdownOverlay('ready',null,s);
   }else if(s.type==='work'){
     showCountdownOverlay('go',5,s);
   }else if(s.type==='rest'){
@@ -2022,6 +2035,7 @@ function wktMaybeShowCountdown(){
 /* Called by lap button AND auto when timer expires */
 function wktAdvance(){
   if(!wkt.active)return;
+  if(wkt.waitingForRow)return; // don't allow manual lap past a gate
   const cur=wktCurrentStep();if(!cur)return;
   // Snapshot metrics for completed step
   const snap={n:wkt.lapMetrics.length+1,type:cur.type,
@@ -2035,6 +2049,13 @@ function wktAdvance(){
   wkt.seqIdx++;
   wkt.startDist=distance;wkt.startElapsed=elapsed;
   if(wkt.seqIdx>=wkt.sequence.length){wktEnd();return;}
+  const next=wktCurrentStep();
+  if(next?.startWhenRowing){
+    wkt.waitingForRow=true;wkt.waitStrokeCount=0;
+    updateWorkoutBar();updateUI();updateIntervalsPanel();
+    showCountdownOverlay('ready',null,next);
+    return;
+  }
   updateWorkoutBar();updateUI();updateIntervalsPanel();
   wktMaybeShowCountdown();
 }
@@ -2043,8 +2064,15 @@ function wktEnd(){
   const bar=document.getElementById('wkt-bar');if(bar)bar.classList.remove('wactive');
   hideCountdownOverlay();toast('Workout complete');updateUI();updateIntervalsPanel();
 }
+/* Called when rowing detected while waitingForRow gate is active */
+function wktBeginStep(){
+  wkt.waitingForRow=false;wkt.waitStrokeCount=0;
+  wkt.startDist=distance;wkt.startElapsed=elapsed;
+  hideCountdownOverlay();
+  updateWorkoutBar();updateUI();
+}
 function wktCheckAuto(){
-  if(!wkt.active||!running||paused)return;
+  if(!wkt.active||!running||paused||wkt.waitingForRow)return;
   const rem=wktGetRemaining();
   if(rem!==Infinity&&rem<=0)wktAdvance();
 }
@@ -2052,17 +2080,22 @@ function updateWorkoutBar(){
   const bar=document.getElementById('wkt-bar');if(!bar)return;
   if(!wkt.active){bar.classList.remove('wactive');return;}
   bar.classList.add('wactive');
-  const s=wktCurrentStep();const rem=wktGetRemaining();
   const phEl=document.getElementById('wkt-phase-lbl');
-  if(phEl&&s){phEl.textContent=s.type.toUpperCase();phEl.className='wkt-phase '+(s.type||'done');}
   const cdEl=document.getElementById('wkt-countdown');
+  const infoEl=document.getElementById('wkt-info-lbl');
+  if(wkt.waitingForRow){
+    if(phEl){phEl.textContent='READY';phEl.className='wkt-phase ready';}
+    if(cdEl)cdEl.textContent='ROW!';
+    if(infoEl)infoEl.textContent=(wkt.def?.name||'Workout')+' · start rowing';
+    return;
+  }
+  const s=wktCurrentStep();const rem=wktGetRemaining();
+  if(phEl&&s){phEl.textContent=s.type.toUpperCase();phEl.className='wkt-phase '+(s.type||'done');}
   if(cdEl&&s){
-    if(s.type==='ready')cdEl.textContent='GO!';
-    else if(s.mode==='open')cdEl.textContent='LAP';
+    if(s.mode==='open')cdEl.textContent='LAP';
     else if(s.mode==='distance')cdEl.textContent=Math.max(0,Math.round(rem))+'m';
     else cdEl.textContent=fmt(Math.max(0,rem));
   }
-  const infoEl=document.getElementById('wkt-info-lbl');
   if(infoEl&&s){
     const prog=(wkt.seqIdx+1)+'/'+wkt.sequence.length;
     const gl=s.groupLabel?(' '+s.groupLabel):'';
@@ -2083,7 +2116,7 @@ function updateIntervalsPanel(){
     return '<tr class="'+(active?'int-active':done?'int-done':'')+'">'+
       '<td><span class="int-badge-sm '+s.type+'">'+s.type.toUpperCase().slice(0,4)+'</span></td>'+
       '<td>'+(i+1)+'</td>'+
-      '<td>'+(m?fmt(m.time):(s.type==='ready'?'AUTO':s.mode==='time'?fmt(s.value):s.mode==='open'?'LAP':s.value+'m'))+'</td>'+
+      '<td>'+(m?fmt(m.time):(s.mode==='time'?fmt(s.value):s.mode==='open'?'LAP':s.value+'m'))+'</td>'+
       '<td>'+(m?m.dist+'m':'--')+'</td>'+
       '<td>'+(m&&m.lapPace>0?fmt(m.lapPace):'--')+'</td>'+
       '<td>'+(m&&m.rate?m.rate:'--')+'</td>'+
@@ -2662,6 +2695,10 @@ function stepRowHTML(s,i,arr,sel,isFirst,isLast,gi,si){
   const delFn=gi!=null?'delInnerStep('+gi+','+si+')':'delBuilderStep('+i+')';
   const chkId='schk-'+(gi!=null?gi+'-'+si:i);
 
+  const toggleFn=gi!=null
+    ?'toggleInnerStartWhenRowing('+gi+','+si+')'
+    :'toggleStartWhenRowing('+i+')';
+
   return '<div class="step-row'+(sel?' step-sel':'')+'" style="'+(gi!=null?'padding-left:8px;':'')+'">'+
     '<div id="'+chkId+'" class="step-check'+(sel?' checked':'')+'">'+(sel?'&#x2713;':'')+'</div>'+
     '<span class="step-badge '+s.type+'">'+s.type.toUpperCase().slice(0,4)+'</span>'+
@@ -2685,6 +2722,12 @@ function stepRowHTML(s,i,arr,sel,isFirst,isLast,gi,si){
         '<button class="mode-toggle-btn'+(s.mode==='distance'?' sel':'')+'"'+
           ' onclick="'+modeFn.replace('$MODE',"'distance'")+'" style="padding:4px 6px;">m</button>'+
         '</div>'
+    )+
+    // Start-when-rowing toggle (work and rest only)
+    (s.type==='work'||s.type==='rest'
+      ? '<button class="start-row-btn'+(s.startWhenRowing?' active':'')+'"'+
+        ' onclick="'+toggleFn+'" title="Start when rowing">▶|</button>'
+      : ''
     )+
     // Reorder (top-level only)
     (moveFn
@@ -2732,6 +2775,14 @@ function moveStep(i,dir){
 }
 function delBuilderStep(i){_wktSteps.splice(i,1);_wktSelectedSteps=new Set();renderBuilderSteps();}
 function delInnerStep(gi,si){if(_wktSteps[gi]&&_wktSteps[gi].steps)_wktSteps[gi].steps.splice(si,1);renderBuilderSteps();}
+function toggleStartWhenRowing(i){
+  const s=_wktSteps[i];if(!s)return;
+  s.startWhenRowing=!s.startWhenRowing;renderBuilderSteps();
+}
+function toggleInnerStartWhenRowing(gi,si){
+  const s=_wktSteps[gi]&&_wktSteps[gi].steps&&_wktSteps[gi].steps[si];if(!s)return;
+  s.startWhenRowing=!s.startWhenRowing;renderBuilderSteps();
+}
 
 function editInnerStep(gi,si){
   const s=_wktSteps[gi]&&_wktSteps[gi].steps&&_wktSteps[gi].steps[si];if(!s)return;
