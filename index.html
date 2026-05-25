@@ -159,7 +159,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 /* ── TABS — always at bottom, always horizontal (P4) ── */
 .tab-bar,#live-tabs{display:flex;flex-direction:row;background:#f0f0f0;flex-shrink:0;border-top:1px solid #ccc;padding-bottom:calc(env(safe-area-inset-bottom) + 2px);}
 @media(orientation:landscape){
-#live-tabs{flex-direction:column;border-top:none;border-left:1px solid #ccc;padding-bottom:0;padding-right:env(safe-area-inset-right);width:clamp(52px,7vw,68px);height:auto;align-self:stretch;}
+#live-tabs{flex-direction:column;border-top:none;border-left:1px solid #ccc;padding-bottom:0;padding-right:0;width:clamp(52px,7vw,68px);align-self:stretch;}
 #live-tabs .tab{border-top:none;border-left:2px solid transparent;}
 #live-tabs .tab.active{color:#000;border-top:none;border-left:2px solid #000;}
 }
