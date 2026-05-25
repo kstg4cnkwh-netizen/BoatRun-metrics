@@ -146,6 +146,10 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .catch-bar-bg{height:6px;background:#e0e0e0;border-radius:3px;position:relative;overflow:hidden;}
 .catch-bar-fill{position:absolute;top:0;height:100%;border-radius:3px;transition:width .12s;background:#222;}
 .catch-needle{position:absolute;top:-6px;width:8px;height:18px;border-radius:3px;transform:translateX(-50%);transition:left .12s;background:#000;box-shadow:0 2px 8px rgba(0,0,0,.4);}
+.char-bar-wrap{width:88%;flex-shrink:0;margin-top:2px;}
+.char-bar-track{height:8px;border-radius:4px;position:relative;overflow:visible;background:linear-gradient(to right,#3498db 0%,#27ae60 35%,#f39c12 65%,#e74c3c 100%);}
+.char-bar-needle{position:absolute;top:-5px;width:8px;height:18px;border-radius:3px;transform:translateX(-50%);transition:left .15s;background:#000;box-shadow:0 2px 8px rgba(0,0,0,.4);z-index:2;}
+.char-bar-marker{position:absolute;top:-3px;width:2px;height:14px;background:rgba(0,0,0,.4);transform:translateX(-50%);z-index:1;}
 
 /* Workout tile */
 .wkt-tile-phase{font-size:clamp(10px,2dvh,22px);font-weight:700;letter-spacing:.1em;padding:2px 8px;border-radius:3px;margin-bottom:2px;}
@@ -218,6 +222,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .tq{font-size:clamp(7px,1.3dvh,10px);}
 .curve-tiles{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;height:clamp(160px,40dvh,240px);}
 .curve-tile{flex:none;}
+.tile-grid{max-width:440px;margin:0 auto;}
 }
 
 /* ── ANALYSIS / HOME SHARED STYLES ── */
@@ -440,9 +445,9 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div class="curve-legend"><div class="curve-leg-item"><div class="curve-leg-dot" style="background:#0077cc"></div>LAST</div><div class="curve-leg-item"><div class="curve-leg-dot" style="background:#e07b00"></div>AVG 5</div></div>
 </div>
 <div class="curve-tiles" id="curve-tiles">
-<div class="tile curve-tile" data-cw="0"><span class="tq" id="ct-0-q"></span><div class="tile-val-wrap"><div class="metric-val dim" id="ct-0-val">--</div><div class="sub-micro" id="ct-0-sub">str/min</div><div class="tile-meta-row"><span class="tile-metric-name" id="ct-0-lbl">Stroke rate ▸</span></div></div></div>
-<div class="tile curve-tile" data-cw="1"><span class="tq" id="ct-1-q"></span><div class="tile-val-wrap"><div class="metric-val dim" id="ct-1-val">--</div><div class="sub-micro" id="ct-1-sub">m/s³</div><div class="tile-meta-row"><span class="tile-metric-name" id="ct-1-lbl">Catch slope ▸</span></div></div></div>
-<div class="tile curve-tile" data-cw="2"><span class="tq" id="ct-2-q"></span><div class="tile-val-wrap"><div class="metric-val dim" id="ct-2-val">--</div><div class="sub-micro" id="ct-2-sub">m</div><div class="tile-meta-row"><span class="tile-metric-name" id="ct-2-lbl">Dist/stroke ▸</span></div></div></div>
+<div class="tile curve-tile" data-cw="0"><span class="tq" id="ct-0-q"></span><div class="tile-val-wrap"><div class="metric-val dim" id="ct-0-val">--</div><div class="sub-micro" id="ct-0-sub"></div><div class="tile-meta-row"><span class="tile-metric-name" id="ct-0-lbl">Stroke rate ▸</span></div></div></div>
+<div class="tile curve-tile" data-cw="1"><span class="tq" id="ct-1-q"></span><div class="tile-val-wrap"><div class="metric-val dim" id="ct-1-val">--</div><div class="sub-micro" id="ct-1-sub"></div><div class="tile-meta-row"><span class="tile-metric-name" id="ct-1-lbl">Catch slope ▸</span></div></div></div>
+<div class="tile curve-tile" data-cw="2"><span class="tq" id="ct-2-q"></span><div class="tile-val-wrap"><div class="metric-val dim" id="ct-2-val">--</div><div class="sub-micro" id="ct-2-sub"></div><div class="tile-meta-row"><span class="tile-metric-name" id="ct-2-lbl">Dist/stroke ▸</span></div></div></div>
 <div class="tile curve-tile" data-cw="3"><span class="tq" id="ct-3-q"></span><div class="tile-val-wrap"><div class="metric-val dim" id="ct-3-val">--</div><div class="sub-micro" id="ct-3-sub"></div><div class="tile-meta-row"><span class="tile-metric-name" id="ct-3-lbl">Impulse ▸</span></div></div></div>
 </div></div>
 <!-- Intervals panel (P3) -->
@@ -1610,7 +1615,8 @@ const METRIC_DEFS = {
     pace:         { label: 'Pace / 500m',    short: 'Pace',        primary: true,  bar: null },
     rate:         { label: 'Stroke Rate',    short: 'Rate',        primary: true,  bar: null },
     dps:          { label: 'Dist / Stroke',  short: 'DPS',         primary: true,  bar: null },
-    rdi:          { label: 'Recovery Index', short: 'Rec. Idx',    primary: false, bar: 'rdi' },
+    rdi:          { label: 'Recovery Index', short: 'Rec. Idx',    primary: false, bar: null,   hidden: true },
+    char:         { label: 'Stroke Char',    short: 'Char',        primary: false, bar: 'char' },
     ratio:        { label: 'Stroke Ratio',   short: 'Ratio',       primary: false, bar: null },
     catch:        { label: 'Catch Slope',    short: 'Catch',       primary: false, bar: 'catch' },
     runloss:      { label: 'Run Loss',       short: 'Run Loss',    primary: false, bar: null },
@@ -1674,8 +1680,8 @@ const DEFAULT_PROFILES = [
     },
     {
         name: 'Training',
-        landscape: { layout: '3x3', cells: ['pace','rate','dps','catch','rdi','runloss','impulse','selectable','selectable'] },
-        portrait:  { layout: '2x4', cells: ['pace','rate','dps','catch','rdi','runloss','impulse','selectable'] }
+        landscape: { layout: '3x3', cells: ['pace','rate','dps','catch','char','runloss','impulse','selectable','selectable'] },
+        portrait:  { layout: '2x4', cells: ['pace','rate','dps','catch','char','runloss','impulse','selectable'] }
     },
     {
         name: 'Intervals',
@@ -1721,14 +1727,12 @@ function getCurrentCells() {
 function buildTileHTML(i, key) {
     const def = METRIC_DEFS[key] || METRIC_DEFS.empty;
     let inner = '';
-    if (def.bar === 'rdi') {
-        inner = `<div class="char-num dim" id="sv-${i}">--</div>
-<div class="cbar-wrap"><div class="cbar-track"><div class="cbar-zones"><div class="cz1"></div><div class="cz2"></div></div><div class="cbar-midline"></div><div class="cbar-needle" id="bn-${i}" style="left:50%"></div></div></div>
-<div class="char-label-sm" id="ss-${i}">—</div>`;
+    if (def.bar === 'char') {
+        inner = `<div class="metric-val dim" id="sv-${i}">--</div>
+<div class="char-bar-wrap"><div class="char-bar-track"><div class="char-bar-marker" style="left:25%"></div><div class="char-bar-marker" style="left:50%"></div><div class="char-bar-marker" style="left:75%"></div><div class="char-bar-needle" id="bn-${i}" style="left:50%"></div></div></div>`;
     } else if (def.bar === 'catch') {
         inner = `<div class="metric-val dim" id="sv-${i}">--</div>
-<div class="catch-bar-wrap"><div class="catch-bar-bg"><div class="catch-bar-fill" id="bf-${i}" style="width:0"></div><div class="catch-needle" id="bn-${i}" style="left:0"></div></div></div>
-<div class="sub-micro">m/s³ · 0 ── 50 ── 100</div>`;
+<div class="catch-bar-wrap"><div class="catch-bar-bg"><div class="catch-bar-fill" id="bf-${i}" style="width:0"></div><div class="catch-needle" id="bn-${i}" style="left:0"></div></div></div>`;
     } else if (key === 'workout') {
         inner = `<div class="wkt-tile-phase done" id="wtp-${i}">—</div><div class="metric-val dim" id="sv-${i}">--</div><div class="sub-micro" id="ss-${i}"></div>`;
     } else {
@@ -1789,28 +1793,27 @@ function renderMetricSlot(i, key) {
                     sv.className = 'metric-val dim';
                 }
             }
-            if (ss) ss.textContent = 'str/min';
+            if (ss) ss.textContent = '';
             if (sq) setQEl(sq, ok ? (fresh ? 'LIVE' : 'HELD') : 'WAIT', ok ? (fresh ? 'g' : 'w') : '');
             break;
         }
         case 'dps': {
             const ok = on && distPerStroke > 0;
-            setVal(i, ok ? distPerStroke.toFixed(1) : '--', 'm', !ok,
+            setVal(i, ok ? distPerStroke.toFixed(1) : '--', '', !ok,
                 ok ? (dpsValsArr.length >= 3 ? 'MEDIAN' : 'LOW') : 'WAIT',
                 ok ? (dpsValsArr.length >= 3 ? 'g' : 'w') : '');
             break;
         }
-        case 'rdi': {
-            const needle = document.getElementById(`bn-${i}`);
-            const badge  = document.getElementById(`ss-${i}`);
-            const ok = on && strokeCount > 0 && rdi != null;
+        case 'char': {
+            const ok = on && strokeCount > 0;
+            const pct = ok ? clamp(strokeChar, 0, 100) : 50;
             const sv = document.getElementById(`sv-${i}`);
-            if (sv) { sv.textContent = ok ? rdi.toFixed(2) : '--'; sv.className = 'char-num' + (ok ? '' : ' dim'); }
-            if (needle) needle.style.left = ok ? (((rdi + 1) / 2) * 100) + '%' : '50%';
-            if (badge)  badge.textContent = ok ? rdiLabel(rdi) : '—';
+            if (sv) { sv.textContent = ok ? strokeChar + '%' : '--'; sv.className = 'metric-val' + (ok ? '' : ' dim'); }
+            const ndl = document.getElementById(`bn-${i}`);
+            if (ndl) ndl.style.left = pct + '%';
             const sq = document.getElementById(`sq-${i}`);
-            if (sq) setQEl(sq, ok ? (rdiValsArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
-                              ok ? (rdiValsArr.length >= 3 ? 'w' : 'b') : '');
+            if (sq) setQEl(sq, ok ? (charValsArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
+                              ok ? (charValsArr.length >= 3 ? 'g' : 'w') : '');
             break;
         }
         case 'ratio': {
@@ -1824,7 +1827,7 @@ function renderMetricSlot(i, key) {
                     sv.className = 'metric-val';
                 } else { sv.textContent = '--'; sv.className = 'metric-val dim'; }
             }
-            if (ss) ss.textContent = 'rec÷drive';
+            if (ss) ss.textContent = '';
             if (sq) setQEl(sq, ok ? (strokeRatioValsArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
                 ok ? (strokeRatioValsArr.length >= 3 ? 'w' : 'b') : '');
             break;
@@ -1845,14 +1848,14 @@ function renderMetricSlot(i, key) {
         }
         case 'runloss': {
             const ok = runLossM != null && on;
-            setVal(i, ok ? runLossM.toFixed(2) + ' m' : '--', 'per stroke', !ok,
+            setVal(i, ok ? runLossM.toFixed(2) : '--', '', !ok,
                 ok ? (runLosses.length >= 4 ? 'TREND' : 'NOISY') : 'WAIT',
                 ok ? (runLosses.length >= 4 ? 'w' : 'b') : '');
             break;
         }
         case 'impulse': {
             const ok = driveImpulseEma != null && on;
-            setVal(i, ok ? Math.round(driveImpulseEma * 100) : '--', 'higher=better',
+            setVal(i, ok ? Math.round(driveImpulseEma * 100) : '--', '',
                   !ok, ok ? 'GOOD' : 'WAIT', ok ? 'g' : '');
             break;
         }
@@ -1871,12 +1874,12 @@ function renderMetricSlot(i, key) {
             break;
         case 'totaldist': {
             const ok = running || elapsed > 0;
-            setVal(i, ok ? Math.round(distance) : '0', 'm', !ok, ok ? (on ? 'LIVE' : 'DONE') : 'OFF', ok ? (on ? 'g' : 'w') : '');
+            setVal(i, ok ? Math.round(distance) : '0', '', !ok, ok ? (on ? 'LIVE' : 'DONE') : 'OFF', ok ? (on ? 'g' : 'w') : '');
             break;
         }
         case 'lapdist': {
             const ld2 = Math.round(distance - lapStartDist);
-            setVal(i, on && ld2 > 0 ? ld2 : '--', 'm', !on, on ? 'LIVE' : 'WAIT', on ? 'g' : '');
+            setVal(i, on && ld2 > 0 ? ld2 : '--', '', !on, on ? 'LIVE' : 'WAIT', on ? 'g' : '');
             break;
         }
         case 'lastlaptime': {
@@ -1886,13 +1889,13 @@ function renderMetricSlot(i, key) {
         }
         case 'lastlapdist': {
             const ll = laps[laps.length - 1];
-            setVal(i, ll ? ll.dist : '--', 'm', !ll, ll ? 'LAST' : 'WAIT', ll ? 'w' : '');
+            setVal(i, ll ? ll.dist : '--', '', !ll, ll ? 'LAST' : 'WAIT', ll ? 'w' : '');
             break;
         }
         case 'lastlappace': {
             const ll = laps[laps.length - 1];
             const ok = ll && ll.pace > 0;
-            setVal(i, ok ? fmt(ll.pace) : '--:--', '/500m', !ok, ok ? 'LAST' : 'WAIT', ok ? 'w' : '');
+            setVal(i, ok ? fmt(ll.pace) : '--:--', '', !ok, ok ? 'LAST' : 'WAIT', ok ? 'w' : '');
             break;
         }
         case 'selectable': {
@@ -1907,10 +1910,10 @@ function renderMetricSlot(i, key) {
                 case 'tod': { const d=new Date(); setVal(i,`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`,'',false,'LIVE','g'); break; }
                 case 'totaltime': { const ok=on||elapsed>0; setVal(i,fmtH(elapsed),'',!on,ok?(on?'LIVE':'DONE'):'OFF',ok?(on?'g':'w'):''); break; }
                 case 'laptime': setVal(i,fmt(elapsed-lapStartTime),'',!on,on?'LIVE':'WAIT',on?'g':''); break;
-                case 'totaldist': { const ok2=running||elapsed>0; setVal(i,ok2?Math.round(distance):'0','m',!ok2,ok2?(on?'LIVE':'DONE'):'OFF',ok2?(on?'g':'w'):''); break; }
-                case 'lapdist': { const ld2=Math.round(distance-lapStartDist); setVal(i,on&&ld2>0?ld2:'--','m',!on,on?'LIVE':'WAIT',on?'g':''); break; }
-                case 'avgpace': { const avgP=distance>5&&elapsed>0?(elapsed/distance)*500:0; const okA=avgP>50&&avgP<500; setVal(i,okA?fmt(avgP):'--:--','/500m avg',!okA,okA?'LIVE':'WAIT',okA?'g':''); break; }
-                case 'lappace': { const ld3=distance-lapStartDist,lt3=elapsed-lapStartTime; const lp=ld3>5&&lt3>0?(lt3/ld3)*500:0; const okL=on&&lp>50&&lp<500; setVal(i,okL?fmt(lp):'--:--','/500m lap',!okL,okL?'LIVE':'WAIT',okL?'g':''); break; }
+                case 'totaldist': { const ok2=running||elapsed>0; setVal(i,ok2?Math.round(distance):'0','',!ok2,ok2?(on?'LIVE':'DONE'):'OFF',ok2?(on?'g':'w'):''); break; }
+                case 'lapdist': { const ld2=Math.round(distance-lapStartDist); setVal(i,on&&ld2>0?ld2:'--','',!on,on?'LIVE':'WAIT',on?'g':''); break; }
+                case 'avgpace': { const avgP=distance>5&&elapsed>0?(elapsed/distance)*500:0; const okA=avgP>50&&avgP<500; setVal(i,okA?fmt(avgP):'--:--','',!okA,okA?'LIVE':'WAIT',okA?'g':''); break; }
+                case 'lappace': { const ld3=distance-lapStartDist,lt3=elapsed-lapStartTime; const lp=ld3>5&&lt3>0?(lt3/ld3)*500:0; const okL=on&&lp>50&&lp<500; setVal(i,okL?fmt(lp):'--:--','',!okL,okL?'LIVE':'WAIT',okL?'g':''); break; }
             }
             // Update tile label to show current sub-metric
             const lblTxt = document.querySelector(`#slot-${i} .tile-metric-name`);
@@ -1996,7 +1999,7 @@ function toggleSessLock() {
 // ═══════════════════════════════════════════════════════════
 const CURVE_TILE_OPTIONS = ['stroke-rate','catch-slope','dps','impulse','run-loss','char','pace'];
 const CURVE_TILE_LABELS  = { 'stroke-rate':'Stroke rate','catch-slope':'Catch slope','dps':'Dist/stroke','impulse':'Impulse','run-loss':'Run loss','char':'Char %','pace':'Pace' };
-const CURVE_TILE_SUBS    = { 'stroke-rate':'str/min','catch-slope':'m/s³','dps':'m','impulse':'','run-loss':'m/str','char':'%','pace':'/500m' };
+const CURVE_TILE_SUBS    = { 'stroke-rate':'','catch-slope':'','dps':'','impulse':'','run-loss':'','char':'','pace':'' };
 let curveTileKeys = (() => {
     try {
         const s = JSON.parse(_LS.getItem('scull_ctiles') || 'null');
@@ -2010,41 +2013,41 @@ function curveTileValue(key) {
     switch (key) {
         case 'stroke-rate': {
             const ok = on && strokeRate > 0;
-            return { val: ok ? strokeRate : '--', dim: !ok, sub: 'str/min',
+            return { val: ok ? strokeRate : '--', dim: !ok, sub: '',
                 qlabel: ok ? (fresh ? 'LIVE' : 'HELD') : 'WAIT', qcls: ok ? (fresh ? 'g' : 'w') : '' };
         }
         case 'catch-slope': {
             const ok = catchLast !== null;
-            return { val: ok ? catchLast : '--', dim: !ok, sub: 'm/s³',
+            return { val: ok ? catchLast : '--', dim: !ok, sub: '',
                 qlabel: ok ? (catchValsArr.length >= 4 ? 'TREND' : 'NOISY') : 'WAIT',
                 qcls: ok ? (catchValsArr.length >= 4 ? 'w' : 'b') : '' };
         }
         case 'dps': {
             const ok = on && distPerStroke > 0;
-            return { val: ok ? distPerStroke.toFixed(1) : '--', dim: !ok, sub: 'm',
+            return { val: ok ? distPerStroke.toFixed(1) : '--', dim: !ok, sub: '',
                 qlabel: ok ? (dpsValsArr.length >= 3 ? 'MEDIAN' : 'LOW') : 'WAIT',
                 qcls: ok ? (dpsValsArr.length >= 3 ? 'g' : 'w') : '' };
         }
         case 'impulse': {
             const imp = sessStrokes.length > 0 ? sessStrokes[sessStrokes.length - 1].driveImpulse : null;
             const ok = imp != null && on;
-            return { val: ok ? Math.round(imp * 100).toString() : '--', dim: !ok, sub: 'higher=better',
+            return { val: ok ? Math.round(imp * 100).toString() : '--', dim: !ok, sub: '',
                 qlabel: ok ? 'GOOD' : 'WAIT', qcls: ok ? 'g' : '' };
         }
         case 'run-loss': {
             const ok = runLossM != null && on;
-            return { val: ok ? runLossM.toFixed(2) + ' m' : '--', dim: !ok, sub: 'per stroke',
+            return { val: ok ? runLossM.toFixed(2) : '--', dim: !ok, sub: '',
                 qlabel: ok ? (runLosses.length >= 4 ? 'TREND' : 'NOISY') : 'WAIT',
                 qcls: ok ? (runLosses.length >= 4 ? 'w' : 'b') : '' };
         }
         case 'char': {
             const ok = on && strokeCount > 0;
-            return { val: ok ? strokeChar : '--', dim: !ok, sub: '%',
+            return { val: ok ? strokeChar + '%' : '--', dim: !ok, sub: '',
                 qlabel: ok ? 'LIVE' : 'WAIT', qcls: ok ? 'g' : '' };
         }
         case 'pace': {
             const ok = on && pace > 0;
-            return { val: ok ? fmt(pace) : '--:--', dim: !ok, sub: '/500m',
+            return { val: ok ? fmt(pace) : '--:--', dim: !ok, sub: '',
                 qlabel: ok ? 'GPS' : 'WAIT', qcls: ok ? 'g' : '' };
         }
         default: return { val: '--', dim: true, sub: '', qlabel: '', qcls: '' };
@@ -2731,7 +2734,7 @@ function showDetail(id){
     +'<div class="sgrid"><div class="sbox"><span class="sbox-v">'+((s.distance/1000).toFixed(2))+'</span><span class="sbox-l">Distance</span><span class="sbox-u">KM</span></div><div class="sbox g"><span class="sbox-v">'+(s.avgPace>0?fmt(s.avgPace):'--')+'</span><span class="sbox-l">Avg Pace</span><span class="sbox-u">/500M</span></div><div class="sbox a"><span class="sbox-v">'+fmtH(s.duration)+'</span><span class="sbox-l">Duration</span><span class="sbox-u">H:MM:SS</span></div></div>'
     +'<div class="sgrid"><div class="sbox a"><span class="sbox-v">'+(s.avgRate||'--')+'</span><span class="sbox-l">Avg Rate</span><span class="sbox-u">S/MIN</span></div><div class="sbox a"><span class="sbox-v">'+(s.maxRate||'--')+'</span><span class="sbox-l">Max Rate</span><span class="sbox-u">S/MIN</span></div><div class="sbox"><span class="sbox-v">'+(s.strokeCount||0)+'</span><span class="sbox-l">Strokes</span></div></div>'
     +'<div class="sgrid"><div class="sbox"><span class="sbox-v">'+(s.catchPeakSess!=null?'+'+Math.round(s.catchPeakSess):'--')+'</span><span class="sbox-l">Catch Peak</span></div><div class="sbox"><span class="sbox-v">'+(avgCatch!=='--'?'+'+avgCatch:avgCatch)+'</span><span class="sbox-l">Catch Avg</span></div><div class="sbox"><span class="sbox-v">'+(s.avgConsistency?s.avgConsistency.toFixed(1):'--')+'</span><span class="sbox-l">Consistency</span></div></div>'
-    +'<div class="sgrid"><div class="sbox"><span class="sbox-v">'+(s.avgDPS?s.avgDPS.toFixed(1):'--')+'</span><span class="sbox-l">DPS</span><span class="sbox-u">m</span></div><div class="sbox"><span class="sbox-v">'+(s.avgImpulse!=null?s.avgImpulse.toFixed(2):'--')+'</span><span class="sbox-l">Impulse</span></div><div class="sbox"><span class="sbox-v">'+(s.avgRdi?s.avgRdi.toFixed(2):'--')+'</span><span class="sbox-l">Rec. Idx</span></div></div>'
+    +'<div class="sgrid"><div class="sbox"><span class="sbox-v">'+(s.avgDPS?s.avgDPS.toFixed(1):'--')+'</span><span class="sbox-l">DPS</span><span class="sbox-u">m</span></div><div class="sbox"><span class="sbox-v">'+(s.avgImpulse!=null?s.avgImpulse.toFixed(2):'--')+'</span><span class="sbox-l">Impulse</span></div><div class="sbox"><span class="sbox-v">'+(s.avgChar!=null?Math.round(s.avgChar)+'%':'--')+'</span><span class="sbox-l">Stroke Char</span></div></div>'
     +'<div class="sgrid"><div class="sbox '+(s.avgRunLossM?s.avgRunLossM<0.35?'g':s.avgRunLossM<0.80?'a':'r':'')+'"><span class="sbox-v">'+(s.avgRunLossM!=null?s.avgRunLossM.toFixed(2):'--')+'</span><span class="sbox-l">Run Loss</span><span class="sbox-u">m/stroke</span></div><div class="sbox '+(s.avgRatio?s.avgRatio>=1.5&&s.avgRatio<=2.5?'g':s.avgRatio<1.2||s.avgRatio>3.5?'r':'a':'')+'"><span class="sbox-v">'+(s.avgRatio!=null?s.avgRatio.toFixed(2):'--')+'</span><span class="sbox-l">Stroke Ratio</span><span class="sbox-u">rec÷drive</span></div><div class="sbox"><span class="sbox-v">'+(s.laps?s.laps.length:0)+'</span><span class="sbox-l">Laps</span></div></div>'
     +'<div class="sgrid"><div class="sbox" style="grid-column:1/4"><span class="sbox-v" style="font-size:11px">'+(s.workoutName||'--')+'</span><span class="sbox-l">Workout</span></div></div>'
     +(s.calNoiseFloor!=null?'<div style="font-size:9px;color:#aaa;text-align:center;margin-bottom:6px;">CAL noise '+s.calNoiseFloor+' jerk '+s.calThresh+'</div>':'')
@@ -2740,7 +2743,7 @@ function showDetail(id){
     +hrHTML
     +(s.garminSpeedTrace&&s.garminSpeedTrace.length>2?'<div class="chart-card" style="border-color:#8e44ad"><div class="chart-lbl"><span>Garmin Pace</span><span>min/500m</span></div><canvas id="a-gspeed" class="acanvas"></canvas></div>':'')
     +(s.paceTrace&&s.paceTrace.length>2?'<div class="chart-card g"><div class="chart-lbl"><span>GPS Pace</span><span>min/500m faster=up</span></div><canvas id="a-pace" class="acanvas"></canvas></div>':'')
-    +(s.strokes&&s.strokes.length>2?'<div class="chart-card b"><div class="chart-lbl"><span>Catch Slope</span></div><canvas id="a-catch" class="acanvas"></canvas></div><div class="chart-card a"><div class="chart-lbl"><span>Stroke Rate</span></div><canvas id="a-rate" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Run Loss</span></div><canvas id="a-runloss" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Impulse</span></div><canvas id="a-eff" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>DPS</span></div><canvas id="a-dps" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Recovery Index</span></div><canvas id="a-rdi" class="acanvas"></canvas></div><div class="chart-card g"><div class="chart-lbl"><span>Stroke Ratio</span><span>rec÷drive · 1.5–2.5 green</span></div><canvas id="a-ratio" class="acanvas"></canvas></div>':'')
+    +(s.strokes&&s.strokes.length>2?'<div class="chart-card b"><div class="chart-lbl"><span>Catch Slope</span></div><canvas id="a-catch" class="acanvas"></canvas></div><div class="chart-card a"><div class="chart-lbl"><span>Stroke Rate</span></div><canvas id="a-rate" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Run Loss</span></div><canvas id="a-runloss" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Impulse</span></div><canvas id="a-eff" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>DPS</span></div><canvas id="a-dps" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Stroke Char</span><span>% · 50% ref</span></div><canvas id="a-char" class="acanvas"></canvas></div><div class="chart-card g"><div class="chart-lbl"><span>Stroke Ratio</span><span>rec÷drive · 1.5–2.5 green</span></div><canvas id="a-ratio" class="acanvas"></canvas></div>':'')
     +(s.laps&&s.laps.length?'<div class="chart-card" style="border-color:#ddd"><div class="chart-lbl"><span>Laps</span></div><table class="lap-tbl"><tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>Rate</th><th>Catch</th><th>DPS</th><th>Imp</th><th>RL</th><th>RDI</th><th>Ratio</th></tr>'+(()=>{const best=s.laps.length>1?s.laps.reduce((b,l)=>l.pace>0&&l.pace<b.pace?l:b,s.laps[0]):null;return s.laps.map(l=>'<tr class="'+(best&&l.n===best.n?'best':'')+'"><td>'+l.n+'</td><td>'+l.dist+'m</td><td>'+fmt(l.time)+'</td><td>'+(l.pace>0?fmt(l.pace):'--')+'</td><td>'+(l.rate||'--')+'</td><td>'+(l.avgCatch||'--')+'</td><td>'+(l.avgDPS?l.avgDPS.toFixed(1):'--')+'</td><td>'+(l.avgImpulse?l.avgImpulse.toFixed(2):'--')+'</td><td>'+(l.avgRunLoss?l.avgRunLoss.toFixed(2):'--')+'</td><td>'+(l.avgRdi?l.avgRdi.toFixed(2):'--')+'</td><td>'+(l.avgRatio?'1:'+l.avgRatio.toFixed(2):'--')+'</td></tr>').join('');})()+'</table></div>':'')
     +'<div style="display:flex;gap:6px;margin-top:8px;">'
     +'<button class="exp-btn" id="dbg-btn" style="flex:1;font-size:10px;padding:10px 4px;">Debug CSV</button>'
@@ -2761,7 +2764,7 @@ function showDetail(id){
       const gspd=s.garminSpeedTrace.filter(x=>x.spd>0.3).map(x=>500/x.spd);
       if(gspd.length>2)drawChart('a-gspeed',gspd,'#8e44ad',true);
     }
-    if(s.strokes&&s.strokes.length>2){drawChart('a-catch',s.strokes.map(x=>x.catchPeak),'#1a5276',false,100,true);drawChart('a-rate',s.strokes.map(x=>x.rate),'#f39c12',false);drawChart('a-runloss',s.strokes.map(x=>x.runLossM||0),'#c0392b',false,null,true);drawChart('a-eff',s.strokes.map(x=>x.driveImpulse||0),'#27ae60',false,null,true);drawChart('a-dps',s.strokes.map(x=>x.dps||0),'#1a5276',false,20);drawChart('a-rdi',s.strokes.map(x=>x.rdi||0),'#8e44ad',false,1,true,-1);const ratioData=s.strokes.map(x=>x.strokeRatio||0).filter(v=>v>0);if(ratioData.length>1)drawChart('a-ratio',s.strokes.map(x=>x.strokeRatio||0),'#27ae60',false,4,true,0);}
+    if(s.strokes&&s.strokes.length>2){drawChart('a-catch',s.strokes.map(x=>x.catchPeak),'#1a5276',false,100,true);drawChart('a-rate',s.strokes.map(x=>x.rate),'#f39c12',false);drawChart('a-runloss',s.strokes.map(x=>x.runLossM||0),'#c0392b',false,null,true);drawChart('a-eff',s.strokes.map(x=>x.driveImpulse||0),'#27ae60',false,null,true);drawChart('a-dps',s.strokes.map(x=>x.dps||0),'#1a5276',false,20);drawChart('a-char',s.strokes.map(x=>x.char||0),'#8e44ad',false,100,true,0,50);const ratioData=s.strokes.map(x=>x.strokeRatio||0).filter(v=>v>0);if(ratioData.length>1)drawChart('a-ratio',s.strokes.map(x=>x.strokeRatio||0),'#27ae60',false,4,true,0);}
     if(s.hrTrace&&s.hrTrace.length>2)drawChart('a-hr',s.hrTrace.map(x=>x.hr),'#c0392b',false);
     const fz=document.getElementById('fit-zone');if(fz)fz.addEventListener('click',()=>{const inp=document.getElementById('fit-input');inp.onchange=ev=>handleGPX(ev,s.id);inp.click();});
     document.getElementById('dbg-btn').addEventListener('click',()=>exportDebugCSV(s));
@@ -3209,7 +3212,7 @@ function renderHRZones(){
 }
 
 /* ══ CHARTS ══ */
-function drawChart(id,data,color,invertY,yMax,points,yMin=null){
+function drawChart(id,data,color,invertY,yMax,points,yMin=null,refLine=null){
   const c=document.getElementById(id);if(!c||data.length<2)return;
   const dpr=window.devicePixelRatio||1,W=c.offsetWidth*dpr,H=c.offsetHeight*dpr;c.width=W;c.height=H;
   const ctx=c.getContext('2d');ctx.clearRect(0,0,W,H);
@@ -3217,6 +3220,7 @@ function drawChart(id,data,color,invertY,yMax,points,yMin=null){
   const range=mx-mn||1,pad=4;
   const sy=v=>invertY?pad+(((v-mn)/range)*(H-pad*2)):(H-pad)-(((v-mn)/range)*(H-pad*2));
   ctx.strokeStyle='#f0f0f0';ctx.lineWidth=1;for(let i=0;i<=3;i++){const y=pad+i*(H-pad*2)/3;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  if(refLine!=null){const ry=sy(refLine);ctx.save();ctx.strokeStyle='rgba(0,0,0,0.35)';ctx.lineWidth=1*dpr;ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(0,ry);ctx.lineTo(W,ry);ctx.stroke();ctx.setLineDash([]);ctx.restore();}
   if(points){const r=Math.max(2,3*dpr);ctx.fillStyle=color;data.forEach((v,i)=>{const x=(i/(data.length-1))*W;ctx.beginPath();ctx.arc(x,sy(v),r,0,Math.PI*2);ctx.fill();});}
   else{const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,color+'33');g.addColorStop(1,color+'05');ctx.beginPath();data.forEach((v,i)=>i===0?ctx.moveTo(0,sy(v)):ctx.lineTo((i/(data.length-1))*W,sy(v)));ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fillStyle=g;ctx.fill();ctx.beginPath();data.forEach((v,i)=>i===0?ctx.moveTo(0,sy(v)):ctx.lineTo((i/(data.length-1))*W,sy(v)));ctx.strokeStyle=color;ctx.lineWidth=1.5*dpr;ctx.lineJoin='round';ctx.stroke();}
   ctx.fillStyle='#aaa';ctx.font=(8*dpr)+'px Roboto';ctx.textAlign='left';
@@ -3261,9 +3265,9 @@ function parseGPX(text){const doc=new DOMParser().parseFromString(text,'applicat
 /* ══ CSV EXPORT ══ */
 function exportCSV(s){
   const n=v=>(v!=null&&!isNaN(v))?v:'';const f1=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(1):'';const f2=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(2):'';
-  const rows=[['SESSION SUMMARY'],['start_time',new Date(s.startTime).toISOString()],['end_time',new Date(s.endTime||s.startTime+s.duration*1000).toISOString()],['duration_s',n(s.duration),'distance_m',n(s.distance),'stroke_count',n(s.strokeCount)],['avg_pace_s500',n(s.avgPace),'avg_rate_spm',n(s.avgRate),'max_rate_spm',n(s.maxRate)],['catch_peak_ms3',n(s.catchPeakSess),'avg_dps_m',f1(s.avgDPS),'avg_run_loss_m',f2(s.avgRunLossM)],['avg_impulse',f2(s.avgImpulse),'avg_rdi',f2(s.avgRdi),'avg_ratio',f2(s.avgRatio),'workout',s.workoutName||''],[]];
-  rows.push(['STROKE DATA'],['n','timestamp','catch_ms3','rate_spm','pace_s500','dist_m','dps_m','run_loss_m','impulse','rdi','ratio','char','consistency']);
-  if(s.strokes)s.strokes.forEach((r,i)=>rows.push([i+1,new Date(r.t).toISOString(),f1(r.catchPeak),n(r.rate),r.pace>0?f1(r.pace):'',f1(r.dist),f1(r.dps),f2(r.runLossM),f2(r.driveImpulse),f2(r.rdi),f2(r.strokeRatio),n(r.char),f1(r.catchConsistency)]));
+  const rows=[['SESSION SUMMARY'],['start_time',new Date(s.startTime).toISOString()],['end_time',new Date(s.endTime||s.startTime+s.duration*1000).toISOString()],['duration_s',n(s.duration),'distance_m',n(s.distance),'stroke_count',n(s.strokeCount)],['avg_pace_s500',n(s.avgPace),'avg_rate_spm',n(s.avgRate),'max_rate_spm',n(s.maxRate)],['catch_peak_ms3',n(s.catchPeakSess),'avg_dps_m',f1(s.avgDPS),'avg_run_loss_m',f2(s.avgRunLossM)],['avg_impulse',f2(s.avgImpulse),'avg_char',n(s.avgChar),'avg_ratio',f2(s.avgRatio),'workout',s.workoutName||''],[]];
+  rows.push(['STROKE DATA'],['n','timestamp','catch_ms3','rate_spm','pace_s500','dist_m','dps_m','run_loss_m','impulse','char','ratio','consistency']);
+  if(s.strokes)s.strokes.forEach((r,i)=>rows.push([i+1,new Date(r.t).toISOString(),f1(r.catchPeak),n(r.rate),r.pace>0?f1(r.pace):'',f1(r.dist),f1(r.dps),f2(r.runLossM),f2(r.driveImpulse),n(r.char),f2(r.strokeRatio),f1(r.catchConsistency)]));
   rows.push([]);
   if(s.laps&&s.laps.length){rows.push(['LAPS'],['lap','dist_m','time_s','pace_s500','rate_spm','avg_catch','avg_dps_m','avg_impulse','avg_run_loss_m','avg_rdi']);s.laps.forEach(l=>rows.push([l.n,l.dist,l.time,l.pace>0?f1(l.pace):'',n(l.rate),n(l.avgCatch),l.avgDPS?f1(l.avgDPS):'',l.avgImpulse?f2(l.avgImpulse):'',l.avgRunLoss?f2(l.avgRunLoss):'',l.avgRdi?f2(l.avgRdi):'']));rows.push([]);}
   if(s.workoutLapMetrics&&s.workoutLapMetrics.length){rows.push(['WORKOUT INTERVALS'],['n','type','dist_m','time_s','pace_s500','rate','catch','dps_m','impulse','run_loss_m']);s.workoutLapMetrics.forEach(l=>rows.push([l.n,l.type,l.dist,l.time,l.lapPace>0?f1(l.lapPace):'',n(l.rate),n(l.catchAvg),l.dps?f1(l.dps):'',l.impulse?f2(l.impulse):'',l.runLoss?f2(l.runLoss):'']));rows.push([]);}
@@ -3278,7 +3282,7 @@ function exportDebugCSV(s){
   const t0=s.startTime;const el=t=>(+(t-t0)/1000).toFixed(2);const rows=[['##ENV'],['session_id',s.id,'start_utc',new Date(t0).toISOString()],['duration_s',n(s.duration),'distance_m',n(s.distance),'strokes',n(s.strokeCount)]];
   const cfg=s.config||{},rl=cfg.rl||{},gps=cfg.gps||{};
   rows.push(['rl_startAfterDriveMs',n(rl.startAfterDriveMs??CONFIG.runLoss.startAfterDriveMs),'rl_windowMs',n(rl.windowMs??CONFIG.runLoss.windowMs)]);rows.push(['gps_emaAlpha',n(gps.alpha??CONFIG.gps.speedEmaAlpha),'gps_medianN',n(gps.medN??CONFIG.gps.speedMedianN)]);rows.push([]);
-  rows.push(['##STR'],['n','elapsed_s','rate','catch_slope','stroke_char','consistency','dps','run_loss_m','impulse','rdi','ratio']);(s.strokes||[]).forEach((r,i)=>{rows.push([i+1,el(r.t),n(r.rate),f2(r.catchPeak),n(r.char),f2(r.catchConsistency),f2(r.dps),f2(r.runLossM),f2(r.driveImpulse),f2(r.rdi),f2(r.strokeRatio)]);});rows.push([]);
+  rows.push(['##STR'],['n','elapsed_s','rate','catch_slope','stroke_char','consistency','dps','run_loss_m','impulse','ratio']);(s.strokes||[]).forEach((r,i)=>{rows.push([i+1,el(r.t),n(r.rate),f2(r.catchPeak),n(r.char),f2(r.catchConsistency),f2(r.dps),f2(r.runLossM),f2(r.driveImpulse),f2(r.strokeRatio)]);});rows.push([]);
   rows.push(['##RL'],['stroke_n','start_spd_ms','min_spd_ms','dv_ms','raw_loss_m','med_loss_m','n_samples']);(s.rlDebug||[]).forEach(r=>rows.push([n(r.strokeN),f3(r.startSpeed),f3(r.minSpeed),f3(r.dv),f4(r.rawLoss),f4(r.medLoss),n(r.nSamples)]));rows.push([]);
   if(s.gpsRawTrace&&s.gpsRawTrace.length){rows.push(['##GPS'],['elapsed_s','gps_raw_ms','gps_ema_ms','acc_m','stroke_n','rl_phase']);s.gpsRawTrace.forEach(p=>rows.push([el(p.t),f3(p.rawSpd),f3(p.emaSpd),f2(p.acc),n(p.strokeN),p.rlPhase||'none']));rows.push([]);}
   if(s.hrTrace&&s.hrTrace.length){rows.push(['##HR'],['elapsed_s','hr_bpm']);s.hrTrace.forEach(h=>rows.push([el(h.t),h.hr]));rows.push([]);}
