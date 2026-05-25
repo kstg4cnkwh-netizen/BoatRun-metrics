@@ -31,9 +31,9 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 
 /* ── LIVE SCREEN ── */
 #screen-live{flex-direction:column}
-.sbar{background:#1a5276;display:flex;align-items:center;justify-content:space-between;padding:3px 10px;flex-shrink:0;min-height:28px;}
+.sbar{background:#f0f0f0;border-bottom:1px solid #ddd;display:flex;align-items:center;justify-content:space-between;padding:3px 10px;flex-shrink:0;min-height:28px;}
 .sbar-l{display:flex;align-items:center;gap:5px;flex:1;min-width:0;}
-.sbar-title{color:#fff;font-size:10px;font-weight:700;letter-spacing:.1em}
+.sbar-title{color:#000;font-size:10px;font-weight:700;letter-spacing:.1em}
 .pill{font-size:8px;font-weight:700;letter-spacing:.1em;padding:2px 6px;border-radius:2px}
 .pill-on{background:#27ae60;color:#fff}.pill-off{background:rgba(255,255,255,.18);color:rgba(255,255,255,.4)}
 .pill-err{background:#c0392b;color:#fff}.pill-warn{background:#f39c12;color:#fff}
@@ -42,15 +42,15 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
 
 /* ── WORKOUT STATUS BAR ── */
-.wkt-bar{background:#154360;border-bottom:2px solid #5dade2;display:none;align-items:center;gap:6px;padding:4px 8px;flex-shrink:0;min-height:34px;}
+.wkt-bar{background:#f5f5f5;border-bottom:2px solid #1a5276;display:none;align-items:center;gap:6px;padding:4px 8px;flex-shrink:0;min-height:34px;}
 .wkt-bar.wactive{display:flex;}
 .wkt-phase{font-size:11px;font-weight:700;letter-spacing:.12em;padding:3px 8px;border-radius:3px;flex-shrink:0;}
 .wkt-phase.warmup{background:#5dade2;color:#fff;}.wkt-phase.work{background:#27ae60;color:#fff;}
 .wkt-phase.rest{background:#f39c12;color:#000;}.wkt-phase.cooldown{background:#8e44ad;color:#fff;}.wkt-phase.done{background:#888;color:#fff;}.wkt-phase.ready{background:#2980b9;color:#fff;}
 .wkt-countdown{font-family:"Roboto Condensed",sans-serif;font-size:18px;font-weight:700;color:#fff;flex-shrink:0;min-width:52px;text-align:center;}
-.wkt-info{font-size:9px;color:rgba(255,255,255,.55);letter-spacing:.06em;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.wkt-ctrl-btn{background:rgba(255,255,255,.18);color:#fff;border:none;font-family:"Roboto",sans-serif;font-size:9px;font-weight:700;letter-spacing:.08em;padding:4px 8px;border-radius:3px;cursor:pointer;touch-action:manipulation;flex-shrink:0;}
-.wkt-ctrl-btn.end{background:rgba(192,57,43,.5);}
+.wkt-info{font-size:9px;color:#555;letter-spacing:.06em;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.wkt-ctrl-btn{background:rgba(0,0,0,.10);color:#333;border:none;font-family:"Roboto",sans-serif;font-size:9px;font-weight:700;letter-spacing:.08em;padding:4px 8px;border-radius:3px;cursor:pointer;touch-action:manipulation;flex-shrink:0;}
+.wkt-ctrl-btn.end{background:rgba(192,57,43,.15);color:#c0392b;}
 
 /* ── COUNTDOWN OVERLAY ── */
 .countdown-overlay{position:absolute;inset:0;background:rgba(0,0,0,.78);display:none;align-items:center;justify-content:center;z-index:200;flex-direction:column;gap:12px;pointer-events:none;}
@@ -122,8 +122,11 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .sub-micro{font-size:clamp(8px,1.4dvh,13px);color:#888;font-weight:400;text-align:center;line-height:1;white-space:nowrap;overflow:hidden;max-width:100%;}
 .char-label-sm{font-size:clamp(8px,1.4dvh,13px);color:#888;font-weight:400;text-align:center;line-height:1;white-space:nowrap;overflow:hidden;max-width:100%;}
 /* Inline metric label inside tile (no separate bar) */
-.tile-meta-row{display:flex;align-items:center;justify-content:center;gap:4px;flex-shrink:0;padding:0 4px 3px;}
-.tile-metric-name{font-size:clamp(7px,1.3dvh,11px);color:#555;font-weight:700;letter-spacing:.07em;text-transform:uppercase;text-align:center;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tile-meta-row{display:flex;align-items:center;justify-content:center;gap:5px;flex-shrink:0;padding:0 4px 4px;}
+.tile-metric-name{font-size:clamp(10px,2dvh,16px);color:#444;font-weight:700;letter-spacing:.06em;text-transform:uppercase;text-align:center;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+@media(orientation:landscape){
+.tile-metric-name{font-size:clamp(11px,2.8dvh,18px);}
+}
 /* Label bar — only used by curve tiles now */
 .tlbl{background:#f0f0f0;color:#444;font-size:clamp(9px,1.6dvh,14px);font-weight:600;letter-spacing:.02em;padding:3px 5px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:3px;overflow:hidden;border-top:1px solid #e0e0e0;}
 .tlbl-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1;}
@@ -157,14 +160,14 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .ctrl-col .btn{flex:1;width:100%;padding:0 2px;font-size:clamp(9px,1vw,12px);letter-spacing:.03em;}
 
 /* ── TABS — always at bottom, always horizontal (P4) ── */
-.tab-bar,#live-tabs{display:flex;flex-direction:row;background:#0f3a54;flex-shrink:0;border-top:1px solid rgba(255,255,255,.1);padding-bottom:calc(env(safe-area-inset-bottom) + 2px);}
+.tab-bar,#live-tabs{display:flex;flex-direction:row;background:#f0f0f0;flex-shrink:0;border-top:1px solid #ccc;padding-bottom:calc(env(safe-area-inset-bottom) + 2px);}
 @media(orientation:landscape){
-#live-tabs{flex-direction:column;border-top:none;border-left:1px solid rgba(255,255,255,.1);padding-bottom:0;padding-right:env(safe-area-inset-right);width:clamp(52px,7vw,68px);height:auto;}
+#live-tabs{flex-direction:column;border-top:none;border-left:1px solid #ccc;padding-bottom:0;padding-right:env(safe-area-inset-right);width:clamp(52px,7vw,68px);height:auto;}
 #live-tabs .tab{border-top:none;border-left:2px solid transparent;}
-#live-tabs .tab.active{color:#fff;border-top:none;border-left:2px solid #fff;}
+#live-tabs .tab.active{color:#000;border-top:none;border-left:2px solid #000;}
 }
-.tab{flex:1;padding:6px 0 5px;text-align:center;border:none;background:none;color:rgba(255,255,255,.38);font-family:"Roboto",sans-serif;font-size:8px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;touch-action:manipulation;}
-.tab.active{color:#fff;border-top:2px solid #fff}
+.tab{flex:1;padding:6px 0 5px;text-align:center;border:none;background:none;color:#888;font-family:"Roboto",sans-serif;font-size:8px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;touch-action:manipulation;}
+.tab.active{color:#000;border-top:2px solid #000}
 .tab-icon{font-size:14px;display:block;margin-bottom:1px}.tab-txt{font-size:7px;display:block;letter-spacing:.1em;}
 
 /* ── BUTTONS ── */
@@ -175,12 +178,12 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .btn-reset{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
 
 /* ── CURVE PANEL ── */
-.curve-panel{flex:1;min-height:0;min-width:0;display:none;flex-direction:column;background:#000;gap:2px;padding:2px;}
+.curve-panel{flex:1;min-height:0;min-width:0;display:none;flex-direction:column;background:#f0f0f0;gap:2px;padding:2px;}
 .curve-panel.cpanel-active{display:flex;}
-.curve-canvas-wrap{flex:1;min-height:0;min-width:0;background:#0a0a0a;border-radius:2px;position:relative;overflow:hidden;}
+.curve-canvas-wrap{flex:1;min-height:0;min-width:0;background:#fff;border-radius:2px;position:relative;overflow:hidden;}
 #curve-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
 .curve-legend{position:absolute;top:7px;right:10px;display:flex;gap:12px;pointer-events:none;}
-.curve-leg-item{display:flex;align-items:center;gap:5px;font-size:9px;font-weight:700;letter-spacing:.1em;color:rgba(255,255,255,.85);}
+.curve-leg-item{display:flex;align-items:center;gap:5px;font-size:9px;font-weight:700;letter-spacing:.1em;color:rgba(0,0,0,.6);}
 .curve-leg-dot{width:12px;height:3px;border-radius:2px;flex-shrink:0;}
 .curve-tiles{display:flex;gap:2px;flex-shrink:0;height:clamp(80px,24dvh,140px);}
 .curve-tile{flex:1;background:#161616;display:flex;flex-direction:column;overflow:hidden;cursor:pointer;min-width:0;}
@@ -193,21 +196,21 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 }
 
 /* ── INTERVALS PANEL ── */
-.intervals-panel{flex:1;min-height:0;min-width:0;display:none;flex-direction:column;background:#0a2940;overflow-y:auto;}
+.intervals-panel{flex:1;min-height:0;min-width:0;display:none;flex-direction:column;background:#f0f0f0;overflow-y:auto;}
 .intervals-panel.ipanel-active{display:flex;}
-.intervals-hdr{background:#1a5276;padding:6px 10px;display:flex;align-items:center;gap:6px;flex-shrink:0;}
-.intervals-hdr-title{font-size:9px;font-weight:700;letter-spacing:.16em;color:rgba(255,255,255,.6);flex:1;}
+.intervals-hdr{background:#fff;padding:6px 10px;display:flex;align-items:center;gap:6px;flex-shrink:0;border-bottom:1px solid #ddd;}
+.intervals-hdr-title{font-size:9px;font-weight:700;letter-spacing:.16em;color:#555;flex:1;}
 .int-tbl{width:100%;border-collapse:collapse;}
-.int-tbl th{font-size:8px;color:rgba(255,255,255,.5);letter-spacing:.1em;text-align:left;padding:6px 8px 4px;font-weight:700;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.1);}
-.int-tbl td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.06);color:#fff;font-size:12px;}
-.int-tbl tr.int-active td{background:rgba(93,173,226,.15);color:#5dade2;font-weight:700;}
-.int-tbl tr.int-done td{color:rgba(255,255,255,.4);}
+.int-tbl th{font-size:8px;color:#555;letter-spacing:.1em;text-align:left;padding:6px 8px 4px;font-weight:700;text-transform:uppercase;border-bottom:1px solid #ddd;}
+.int-tbl td{padding:7px 8px;border-bottom:1px solid #e8e8e8;color:#000;font-size:12px;}
+.int-tbl tr.int-active td{background:rgba(26,82,118,.08);color:#1a5276;font-weight:700;}
+.int-tbl tr.int-done td{color:#aaa;}
 .int-badge-sm{font-size:8px;padding:2px 5px;border-radius:2px;font-weight:700;}
 .int-badge-sm.warmup{background:#5dade2;color:#fff;}
 .int-badge-sm.work{background:#27ae60;color:#fff;}
 .int-badge-sm.rest{background:#f39c12;color:#000;}
 .int-badge-sm.cooldown{background:#8e44ad;color:#fff;}
-.no-workout-msg{color:rgba(255,255,255,.3);font-size:12px;text-align:center;padding:40px 20px;}
+.no-workout-msg{color:#aaa;font-size:12px;text-align:center;padding:40px 20px;}
 
 /* ── PORTRAIT OVERRIDES ── */
 @media(orientation:portrait){
@@ -221,12 +224,16 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 }
 
 /* ── ANALYSIS / HOME SHARED STYLES ── */
-.ahdr{background:#1a5276;padding:6px 12px;flex-shrink:0;display:flex;align-items:center;gap:8px;}
-.ahdr-title{font-size:10px;letter-spacing:.2em;color:rgba(255,255,255,.6);font-weight:700;flex:1}
-.drive-btn{background:rgba(255,255,255,.14);color:rgba(255,255,255,.75);border:1px solid rgba(255,255,255,.25);font-family:"Roboto",sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;padding:7px 11px;border-radius:4px;cursor:pointer;text-transform:uppercase;touch-action:manipulation;min-height:32px;}
-.drive-btn.drive-linked{border-color:rgba(58,255,180,.5);color:#3affb4;}
-.scnt{font-size:10px;color:rgba(255,255,255,.35);letter-spacing:.08em;white-space:nowrap}
+.ahdr{background:#f0f0f0;padding:6px 12px;flex-shrink:0;display:flex;align-items:center;gap:8px;border-bottom:1px solid #ddd;}
+.ahdr-title{font-size:10px;letter-spacing:.2em;color:#555;font-weight:700;flex:1}
+.drive-btn{background:#fff;color:#555;border:1px solid #ccc;font-family:"Roboto",sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;padding:7px 11px;border-radius:4px;cursor:pointer;text-transform:uppercase;touch-action:manipulation;min-height:32px;}
+.drive-btn.drive-linked{border-color:#27ae60;color:#27ae60;}
+.scnt{font-size:10px;color:#888;letter-spacing:.08em;white-space:nowrap}
 .sync-badge{font-size:9px;color:#27ae60;font-weight:700;letter-spacing:.04em;}
+/* Home tab bar */
+.home-tabs{display:flex;background:#f0f0f0;flex-shrink:0;border-bottom:1px solid #ccc;}
+.htab{flex:1;padding:9px 4px;border:none;background:none;color:#888;font-family:"Roboto",sans-serif;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;touch-action:manipulation;}
+.htab.active{color:#000;border-bottom-color:#000;}
 .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#efefef}
 .slist{padding:8px}
 .scard{background:#fff;border-radius:4px;margin-bottom:6px;padding:12px 14px;cursor:pointer;border-left:4px solid #1a5276;box-shadow:0 1px 3px rgba(0,0,0,.07);will-change:transform;}
@@ -263,9 +270,6 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 
 /* ── HOME SCREEN (was SETUP) ── */
 #screen-home{flex-direction:column;background:#efefef;}
-.home-tabs{display:flex;background:#1a5276;flex-shrink:0;}
-.htab{flex:1;padding:9px 4px;border:none;background:none;color:rgba(255,255,255,.45);font-family:"Roboto",sans-serif;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;touch-action:manipulation;}
-.htab.active{color:#fff;border-bottom-color:#5dade2;}
 .home-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .home-panel{display:none;padding:10px;}.home-panel.active{display:block;}
 .setup-section{font-size:9px;color:#666;letter-spacing:.16em;text-transform:uppercase;margin:10px 0 6px;font-weight:700;}
@@ -436,7 +440,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <!-- Curve panel -->
 <div class="curve-panel" id="curve-panel">
 <div class="curve-canvas-wrap"><canvas id="curve-canvas"></canvas>
-<div class="curve-legend"><div class="curve-leg-item"><div class="curve-leg-dot" style="background:#00cfff"></div>LAST</div><div class="curve-leg-item"><div class="curve-leg-dot" style="background:#ffb300"></div>AVG 5</div></div>
+<div class="curve-legend"><div class="curve-leg-item"><div class="curve-leg-dot" style="background:#0077cc"></div>LAST</div><div class="curve-leg-item"><div class="curve-leg-dot" style="background:#e07b00"></div>AVG 5</div></div>
 </div>
 <div class="curve-tiles" id="curve-tiles">
 <div class="tile curve-tile" data-cw="0"><div class="tile-val-wrap"><div class="metric-val dim" id="ct-0-val">--</div><div class="sub-micro" id="ct-0-sub">str/min</div></div><div class="tlbl" id="ct-0-lbl">Stroke rate &#9658;</div></div>
@@ -1727,7 +1731,7 @@ function buildTileHTML(i, key) {
     } else if (def.bar === 'catch') {
         inner = `<div class="metric-val dim" id="sv-${i}">--</div>
 <div class="catch-bar-wrap"><div class="catch-bar-bg"><div class="catch-bar-fill" id="bf-${i}" style="width:0"></div><div class="catch-needle" id="bn-${i}" style="left:0"></div></div></div>
-<div class="sub-micro">m/s³ · 0──50──100</div>`;
+<div class="sub-micro">m/s³ · 0 ── 50 ── 100</div>`;
     } else if (key === 'workout') {
         inner = `<div class="wkt-tile-phase done" id="wtp-${i}">—</div><div class="metric-val dim" id="sv-${i}">--</div><div class="sub-micro" id="ss-${i}"></div>`;
     } else {
@@ -1773,8 +1777,23 @@ function renderMetricSlot(i, key) {
         case 'rate': {
             const fresh = lastCatchAbsT && (performance.now() - lastCatchAbsT) < 4500;
             const ok = on && strokeRate > 0;
-            setVal(i, ok ? (strokeRate % 1 === 0 ? strokeRate : strokeRate.toFixed(1)) : '--', 'str/min', !ok,
-                ok ? (fresh ? 'LIVE' : 'HELD') : 'WAIT', ok ? (fresh ? 'g' : 'w') : '');
+            const sv = document.getElementById(`sv-${i}`);
+            const ss = document.getElementById(`ss-${i}`);
+            const sq = document.getElementById(`sq-${i}`);
+            if (sv) {
+                if (ok) {
+                    const isHalf = strokeRate % 1 !== 0;
+                    sv.innerHTML = isHalf
+                        ? `${Math.floor(strokeRate)}<sup style="font-size:.42em;vertical-align:super;line-height:0;font-weight:700">.5</sup>`
+                        : `${strokeRate}`;
+                    sv.className = 'metric-val';
+                } else {
+                    sv.textContent = '--';
+                    sv.className = 'metric-val dim';
+                }
+            }
+            if (ss) ss.textContent = 'str/min';
+            if (sq) setQEl(sq, ok ? (fresh ? 'LIVE' : 'HELD') : 'WAIT', ok ? (fresh ? 'g' : 'w') : '');
             break;
         }
         case 'dps': {
@@ -1806,7 +1825,7 @@ function renderMetricSlot(i, key) {
         }
         case 'catch': {
             const ok  = catchLast !== null;
-            const pct = ok ? clamp((catchLast / 50) * 100, 0, 100) : 0;
+            const pct = ok ? clamp(catchLast, 0, 100) : 0;
             const sv  = document.getElementById(`sv-${i}`);
             if (sv) { sv.textContent = ok ? catchLast : '--'; sv.className = 'metric-val' + (ok ? '' : ' dim'); }
             const fill = document.getElementById(`bf-${i}`);
@@ -1888,7 +1907,7 @@ function renderMetricSlot(i, key) {
                 case 'lappace': { const ld3=distance-lapStartDist,lt3=elapsed-lapStartTime; const lp=ld3>5&&lt3>0?(lt3/ld3)*500:0; const okL=on&&lp>50&&lp<500; setVal(i,okL?fmt(lp):'--:--','/500m lap',!okL,okL?'LIVE':'WAIT',okL?'g':''); break; }
             }
             // Update tile label to show current sub-metric
-            const lblTxt = document.querySelector(`#slot-${i} .tlbl-txt`);
+            const lblTxt = document.querySelector(`#slot-${i} .tile-metric-name`);
             if (lblTxt) lblTxt.textContent = SEL_LABELS[sub] || 'Selectable';
             break;
         }
@@ -2045,36 +2064,37 @@ function renderCurveCanvas(){
   const wrap=canvas.parentElement,W=wrap.clientWidth,H=wrap.clientHeight;if(!W||!H)return;
   const dpr=window.devicePixelRatio||1;canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);
   const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
   const padT=18,padB=18,padH=6,sx=i=>padH+(i/(CURVE_POINTS-1))*(W-padH*2);
   const avg5=strokeCurveHistory.length>=2?avgCurves(strokeCurveHistory):null;
   if(!lastStrokeCurve&&!avg5){
-    ctx.strokeStyle='rgba(255,255,255,0.14)';ctx.lineWidth=1;
+    ctx.strokeStyle='rgba(0,0,0,0.10)';ctx.lineWidth=1;
     for(let i=1;i<4;i++){const y=H*i/4;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
-    ctx.fillStyle='rgba(255,255,255,0.55)';ctx.font='bold 11px Roboto';ctx.textAlign='center';
+    ctx.fillStyle='rgba(0,0,0,0.45)';ctx.font='bold 11px Roboto';ctx.textAlign='center';
     ctx.fillText('Row a stroke to see the curve',W/2,H/2);return;
   }
   let yMin=Infinity,yMax=-Infinity;
   for(const c of[lastStrokeCurve,avg5].filter(Boolean))for(const v of c.data){if(v<yMin)yMin=v;if(v>yMax)yMax=v;}
   const yRange=yMax-yMin||1,sy=v=>padT+(1-(v-yMin)/yRange)*(H-padT-padB);
   const driveFrac=(lastStrokeCurve??avg5).driveFrac,xDiv=sx(Math.round(driveFrac*(CURVE_POINTS-1)));
-  ctx.fillStyle='rgba(93,173,226,0.06)';ctx.fillRect(padH,padT,xDiv-padH,H-padT-padB);
-  ctx.fillStyle='rgba(243,156,18,0.05)';ctx.fillRect(xDiv,padT,W-padH-xDiv,H-padT-padB);
-  ctx.strokeStyle='rgba(255,255,255,0.14)';ctx.lineWidth=1;
+  ctx.fillStyle='rgba(0,100,200,0.05)';ctx.fillRect(padH,padT,xDiv-padH,H-padT-padB);
+  ctx.fillStyle='rgba(200,120,0,0.04)';ctx.fillRect(xDiv,padT,W-padH-xDiv,H-padT-padB);
+  ctx.strokeStyle='rgba(0,0,0,0.10)';ctx.lineWidth=1;
   for(let i=1;i<4;i++){const y=H*i/4;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
-  if(yMin<0&&yMax>0){const y0=sy(0);ctx.save();ctx.strokeStyle='rgba(255,255,255,0.35)';ctx.lineWidth=1;ctx.setLineDash([4,6]);ctx.beginPath();ctx.moveTo(padH,y0);ctx.lineTo(W-padH,y0);ctx.stroke();ctx.setLineDash([]);ctx.restore();}
-  ctx.save();ctx.strokeStyle='rgba(255,255,255,0.40)';ctx.lineWidth=1;ctx.setLineDash([3,5]);ctx.beginPath();ctx.moveTo(xDiv,padT);ctx.lineTo(xDiv,H-padB);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+  if(yMin<0&&yMax>0){const y0=sy(0);ctx.save();ctx.strokeStyle='rgba(0,0,0,0.30)';ctx.lineWidth=1;ctx.setLineDash([4,6]);ctx.beginPath();ctx.moveTo(padH,y0);ctx.lineTo(W-padH,y0);ctx.stroke();ctx.setLineDash([]);ctx.restore();}
+  ctx.save();ctx.strokeStyle='rgba(0,0,0,0.25)';ctx.lineWidth=1;ctx.setLineDash([3,5]);ctx.beginPath();ctx.moveTo(xDiv,padT);ctx.lineTo(xDiv,H-padB);ctx.stroke();ctx.setLineDash([]);ctx.restore();
   function drawCL(curve,color,lw,fill){
     ctx.beginPath();for(let i=0;i<CURVE_POINTS;i++){const x=sx(i),y=sy(curve.data[i]);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
-    if(fill){const bl=Math.max(padT,Math.min(H-padB,sy(Math.max(yMin,0))));ctx.lineTo(sx(CURVE_POINTS-1),bl);ctx.lineTo(sx(0),bl);ctx.closePath();ctx.fillStyle=color+'33';ctx.fill();ctx.beginPath();for(let i=0;i<CURVE_POINTS;i++){const x=sx(i),y=sy(curve.data[i]);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}}
+    if(fill){const bl=Math.max(padT,Math.min(H-padB,sy(Math.max(yMin,0))));ctx.lineTo(sx(CURVE_POINTS-1),bl);ctx.lineTo(sx(0),bl);ctx.closePath();ctx.fillStyle=color+'28';ctx.fill();ctx.beginPath();for(let i=0;i<CURVE_POINTS;i++){const x=sx(i),y=sy(curve.data[i]);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}}
     ctx.strokeStyle=color;ctx.lineWidth=lw;ctx.lineJoin='round';ctx.stroke();
   }
-  if(avg5)drawCL(avg5,'#ffb300',2.5,true);if(lastStrokeCurve)drawCL(lastStrokeCurve,'#00cfff',3.5,false);
-  ctx.fillStyle='rgba(255,255,255,0.38)';ctx.font='9px Roboto';ctx.textAlign='left';
+  if(avg5)drawCL(avg5,'#e07b00',2.5,true);if(lastStrokeCurve)drawCL(lastStrokeCurve,'#0077cc',3.0,false);
+  ctx.fillStyle='rgba(0,0,0,0.45)';ctx.font='9px Roboto';ctx.textAlign='left';
   ctx.fillText(yMax.toFixed(1),3,padT-4);ctx.fillText(yMin.toFixed(1),3,H-padB+11);
-  ctx.fillStyle='rgba(93,173,226,0.75)';ctx.textAlign='left';ctx.fillText('CATCH',sx(0)+2,H-3);
+  ctx.fillStyle='rgba(0,100,180,0.8)';ctx.textAlign='left';ctx.fillText('CATCH',sx(0)+2,H-3);
   ctx.textAlign='right';ctx.fillText('FINISH',xDiv-3,H-3);
-  ctx.fillStyle='rgba(243,156,18,0.75)';ctx.textAlign='left';ctx.fillText('RECOVERY',xDiv+3,H-3);
-  ctx.fillStyle='rgba(255,255,255,0.38)';ctx.textAlign='center';ctx.fillText('acc.x m/s^2 catch-to-catch',W/2,padT-4);
+  ctx.fillStyle='rgba(180,100,0,0.8)';ctx.textAlign='left';ctx.fillText('RECOVERY',xDiv+3,H-3);
+  ctx.fillStyle='rgba(0,0,0,0.40)';ctx.textAlign='center';ctx.fillText('acc.x m/s^2 catch-to-catch',W/2,padT-4);
 }
 
 /* ══════════════════════════════════════════════════
