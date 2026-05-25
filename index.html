@@ -37,7 +37,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .pill{font-size:8px;font-weight:700;letter-spacing:.1em;padding:2px 6px;border-radius:2px}
 .pill-on{background:#27ae60;color:#fff}.pill-off{background:rgba(255,255,255,.18);color:rgba(255,255,255,.4)}
 .pill-err{background:#c0392b;color:#fff}.pill-warn{background:#f39c12;color:#fff}
-.rec{display:flex;align-items:center;gap:4px;color:#fff;font-size:9px;font-weight:700;flex-shrink:0;}
+.rec{display:flex;align-items:center;gap:4px;color:#000;font-size:9px;font-weight:700;flex-shrink:0;}
 .recdot{width:7px;height:7px;border-radius:50%;background:#e74c3c;animation:blink 1s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
 
@@ -121,21 +121,18 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 
 .sub-micro{font-size:clamp(8px,1.4dvh,13px);color:#888;font-weight:400;text-align:center;line-height:1;white-space:nowrap;overflow:hidden;max-width:100%;}
 .char-label-sm{font-size:clamp(8px,1.4dvh,13px);color:#888;font-weight:400;text-align:center;line-height:1;white-space:nowrap;overflow:hidden;max-width:100%;}
-/* Inline metric label inside tile (no separate bar) */
-.tile-meta-row{display:flex;align-items:center;justify-content:center;gap:5px;flex-shrink:0;padding:0 4px 4px;}
-.tile-metric-name{font-size:clamp(10px,2dvh,16px);color:#444;font-weight:700;letter-spacing:.06em;text-transform:uppercase;text-align:center;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-@media(orientation:landscape){
-.tile-metric-name{font-size:clamp(11px,2.8dvh,18px);}
-}
-/* Label bar — only used by curve tiles now */
+.tile-meta-row{flex-shrink:0;padding:0 4px 5px;text-align:center;}
+.tile-metric-name{font-size:clamp(10px,2dvh,16px);color:#444;font-weight:700;letter-spacing:.06em;text-transform:uppercase;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+@media(orientation:landscape){.tile-metric-name{font-size:clamp(11px,2.8dvh,18px);}}
+/* Label bar — only used by curve tiles */
 .tlbl{background:#f0f0f0;color:#444;font-size:clamp(9px,1.6dvh,14px);font-weight:600;letter-spacing:.02em;padding:3px 5px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:3px;overflow:hidden;border-top:1px solid #e0e0e0;}
 .tlbl-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1;}
 .tlbl-primary{background:#e8f0f8;font-weight:700;font-size:clamp(10px,1.8dvh,15px);border-top:3px solid #1a5276;padding:4px 5px 3px;}
-.tq{font-size:clamp(7px,1.2dvh,10px);font-weight:800;letter-spacing:.08em;padding:2px 5px;border-radius:99px;flex-shrink:0;color:#999;background:rgba(0,0,0,.07);white-space:nowrap;line-height:1.5;}
+.tq{position:absolute;top:3px;right:3px;font-size:clamp(7px,1.2dvh,10px);font-weight:800;letter-spacing:.08em;padding:2px 5px;border-radius:99px;color:#999;background:rgba(0,0,0,.07);white-space:nowrap;line-height:1.5;z-index:2;}
 .tq.g{color:#fff;background:rgba(39,174,96,.7);}.tq.w{color:#000;background:rgba(243,156,18,.85);}.tq.b{color:#fff;background:rgba(192,57,43,.7);}
 
 /* Tile structure */
-.tile{background:#fff;display:flex;flex-direction:column;overflow:hidden;min-height:0;min-width:0;}
+.tile{background:#fff;display:flex;flex-direction:column;overflow:hidden;min-height:0;min-width:0;position:relative;}
 .tile-val-wrap{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3px 4px 0;gap:1px;}
 
 /* Bars */
@@ -163,7 +160,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .tab-bar,#live-tabs{display:flex;flex-direction:row;background:#f0f0f0;flex-shrink:0;border-top:1px solid #ccc;padding-bottom:calc(env(safe-area-inset-bottom) + 2px);}
 @media(orientation:landscape){
 #live-tabs{flex-direction:column;border-top:none;border-left:1px solid #ccc;padding-bottom:0;padding-right:env(safe-area-inset-right);width:clamp(52px,7vw,68px);height:auto;}
-#live-tabs .tab{border-top:none;border-left:2px solid transparent;}
+#live-tabs .tab{border-top:none;border-left:2px solid transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;}
 #live-tabs .tab.active{color:#000;border-top:none;border-left:2px solid #000;}
 }
 .tab{flex:1;padding:6px 0 5px;text-align:center;border:none;background:none;color:#888;font-family:"Roboto",sans-serif;font-size:8px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;touch-action:manipulation;}
@@ -443,10 +440,10 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div class="curve-legend"><div class="curve-leg-item"><div class="curve-leg-dot" style="background:#0077cc"></div>LAST</div><div class="curve-leg-item"><div class="curve-leg-dot" style="background:#e07b00"></div>AVG 5</div></div>
 </div>
 <div class="curve-tiles" id="curve-tiles">
-<div class="tile curve-tile" data-cw="0"><div class="tile-val-wrap"><div class="metric-val dim" id="ct-0-val">--</div><div class="sub-micro" id="ct-0-sub">str/min</div></div><div class="tlbl" id="ct-0-lbl">Stroke rate &#9658;</div></div>
-<div class="tile curve-tile" data-cw="1"><div class="tile-val-wrap"><div class="metric-val dim" id="ct-1-val">--</div><div class="sub-micro" id="ct-1-sub">m/s&#179;</div></div><div class="tlbl" id="ct-1-lbl">Catch slope &#9658;</div></div>
-<div class="tile curve-tile" data-cw="2"><div class="tile-val-wrap"><div class="metric-val dim" id="ct-2-val">--</div><div class="sub-micro" id="ct-2-sub">m</div></div><div class="tlbl" id="ct-2-lbl">Dist/stroke &#9658;</div></div>
-<div class="tile curve-tile" data-cw="3"><div class="tile-val-wrap"><div class="metric-val dim" id="ct-3-val">--</div><div class="sub-micro" id="ct-3-sub"></div></div><div class="tlbl" id="ct-3-lbl">Impulse &#9658;</div></div>
+<div class="tile curve-tile" data-cw="0"><span class="tq" id="ct-0-q"></span><div class="tile-val-wrap"><div class="metric-val dim" id="ct-0-val">--</div><div class="sub-micro" id="ct-0-sub">str/min</div><div class="tile-meta-row"><span class="tile-metric-name" id="ct-0-lbl">Stroke rate ▸</span></div></div></div>
+<div class="tile curve-tile" data-cw="1"><span class="tq" id="ct-1-q"></span><div class="tile-val-wrap"><div class="metric-val dim" id="ct-1-val">--</div><div class="sub-micro" id="ct-1-sub">m/s³</div><div class="tile-meta-row"><span class="tile-metric-name" id="ct-1-lbl">Catch slope ▸</span></div></div></div>
+<div class="tile curve-tile" data-cw="2"><span class="tq" id="ct-2-q"></span><div class="tile-val-wrap"><div class="metric-val dim" id="ct-2-val">--</div><div class="sub-micro" id="ct-2-sub">m</div><div class="tile-meta-row"><span class="tile-metric-name" id="ct-2-lbl">Dist/stroke ▸</span></div></div></div>
+<div class="tile curve-tile" data-cw="3"><span class="tq" id="ct-3-q"></span><div class="tile-val-wrap"><div class="metric-val dim" id="ct-3-val">--</div><div class="sub-micro" id="ct-3-sub"></div><div class="tile-meta-row"><span class="tile-metric-name" id="ct-3-lbl">Impulse ▸</span></div></div></div>
 </div></div>
 <!-- Intervals panel (P3) -->
 <div class="intervals-panel" id="intervals-panel">
@@ -1738,9 +1735,9 @@ function buildTileHTML(i, key) {
         inner = `<div class="metric-val dim" id="sv-${i}">--</div><div class="sub-micro" id="ss-${i}"></div>`;
     }
     const metaRow = key !== 'empty'
-        ? `<div class="tile-meta-row"><span class="tile-metric-name">${def.label}</span><span class="tq" id="sq-${i}">WAIT</span></div>`
-        : `<div class="tile-meta-row"><span class="tq" id="sq-${i}"></span></div>`;
-    return `<div class="tile" id="slot-${i}" data-metric="${key}"><div class="tile-val-wrap">${inner}${metaRow}</div></div>`;
+        ? `<div class="tile-meta-row"><span class="tile-metric-name">${def.label}</span></div>`
+        : '';
+    return `<div class="tile" id="slot-${i}" data-metric="${key}"><span class="tq" id="sq-${i}">WAIT</span><div class="tile-val-wrap">${inner}${metaRow}</div></div>`;
 }
 function buildGrid() {
     const ld = getCurrentLayoutDef(), cells = getCurrentCells();
@@ -1818,8 +1815,17 @@ function renderMetricSlot(i, key) {
         }
         case 'ratio': {
             const ok = strokeRatio != null && on;
-            setVal(i, ok ? '1 : ' + strokeRatio.toFixed(2) : '--', 'rec÷drive', !ok,
-                ok ? (strokeRatioValsArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
+            const sv = document.getElementById(`sv-${i}`);
+            const ss = document.getElementById(`ss-${i}`);
+            const sq = document.getElementById(`sq-${i}`);
+            if (sv) {
+                if (ok) {
+                    sv.innerHTML = `<span style="color:#bbb;font-weight:400">1 :</span> ${strokeRatio.toFixed(2)}`;
+                    sv.className = 'metric-val';
+                } else { sv.textContent = '--'; sv.className = 'metric-val dim'; }
+            }
+            if (ss) ss.textContent = 'rec÷drive';
+            if (sq) setQEl(sq, ok ? (strokeRatioValsArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
                 ok ? (strokeRatioValsArr.length >= 3 ? 'w' : 'b') : '');
             break;
         }
@@ -2000,29 +2006,72 @@ let curveTileKeys = (() => {
 })();
 function curveTileValue(key) {
     const on = running && !paused;
+    const fresh = lastCatchAbsT && (performance.now() - lastCatchAbsT) < 4500;
     switch (key) {
-        case 'stroke-rate': return { val: (on && strokeRate > 0) ? (strokeRate % 1 === 0 ? strokeRate : strokeRate.toFixed(1)) : '--', dim: !on || !strokeRate };
-        case 'catch-slope': return { val: catchLast !== null ? catchLast : '--', dim: catchLast === null };
-        case 'dps':         return { val: (on && distPerStroke > 0) ? distPerStroke.toFixed(1) : '--', dim: !on || !distPerStroke };
-        case 'impulse':     { const imp = sessStrokes.length > 0 ? sessStrokes[sessStrokes.length - 1].driveImpulse : null; return { val: (imp != null && on) ? Math.round(imp * 100).toString() : '--', dim: !on || imp == null }; }
-        case 'run-loss':    return { val: (runLossM != null && on) ? runLossM.toFixed(2) + ' m' : '--', dim: !on || runLossM == null };
-        case 'char':        return { val: (on && strokeCount > 0) ? strokeChar : '--', dim: !on };
-        case 'pace':        return { val: (on && pace > 0) ? fmt(pace) : '--:--', dim: !on || !pace };
-        default:            return { val: '--', dim: true };
+        case 'stroke-rate': {
+            const ok = on && strokeRate > 0;
+            return { val: ok ? strokeRate : '--', dim: !ok, sub: 'str/min',
+                qlabel: ok ? (fresh ? 'LIVE' : 'HELD') : 'WAIT', qcls: ok ? (fresh ? 'g' : 'w') : '' };
+        }
+        case 'catch-slope': {
+            const ok = catchLast !== null;
+            return { val: ok ? catchLast : '--', dim: !ok, sub: 'm/s³',
+                qlabel: ok ? (catchValsArr.length >= 4 ? 'TREND' : 'NOISY') : 'WAIT',
+                qcls: ok ? (catchValsArr.length >= 4 ? 'w' : 'b') : '' };
+        }
+        case 'dps': {
+            const ok = on && distPerStroke > 0;
+            return { val: ok ? distPerStroke.toFixed(1) : '--', dim: !ok, sub: 'm',
+                qlabel: ok ? (dpsValsArr.length >= 3 ? 'MEDIAN' : 'LOW') : 'WAIT',
+                qcls: ok ? (dpsValsArr.length >= 3 ? 'g' : 'w') : '' };
+        }
+        case 'impulse': {
+            const imp = sessStrokes.length > 0 ? sessStrokes[sessStrokes.length - 1].driveImpulse : null;
+            const ok = imp != null && on;
+            return { val: ok ? Math.round(imp * 100).toString() : '--', dim: !ok, sub: 'higher=better',
+                qlabel: ok ? 'GOOD' : 'WAIT', qcls: ok ? 'g' : '' };
+        }
+        case 'run-loss': {
+            const ok = runLossM != null && on;
+            return { val: ok ? runLossM.toFixed(2) + ' m' : '--', dim: !ok, sub: 'per stroke',
+                qlabel: ok ? (runLosses.length >= 4 ? 'TREND' : 'NOISY') : 'WAIT',
+                qcls: ok ? (runLosses.length >= 4 ? 'w' : 'b') : '' };
+        }
+        case 'char': {
+            const ok = on && strokeCount > 0;
+            return { val: ok ? strokeChar : '--', dim: !ok, sub: '%',
+                qlabel: ok ? 'LIVE' : 'WAIT', qcls: ok ? 'g' : '' };
+        }
+        case 'pace': {
+            const ok = on && pace > 0;
+            return { val: ok ? fmt(pace) : '--:--', dim: !ok, sub: '/500m',
+                qlabel: ok ? 'GPS' : 'WAIT', qcls: ok ? 'g' : '' };
+        }
+        default: return { val: '--', dim: true, sub: '', qlabel: '', qcls: '' };
     }
 }
 function updateCurveTiles() {
     curveTileKeys.forEach((key, i) => {
-        const { val, dim } = curveTileValue(key);
+        const { val, dim, sub, qlabel, qcls } = curveTileValue(key);
         const ve = document.getElementById(`ct-${i}-val`);
         const se = document.getElementById(`ct-${i}-sub`);
         const le = document.getElementById(`ct-${i}-lbl`);
+        const qe = document.getElementById(`ct-${i}-q`);
         if (!ve) return;
-        ve.textContent = val;
+        // Apply value — use innerHTML for rate (superscript .5) and ratio (grey prefix)
+        if (key === 'stroke-rate' && typeof val === 'number') {
+            const isHalf = val % 1 !== 0;
+            ve.innerHTML = isHalf
+                ? `${Math.floor(val)}<sup style="font-size:.42em;vertical-align:super;line-height:0;font-weight:700">.5</sup>`
+                : `${val}`;
+        } else {
+            ve.innerHTML = typeof val === 'string' ? val : String(val ?? '--');
+        }
         const base = ve.className.replace(/\s?dim/g, '');
         ve.className = dim ? base + ' dim' : base;
-        if (se) se.textContent = CURVE_TILE_SUBS[key] || '';
-        if (le) le.textContent = CURVE_TILE_LABELS[key] + ' ▸';
+        if (se) se.textContent = sub || '';
+        if (le) le.textContent = (CURVE_TILE_LABELS[key] || key) + ' ▸';
+        if (qe) setQEl(qe, qlabel || '', qcls || '');
     });
 }
 function wireCurveTiles() {
@@ -2580,6 +2629,12 @@ function renderHomeScreen(){
       document.querySelectorAll('.htab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
       document.querySelectorAll('.home-panel').forEach(p=>p.classList.remove('active'));
       const panel=document.getElementById('ht-'+btn.dataset.ht);if(panel)panel.classList.add('active');
+      // Tapping LOG while in detail view goes back to the list
+      if(btn.dataset.ht==='log'){
+        const dw=document.getElementById('ht-log-detail');
+        const ll=document.getElementById('ht-log-list');
+        if(dw&&ll&&dw.style.display!=='none'){dw.style.display='none';ll.style.display='block';renderSessionList();}
+      }
     };
   });
   // New profile
@@ -2647,20 +2702,29 @@ function showDetail(id){
     +(s.garminSpeedTrace&&s.garminSpeedTrace.length>2?'<div class="chart-card" style="border-color:#8e44ad"><div class="chart-lbl"><span>Garmin Pace</span><span>min/500m</span></div><canvas id="a-gspeed" class="acanvas"></canvas></div>':'')
     +(s.paceTrace&&s.paceTrace.length>2?'<div class="chart-card g"><div class="chart-lbl"><span>GPS Pace</span><span>min/500m faster=up</span></div><canvas id="a-pace" class="acanvas"></canvas></div>':'')
     +(s.strokes&&s.strokes.length>2?'<div class="chart-card b"><div class="chart-lbl"><span>Catch Slope</span></div><canvas id="a-catch" class="acanvas"></canvas></div><div class="chart-card a"><div class="chart-lbl"><span>Stroke Rate</span></div><canvas id="a-rate" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Run Loss</span></div><canvas id="a-runloss" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Impulse</span></div><canvas id="a-eff" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>DPS</span></div><canvas id="a-dps" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Recovery Index</span></div><canvas id="a-rdi" class="acanvas"></canvas></div><div class="chart-card g"><div class="chart-lbl"><span>Stroke Ratio</span><span>rec÷drive · 1.5–2.5 green</span></div><canvas id="a-ratio" class="acanvas"></canvas></div>':'')
-    +(s.laps&&s.laps.length?'<div class="chart-card" style="border-color:#ddd"><div class="chart-lbl"><span>Laps</span></div><table class="lap-tbl"><tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>Rate</th><th>Catch</th><th>DPS</th><th>Imp</th><th>RL</th><th>RDI</th></tr>'+(()=>{const best=s.laps.length>1?s.laps.reduce((b,l)=>l.pace>0&&l.pace<b.pace?l:b,s.laps[0]):null;return s.laps.map(l=>'<tr class="'+(best&&l.n===best.n?'best':'')+'"><td>'+l.n+'</td><td>'+l.dist+'m</td><td>'+fmt(l.time)+'</td><td>'+(l.pace>0?fmt(l.pace):'--')+'</td><td>'+(l.rate||'--')+'</td><td>'+(l.avgCatch||'--')+'</td><td>'+(l.avgDPS?l.avgDPS.toFixed(1):'--')+'</td><td>'+(l.avgImpulse?l.avgImpulse.toFixed(2):'--')+'</td><td>'+(l.avgRunLoss?l.avgRunLoss.toFixed(2):'--')+'</td><td>'+(l.avgRdi?l.avgRdi.toFixed(2):'--')+'</td></tr>').join('');})()+'</table></div>':'')
-    +'<button class="exp-btn" id="exp-btn">Export CSV</button>'
-    +'<button class="exp-btn" id="dbg-btn" style="background:#2e4057;margin-top:4px">Debug CSV</button>'
-    +'<button class="exp-btn" id="sync-btn" style="background:'+(syncedNow?'#27ae60':'#1a5276')+';margin-top:4px">'+(syncedNow?'Re-sync to Drive':'Sync to Drive')+'</button>'
-    +'<button class="del-btn" id="del-btn">Delete Session</button>'
+    +(s.laps&&s.laps.length?'<div class="chart-card" style="border-color:#ddd"><div class="chart-lbl"><span>Laps</span></div><table class="lap-tbl"><tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>Rate</th><th>Catch</th><th>DPS</th><th>Imp</th><th>RL</th><th>RDI</th><th>Ratio</th></tr>'+(()=>{const best=s.laps.length>1?s.laps.reduce((b,l)=>l.pace>0&&l.pace<b.pace?l:b,s.laps[0]):null;return s.laps.map(l=>'<tr class="'+(best&&l.n===best.n?'best':'')+'"><td>'+l.n+'</td><td>'+l.dist+'m</td><td>'+fmt(l.time)+'</td><td>'+(l.pace>0?fmt(l.pace):'--')+'</td><td>'+(l.rate||'--')+'</td><td>'+(l.avgCatch||'--')+'</td><td>'+(l.avgDPS?l.avgDPS.toFixed(1):'--')+'</td><td>'+(l.avgImpulse?l.avgImpulse.toFixed(2):'--')+'</td><td>'+(l.avgRunLoss?l.avgRunLoss.toFixed(2):'--')+'</td><td>'+(l.avgRdi?l.avgRdi.toFixed(2):'--')+'</td><td>'+(l.avgRatio?'1:'+l.avgRatio.toFixed(2):'--')+'</td></tr>').join('');})()+'</table></div>':'')
+    +'<div style="display:flex;gap:6px;margin-top:8px;">'
+    +'<button class="exp-btn" id="dbg-btn" style="flex:1;font-size:10px;padding:10px 4px;">Debug CSV</button>'
+    +'<button class="exp-btn" id="sync-btn" style="flex:1;font-size:10px;padding:10px 4px;background:'+(syncedNow?'#27ae60':'#1a5276')+'">'+(syncedNow?'Re-sync':'Sync to Drive')+'</button>'
+    +'<button class="del-btn" id="del-btn" style="flex:1;font-size:10px;padding:10px 4px;">Delete</button>'
+    +'</div>'
     +'<div style="height:20px"></div>';
   requestAnimationFrame(()=>{
     document.getElementById('dback-btn').addEventListener('click',()=>{dw.style.display='none';document.getElementById('ht-log-list').style.display='block';renderSessionList();});
-    if(s.paceTrace&&s.paceTrace.length>2)drawChart('a-pace',s.paceTrace,'#27ae60',true);
+    if(s.paceTrace&&s.paceTrace.length>2){
+      const gspd=s.garminSpeedTrace&&s.garminSpeedTrace.length>2?s.garminSpeedTrace.filter(x=>x.spd>0.3).map(x=>500/x.spd):[];
+      const allPace=[...s.paceTrace,...gspd].filter(v=>v>60&&v<600);
+      const sharedMin=allPace.length?Math.min(...allPace)*0.97:null;
+      const sharedMax=allPace.length?Math.max(...allPace)*1.03:null;
+      if(gspd.length>2)drawChart('a-gspeed',gspd,'#8e44ad',true,sharedMax,false,sharedMin);
+      drawChart('a-pace',s.paceTrace,'#27ae60',true,sharedMax,false,sharedMin);
+    } else if(s.garminSpeedTrace&&s.garminSpeedTrace.length>2){
+      const gspd=s.garminSpeedTrace.filter(x=>x.spd>0.3).map(x=>500/x.spd);
+      if(gspd.length>2)drawChart('a-gspeed',gspd,'#8e44ad',true);
+    }
     if(s.strokes&&s.strokes.length>2){drawChart('a-catch',s.strokes.map(x=>x.catchPeak),'#1a5276',false,100,true);drawChart('a-rate',s.strokes.map(x=>x.rate),'#f39c12',false);drawChart('a-runloss',s.strokes.map(x=>x.runLossM||0),'#c0392b',false,null,true);drawChart('a-eff',s.strokes.map(x=>x.driveImpulse||0),'#27ae60',false,null,true);drawChart('a-dps',s.strokes.map(x=>x.dps||0),'#1a5276',false,20);drawChart('a-rdi',s.strokes.map(x=>x.rdi||0),'#8e44ad',false,1,true,-1);const ratioData=s.strokes.map(x=>x.strokeRatio||0).filter(v=>v>0);if(ratioData.length>1)drawChart('a-ratio',s.strokes.map(x=>x.strokeRatio||0),'#27ae60',false,4,true,0);}
     if(s.hrTrace&&s.hrTrace.length>2)drawChart('a-hr',s.hrTrace.map(x=>x.hr),'#c0392b',false);
-    if(s.garminSpeedTrace&&s.garminSpeedTrace.length>2)drawChart('a-gspeed',s.garminSpeedTrace.filter(x=>x.spd>0.3).map(x=>500/x.spd),'#8e44ad',true);
     const fz=document.getElementById('fit-zone');if(fz)fz.addEventListener('click',()=>{const inp=document.getElementById('fit-input');inp.onchange=ev=>handleGPX(ev,s.id);inp.click();});
-    document.getElementById('exp-btn').addEventListener('click',()=>exportCSV(s));
     document.getElementById('dbg-btn').addEventListener('click',()=>exportDebugCSV(s));
     document.getElementById('sync-btn').addEventListener('click',async e=>{e.preventDefault();if(DriveSync.isSignedIn()){try{await DriveSync.upload(s);markSynced(s.id);updateDriveBtn();toast('Synced to Drive');}catch(err){toast('Sync failed');}}else{queuePending(s.id);driveSignIn();}});
     document.getElementById('del-btn').addEventListener('click',()=>{if(confirm('Delete?')){delSess(s.id);dw.style.display='none';document.getElementById('ht-log-list').style.display='block';renderSessionList();toast('Deleted');}});
