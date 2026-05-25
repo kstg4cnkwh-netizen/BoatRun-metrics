@@ -688,37 +688,30 @@ const delSess = async id => {
     }
 };
 function saveSess(a) {
-    try { _LS.setItem(DB, JSON.stringify(a)); return true; }
+    try { _LS.setItem(DB, JSON.stringify(a)); }
     catch {
         try {
             const slim = a.map(s => s.strokes
                 ? { ...s, strokes: s.strokes.map(({ dbg, ...r }) => r), gpsRawTrace: undefined }
                 : s);
             _LS.setItem(DB, JSON.stringify(slim));
-            toast('Storage full — debug data stripped');
-            return true;
+            toast('Storage full');
         } catch {
             try {
                 _LS.setItem(DB, JSON.stringify(a.slice(0, Math.max(1, a.length - 1))));
-                toast('Storage full — oldest session removed');
-                return true;
-            } catch {
-                return false;
-            }
+                toast('Storage full — oldest removed');
+            } catch {}
         }
     }
 }
 function addSess(s) {
-    let saved = false;
-    try { const a = loadSess(); a.unshift(s); saved = saveSess(a); } catch {}
+    try { const a = loadSess(); a.unshift(s); saveSess(a); } catch {}
     if (DriveSync.isSignedIn()) {
         DriveSync.upload(s)
             .then(() => { markSynced(s.id); updateDriveBtn(); toast('Saved to Drive'); })
             .catch(e => { queuePending(s.id); toast('Saved locally'); });
     }
-    return saved;
 }
-
 function queuePending(id) {
     try {
         const q = JSON.parse(_LS.getItem(PENDING_KEY) || '[]');
@@ -1478,23 +1471,20 @@ const rlDebug = [];
 let driveImpulseEma = null;
 const IMP_EMA_ALPHA = 0.35;   // effective ~3-stroke window for drive impulse smoothing
 function updatePendingRunLoss() {
+    // GPS debug phase log only — run loss is computed from IMU integration in onNewCatch().
+    // pendingRun is kept alive so handlePos can tag each GPS fix with rlPhase,
+    // and so rlDebug records the GPS-observed speed window for comparison.
     const p = pendingRun;
     if (!p) return;
     const t = performance.now(), s = gpsSpeedEma;
     if (t >= p.endAt) {
         if (p.startSpeed !== null && p.startSpeed > 0.2) {
             const dv = Math.max(0, p.startSpeed - p.minSpeed);
-            const loss = +(dv * (CONFIG.runLoss.windowMs / 1000) * 0.5).toFixed(4);
-            if (loss >= 0 && loss <= CONFIG.runLoss.maxLossM) {
-                pushLimit(runLosses, loss, CONFIG.runLoss.medianN);
-                runLossM = median(runLosses);
-                const idx = sessStrokes.findIndex(x => x._prlStroke === p.strokeN);
-                if (idx >= 0) sessStrokes[idx].runLossM = runLossM;
-            }
+            const gpsLoss = +(dv * (CONFIG.runLoss.windowMs / 1000) * 0.5).toFixed(4);
             rlDebug.push({
                 strokeN: p.strokeN,
                 startSpeed: +p.startSpeed.toFixed(4), minSpeed: +p.minSpeed.toFixed(4),
-                dv: +dv.toFixed(4), rawLoss: loss,
+                dv: +dv.toFixed(4), rawLoss: gpsLoss,
                 medLoss: runLossM != null ? +runLossM.toFixed(4) : null,
                 nSamples: p.nSamples || 0
             });
@@ -2360,7 +2350,7 @@ function stopSess(){
       const maxRate=sessStrokes.reduce((m,s)=>s.rate>m?s.rate:m,0);
       const avg=(arr,k)=>{const v=arr.map(x=>x[k]).filter(v=>v!=null&&!isNaN(v));return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;};
       const ac=(()=>{const v=sessStrokes.map(x=>x.catchConsistency).filter(v=>v!=null&&!isNaN(v));return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null;})();
-      const ok=addSess({
+      addSess({
         id:Date.now().toString(),startTime:sessStart,endTime:Date.now(),duration:elapsed,
         distance:Math.round(distance),avgPace:ap,avgRate:ar,maxRate,
         catchPeakSess,catchAvg8,strokeCount,
@@ -2377,14 +2367,12 @@ function stopSess(){
         calNoiseFloor:cal.noiseFloor,calThresh:cal.jerkThresh,detectedAxis:selAxis,
         config:{rl:CONFIG.runLoss,gps:{alpha:CONFIG.gps.speedEmaAlpha,medN:CONFIG.gps.speedMedianN,spike:CONFIG.gps.spikeMarginMps}},
       });
-      if(ok){sessSaved=true;toast('Session saved');}
-      else{toast('⚠ Save failed — storage full. Delete old sessions.');}
-    }catch(e){toast('Save error: '+e.message);}
+      sessSaved=true;toast('Session saved');
+    }catch(e){toast('Save error');}
     _LS.removeItem(AUTOSAVE_DB);
   }
   requestAnimationFrame(renderCtrl);
 }
-
 function resetSess(){
   sessLocked=false;
   if(elapsed>10&&sessStrokes.length>0&&!sessSaved){if(confirm('Save before reset?'))stopSess();else{clearInterval(timerInt);clearInterval(autosaveInt);}}
@@ -2631,7 +2619,7 @@ function showDetail(id){
   requestAnimationFrame(()=>{
     document.getElementById('dback-btn').addEventListener('click',()=>{dw.style.display='none';document.getElementById('ht-log-list').style.display='block';renderSessionList();});
     if(s.paceTrace&&s.paceTrace.length>2)drawChart('a-pace',s.paceTrace,'#27ae60',true);
-    if(s.strokes&&s.strokes.length>2){drawChart('a-catch',s.strokes.map(x=>x.catchPeak),'#1a5276',false,50,true);drawChart('a-rate',s.strokes.map(x=>x.rate),'#f39c12',false);drawChart('a-runloss',s.strokes.map(x=>x.runLossM||0),'#c0392b',false,null,true);drawChart('a-eff',s.strokes.map(x=>x.driveImpulse||0),'#27ae60',false,null,true);drawChart('a-dps',s.strokes.map(x=>x.dps||0),'#1a5276',false,20);drawChart('a-rdi',s.strokes.map(x=>x.rdi||0),'#8e44ad',false,1,true,-1);const ratioData=s.strokes.map(x=>x.strokeRatio||0).filter(v=>v>0);if(ratioData.length>1)drawChart('a-ratio',s.strokes.map(x=>x.strokeRatio||0),'#27ae60',false,4,true,0);}
+    if(s.strokes&&s.strokes.length>2){drawChart('a-catch',s.strokes.map(x=>x.catchPeak),'#1a5276',false,100,true);drawChart('a-rate',s.strokes.map(x=>x.rate),'#f39c12',false);drawChart('a-runloss',s.strokes.map(x=>x.runLossM||0),'#c0392b',false,null,true);drawChart('a-eff',s.strokes.map(x=>x.driveImpulse||0),'#27ae60',false,null,true);drawChart('a-dps',s.strokes.map(x=>x.dps||0),'#1a5276',false,20);drawChart('a-rdi',s.strokes.map(x=>x.rdi||0),'#8e44ad',false,1,true,-1);const ratioData=s.strokes.map(x=>x.strokeRatio||0).filter(v=>v>0);if(ratioData.length>1)drawChart('a-ratio',s.strokes.map(x=>x.strokeRatio||0),'#27ae60',false,4,true,0);}
     if(s.hrTrace&&s.hrTrace.length>2)drawChart('a-hr',s.hrTrace.map(x=>x.hr),'#c0392b',false);
     if(s.garminSpeedTrace&&s.garminSpeedTrace.length>2)drawChart('a-gspeed',s.garminSpeedTrace.filter(x=>x.spd>0.3).map(x=>500/x.spd),'#8e44ad',true);
     const fz=document.getElementById('fit-zone');if(fz)fz.addEventListener('click',()=>{const inp=document.getElementById('fit-input');inp.onchange=ev=>handleGPX(ev,s.id);inp.click();});
@@ -3131,24 +3119,6 @@ function parseTCX(text){
 function parseGPX(text){const doc=new DOMParser().parseFromString(text,'application/xml');if(doc.querySelector('parseerror'))throw new Error('Invalid XML');const hr=[];doc.querySelectorAll('trkpt').forEach(pt=>{const timeEl=pt.querySelector('time');if(!timeEl)return;const t=new Date(timeEl.textContent.trim()).getTime();if(isNaN(t))return;for(const el of[...pt.querySelectorAll('*')]){if(el.localName==='hr'){const v=parseInt(el.textContent.trim());if(v>0&&v<250){hr.push({t,hr:v});break;}}}});return{hr,speedTrace:null,laps:null};}
 
 /* ══ CSV EXPORT ══ */
-function triggerDownload(csvText, filename) {
-  const blob = new Blob([csvText], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  // iOS Safari PWA: a.click() on a detached element does nothing.
-  // window.open lets the user tap Share → Save to Files.
-  if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-    window.open(url, '_blank');
-  } else {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  }
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
-}
-
 function exportCSV(s){
   const n=v=>(v!=null&&!isNaN(v))?v:'';const f1=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(1):'';const f2=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(2):'';
   const rows=[['SESSION SUMMARY'],['start_time',new Date(s.startTime).toISOString()],['end_time',new Date(s.endTime||s.startTime+s.duration*1000).toISOString()],['duration_s',n(s.duration),'distance_m',n(s.distance),'stroke_count',n(s.strokeCount)],['avg_pace_s500',n(s.avgPace),'avg_rate_spm',n(s.avgRate),'max_rate_spm',n(s.maxRate)],['catch_peak_ms3',n(s.catchPeakSess),'avg_dps_m',f1(s.avgDPS),'avg_run_loss_m',f2(s.avgRunLossM)],['avg_impulse',f2(s.avgImpulse),'avg_rdi',f2(s.avgRdi),'avg_ratio',f2(s.avgRatio),'workout',s.workoutName||''],[]];
@@ -3159,27 +3129,21 @@ function exportCSV(s){
   if(s.workoutLapMetrics&&s.workoutLapMetrics.length){rows.push(['WORKOUT INTERVALS'],['n','type','dist_m','time_s','pace_s500','rate','catch','dps_m','impulse','run_loss_m']);s.workoutLapMetrics.forEach(l=>rows.push([l.n,l.type,l.dist,l.time,l.lapPace>0?f1(l.lapPace):'',n(l.rate),n(l.catchAvg),l.dps?f1(l.dps):'',l.impulse?f2(l.impulse):'',l.runLoss?f2(l.runLoss):'']));rows.push([]);}
   if(s.hrTrace&&s.hrTrace.length){rows.push(['HEART RATE'],['timestamp','hr_bpm']);s.hrTrace.forEach(h=>rows.push([new Date(h.t).toISOString(),h.hr]));rows.push([]);}
   if(s.gpsTrace&&s.gpsTrace.length){rows.push(['GPS TRACE'],['timestamp','lat','lon','dist_m']);s.gpsTrace.forEach(p=>rows.push([new Date(p.t).toISOString(),p.lat,p.lon,p.dist!=null?f1(p.dist):'']));}
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'}));
   const d=new Date(s.startTime),pad=x=>String(x).padStart(2,'0');
-  const filename='RowSess_'+d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes())+'.csv';
-  triggerDownload(rows.map(r=>r.join(',')).join('\n'), filename);
-  toast('CSV exported');
+  a.download='RowSess_'+d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes())+'.csv';a.click();toast('CSV exported');
 }
-
 function exportDebugCSV(s){
-  const n=v=>(v!=null&&!isNaN(v))?v:'';const f1=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(1):'';const f2=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(2):'';const f3=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(3):'';const f4=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(4):'';
+  const n=v=>(v!=null&&!isNaN(v))?v:'';const f2=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(2):'';const f3=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(3):'';const f4=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(4):'';
   const t0=s.startTime;const el=t=>(+(t-t0)/1000).toFixed(2);const rows=[['##ENV'],['session_id',s.id,'start_utc',new Date(t0).toISOString()],['duration_s',n(s.duration),'distance_m',n(s.distance),'strokes',n(s.strokeCount)]];
   const cfg=s.config||{},rl=cfg.rl||{},gps=cfg.gps||{};
   rows.push(['rl_startAfterDriveMs',n(rl.startAfterDriveMs??CONFIG.runLoss.startAfterDriveMs),'rl_windowMs',n(rl.windowMs??CONFIG.runLoss.windowMs)]);rows.push(['gps_emaAlpha',n(gps.alpha??CONFIG.gps.speedEmaAlpha),'gps_medianN',n(gps.medN??CONFIG.gps.speedMedianN)]);rows.push([]);
-  rows.push(['##STR'],['n','elapsed_s','rate','catch_jerk','dps','run_loss_m','impulse','rdi','ratio','interval_ms','drive_ms','med_rate','ac_rate','ac_conf']);(s.strokes||[]).forEach((r,i)=>{const d=r.dbg||{};rows.push([i+1,el(r.t),n(r.rate),f2(d.catchJerkRaw),f2(r.dps),f2(r.runLossM),f2(r.driveImpulse),f2(r.rdi),f2(r.strokeRatio),n(d.intervalMs),n(d.driveDurMs),f1(d.medRateFsm),f1(d.acRate),f3(d.acConf)]);});rows.push([]);
+  rows.push(['##STR'],['n','elapsed_s','rate','catch_slope','stroke_char','consistency','dps','run_loss_m','impulse','rdi','ratio']);(s.strokes||[]).forEach((r,i)=>{rows.push([i+1,el(r.t),n(r.rate),f2(r.catchPeak),n(r.char),f2(r.catchConsistency),f2(r.dps),f2(r.runLossM),f2(r.driveImpulse),f2(r.rdi),f2(r.strokeRatio)]);});rows.push([]);
   rows.push(['##RL'],['stroke_n','start_spd_ms','min_spd_ms','dv_ms','raw_loss_m','med_loss_m','n_samples']);(s.rlDebug||[]).forEach(r=>rows.push([n(r.strokeN),f3(r.startSpeed),f3(r.minSpeed),f3(r.dv),f4(r.rawLoss),f4(r.medLoss),n(r.nSamples)]));rows.push([]);
   if(s.gpsRawTrace&&s.gpsRawTrace.length){rows.push(['##GPS'],['elapsed_s','gps_raw_ms','gps_ema_ms','acc_m','stroke_n','rl_phase']);s.gpsRawTrace.forEach(p=>rows.push([el(p.t),f3(p.rawSpd),f3(p.emaSpd),f2(p.acc),n(p.strokeN),p.rlPhase||'none']));rows.push([]);}
   if(s.hrTrace&&s.hrTrace.length){rows.push(['##HR'],['elapsed_s','hr_bpm']);s.hrTrace.forEach(h=>rows.push([el(h.t),h.hr]));rows.push([]);}
-  const d=new Date(s.startTime),pad=x=>String(x).padStart(2,'0');
-  const filename='ScullDebug_'+d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes())+'.csv';
-  triggerDownload(rows.map(r=>r.join(',')).join('\n'), filename);
-  toast('Debug CSV exported');
+  const blob=new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);const d=new Date(s.startTime),pad=x=>String(x).padStart(2,'0');a.download='ScullDebug_'+d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes())+'.csv';a.click();toast('Debug CSV exported');
 }
-
 
 /* ══ DRIVE SYNC HELPERS ══ */
 function handleDriveBtnTap(){if(DriveSync.isSignedIn()){if(confirm('Unlink Google Drive?')){DriveSync.signOut();updateDriveBtn();toast('Drive unlinked');}}else driveSignIn();}
