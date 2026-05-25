@@ -159,8 +159,8 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 /* ── TABS — always at bottom, always horizontal (P4) ── */
 .tab-bar,#live-tabs{display:flex;flex-direction:row;background:#f0f0f0;flex-shrink:0;border-top:1px solid #ccc;padding-bottom:calc(env(safe-area-inset-bottom) + 2px);}
 @media(orientation:landscape){
-#live-tabs{flex-direction:column;border-top:none;border-left:1px solid #ccc;padding-bottom:0;padding-right:env(safe-area-inset-right);width:clamp(52px,7vw,68px);height:auto;}
-#live-tabs .tab{border-top:none;border-left:2px solid transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+#live-tabs{flex-direction:column;border-top:none;border-left:1px solid #ccc;padding-bottom:0;padding-right:env(safe-area-inset-right);width:clamp(52px,7vw,68px);height:auto;align-self:stretch;}
+#live-tabs .tab{border-top:none;border-left:2px solid transparent;}
 #live-tabs .tab.active{color:#000;border-top:none;border-left:2px solid #000;}
 }
 .tab{flex:1;padding:6px 0 5px;text-align:center;border:none;background:none;color:#888;font-family:"Roboto",sans-serif;font-size:8px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;touch-action:manipulation;}
@@ -183,8 +183,8 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .curve-leg-item{display:flex;align-items:center;gap:5px;font-size:9px;font-weight:700;letter-spacing:.1em;color:rgba(0,0,0,.6);}
 .curve-leg-dot{width:12px;height:3px;border-radius:2px;flex-shrink:0;}
 .curve-tiles{display:flex;gap:2px;flex-shrink:0;height:clamp(80px,24dvh,140px);}
-.curve-tile{flex:1;background:#161616;display:flex;flex-direction:column;overflow:hidden;cursor:pointer;min-width:0;}
-.curve-tile:active{background:#1e2a36;}
+.curve-tile{flex:1;background:#fff;display:flex;flex-direction:column;overflow:hidden;cursor:pointer;min-width:0;}
+.curve-tile:active{background:#f0f0f0;}
 .curve-tile .metric-val{font-size:clamp(22px,8dvh,60px);}
 .curve-tile .sub-micro{font-size:clamp(9px,2dvh,14px);}
 .curve-tile .tlbl{font-size:clamp(9px,1.8dvh,13px);}
