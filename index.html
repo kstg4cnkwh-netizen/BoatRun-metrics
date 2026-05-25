@@ -222,7 +222,6 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .tq{font-size:clamp(7px,1.3dvh,10px);}
 .curve-tiles{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;height:clamp(160px,40dvh,240px);}
 .curve-tile{flex:none;}
-.tile-grid{max-width:440px;margin:0 auto;}
 }
 
 /* ── ANALYSIS / HOME SHARED STYLES ── */
@@ -2805,11 +2804,13 @@ function buildPreviewGrid(profile,pi,orient){
   const layouts=LAYOUT_DEFS[orient];const cfg=profile[orient];
   const ld=layouts.find(l=>l.id===cfg.layout)||layouts[0];
   const n=ld.cols*ld.rows;const cells=[...cfg.cells];while(cells.length<n)cells.push('empty');const cl=cells.slice(0,n);
+  const isPortrait = orient === 'portrait';
+  const wrapStyle = isPortrait ? 'max-width:200px;margin:0 auto;' : '';
   const gs='display:grid;grid-template-columns:repeat('+ld.cols+',1fr);gap:2px;background:#000;padding:2px;border-radius:2px;margin-bottom:8px;';
-  return '<div style="'+gs+'">'+cl.map((key,ci)=>{
+  return '<div style="'+wrapStyle+'"><div style="'+gs+'">'+cl.map((key,ci)=>{
     const def=METRIC_DEFS[key]||METRIC_DEFS.empty;
     return '<div class="preview-cell" onclick="openMetricPicker('+pi+',\''+orient+'\','+ci+')" title="Tap to assign"><span class="preview-cell-val">'+def.short+'</span></div>';
-  }).join('')+'</div>';
+  }).join('')+'</div></div>';
 }
 function toggleProfileCard(pi){
   const body=document.getElementById('pcb-'+pi);
