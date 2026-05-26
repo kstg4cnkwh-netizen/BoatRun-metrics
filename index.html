@@ -1946,7 +1946,7 @@ function renderMetricSlot(i, key) {
         }
         case 'runloss': {
             const ok = runLossM != null && on;
-            setVal(i, ok ? runLossM.toFixed(2) : '--', '', !ok,
+            setVal(i, ok ? runLossM.toFixed(2) + 'm' : '--', '', !ok,
                 ok ? (runLosses.length >= 4 ? 'TREND' : 'NOISY') : 'WAIT',
                 ok ? (runLosses.length >= 4 ? 'w' : 'b') : '');
             break;
@@ -1959,7 +1959,7 @@ function renderMetricSlot(i, key) {
         }
         case 'oarangle': {
             const ok = oarAngle != null && on;
-            setVal(i, ok ? oarAngle + '°' : '--', 'drive · no slip', !ok,
+            setVal(i, ok ? oarAngle + '°' : '--', '', !ok,
                 ok ? (oarAngleRawArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
                 ok ? (oarAngleRawArr.length >= 3 ? 'g' : 'w') : '');
             break;
@@ -2848,7 +2848,7 @@ function showDetail(id){
     +hrHTML
     +(s.garminSpeedTrace&&s.garminSpeedTrace.length>2?'<div class="chart-card" style="border-color:#8e44ad"><div class="chart-lbl"><span>Garmin Pace</span><span>min/500m</span></div><canvas id="a-gspeed" class="acanvas"></canvas></div>':'')
     +(s.paceTrace&&s.paceTrace.length>2?'<div class="chart-card g"><div class="chart-lbl"><span>GPS Pace</span><span>min/500m faster=up</span></div><canvas id="a-pace" class="acanvas"></canvas></div>':'')
-    +(s.strokes&&s.strokes.length>2?'<div class="chart-card b"><div class="chart-lbl"><span>Catch Slope</span></div><canvas id="a-catch" class="acanvas"></canvas></div><div class="chart-card a"><div class="chart-lbl"><span>Stroke Rate</span></div><canvas id="a-rate" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Run Loss</span></div><canvas id="a-runloss" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Impulse</span></div><canvas id="a-eff" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>DPS</span></div><canvas id="a-dps" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Stroke Char</span><span>% · 50% ref</span></div><canvas id="a-char" class="acanvas"></canvas></div><div class="chart-card g"><div class="chart-lbl"><span>Stroke Ratio</span><span>rec÷drive · 1.5–2.5 green</span></div><canvas id="a-ratio" class="acanvas"></canvas></div>':'')
+    +(s.strokes&&s.strokes.length>2?'<div class="chart-card b"><div class="chart-lbl"><span>Catch Slope</span></div><canvas id="a-catch" class="acanvas"></canvas></div><div class="chart-card a"><div class="chart-lbl"><span>Stroke Rate</span></div><canvas id="a-rate" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Run Loss</span><span>m</span></div><canvas id="a-runloss" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Impulse</span></div><canvas id="a-eff" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>DPS</span></div><canvas id="a-dps" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Stroke Char</span><span>% · 50% ref</span></div><canvas id="a-char" class="acanvas"></canvas></div><div class="chart-card g"><div class="chart-lbl"><span>Stroke Ratio</span><span>rec÷drive · 1.5–2.5 green</span></div><canvas id="a-ratio" class="acanvas"></canvas></div><div class="chart-card" style="border-color:#2de0d4"><div class="chart-lbl"><span>Oar Arc</span><span>degrees</span></div><canvas id="a-oarangle" class="acanvas"></canvas></div>':'')
     +(s.laps&&s.laps.length?'<div class="chart-card" style="border-color:#ddd"><div class="chart-lbl"><span>Laps</span></div><table class="lap-tbl"><tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>Rate</th><th>Catch</th><th>DPS</th><th>Imp</th><th>RL</th><th>RDI</th><th>Ratio</th></tr>'+(()=>{const best=s.laps.length>1?s.laps.reduce((b,l)=>l.pace>0&&l.pace<b.pace?l:b,s.laps[0]):null;return s.laps.map(l=>'<tr class="'+(best&&l.n===best.n?'best':'')+'"><td>'+l.n+'</td><td>'+l.dist+'m</td><td>'+fmt(l.time)+'</td><td>'+(l.pace>0?fmt(l.pace):'--')+'</td><td>'+(l.rate||'--')+'</td><td>'+(l.avgCatch||'--')+'</td><td>'+(l.avgDPS?l.avgDPS.toFixed(1):'--')+'</td><td>'+(l.avgImpulse?l.avgImpulse.toFixed(2):'--')+'</td><td>'+(l.avgRunLoss?l.avgRunLoss.toFixed(2):'--')+'</td><td>'+(l.avgRdi?l.avgRdi.toFixed(2):'--')+'</td><td>'+(l.avgRatio?'1:'+l.avgRatio.toFixed(2):'--')+'</td></tr>').join('');})()+'</table></div>':'')
     +'<div style="display:flex;gap:6px;margin-top:8px;">'
     +'<button class="exp-btn" id="dbg-btn" style="flex:1;font-size:10px;padding:10px 4px;">Debug CSV</button>'
@@ -2869,7 +2869,7 @@ function showDetail(id){
       const gspd=s.garminSpeedTrace.filter(x=>x.spd>0.3).map(x=>500/x.spd);
       if(gspd.length>2)drawChart('a-gspeed',gspd,'#8e44ad',true);
     }
-    if(s.strokes&&s.strokes.length>2){drawChart('a-catch',s.strokes.map(x=>x.catchPeak),'#1a5276',false,100,true);drawChart('a-rate',s.strokes.map(x=>x.rate),'#f39c12',false);drawChart('a-runloss',s.strokes.map(x=>x.runLossM||0),'#c0392b',false,null,true);drawChart('a-eff',s.strokes.map(x=>x.driveImpulse||0),'#27ae60',false,null,true);drawChart('a-dps',s.strokes.map(x=>x.dps||0),'#1a5276',false,20);drawChart('a-char',s.strokes.map(x=>x.char||0),'#8e44ad',false,100,true,0,50);const ratioData=s.strokes.map(x=>x.strokeRatio||0).filter(v=>v>0);if(ratioData.length>1)drawChart('a-ratio',s.strokes.map(x=>x.strokeRatio||0),'#27ae60',false,4,true,0);}
+    if(s.strokes&&s.strokes.length>2){drawChart('a-catch',s.strokes.map(x=>x.catchPeak),'#1a5276',false,100,true);drawChart('a-rate',s.strokes.map(x=>x.rate),'#f39c12',false);drawChart('a-runloss',s.strokes.map(x=>x.runLossM||0),'#c0392b',false,null,true);drawChart('a-eff',s.strokes.map(x=>x.driveImpulse||0),'#27ae60',false,null,true);drawChart('a-dps',s.strokes.map(x=>x.dps||0),'#1a5276',false,20);drawChart('a-char',s.strokes.map(x=>x.char||0),'#8e44ad',false,100,true,0,50);const ratioData=s.strokes.map(x=>x.strokeRatio||0).filter(v=>v>0);if(ratioData.length>1)drawChart('a-ratio',s.strokes.map(x=>x.strokeRatio||0),'#27ae60',false,4,true,0);const oarData=s.strokes.map(x=>x.oarAngle||0);if(oarData.some(v=>v>0))drawChart('a-oarangle',oarData,'#2de0d4',false,null,true,0);}
     if(s.hrTrace&&s.hrTrace.length>2)drawChart('a-hr',s.hrTrace.map(x=>x.hr),'#c0392b',false);
     const fz=document.getElementById('fit-zone');if(fz)fz.addEventListener('click',()=>{const inp=document.getElementById('fit-input');inp.onchange=ev=>handleGPX(ev,s.id);inp.click();});
     document.getElementById('dbg-btn').addEventListener('click',()=>exportDebugCSV(s));
