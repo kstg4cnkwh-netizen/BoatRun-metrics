@@ -1305,6 +1305,7 @@ const MAX_STROKE_TS = 4, strokeTs = [];
 const CATCH_TS_BUF = 7, catchTsBuf = [];
 let rdi = null, rdiValsArr = [];
 let strokeRatio = null, strokeRatioValsArr = [];
+let oarAngle = null, oarAngleRawArr = [];
 function rateFromMedianIntervals() {
     if (catchTsBuf.length < 2) return 0;
     const iv = [];
@@ -1326,6 +1327,41 @@ function computeDriveImpulse(samples) {
     }
     return imp > 0 ? +imp.toFixed(4) : null;
 }
+// ── Oar arc angle from IMU integration ────────────────────────────────────
+// Integrates axFast (m/s²) samples collected during the drive phase to get
+// the velocity profile, anchors absolute velocity with gpsSpeedEnd (≈ peak
+// boat speed at drive end), then integrates velocity to get drive distance.
+// No-slip: arc_length = drive_distance,  angle = arc_length / outboard.
+function computeOarAngle(samples, gpsSpeedEnd) {
+    const OUTBOARD = 2.0;
+    const R2D      = 180 / Math.PI;
+    const n        = samples.length;
+    if (n < 4 || gpsSpeedEnd <= 0.3) return null;
+
+    // Pass 1 — integrate acceleration → cumulative ΔV from catch (sample 0)
+    const cumulDV = new Array(n).fill(0);
+    for (let i = 1; i < n; i++) {
+        const dt = (samples[i].t - samples[i - 1].t) / 1000;
+        if (dt <= 0 || dt > 0.15) { cumulDV[i] = cumulDV[i - 1]; continue; }
+        cumulDV[i] = cumulDV[i - 1] + samples[i].v * dt;
+    }
+
+    // Anchor: GPS speed at drive end ≈ peak boat speed
+    // → speed at catch = gpsSpeedEnd − totalΔV
+    const vCatch = gpsSpeedEnd - cumulDV[n - 1];
+
+    // Pass 2 — integrate velocity → drive distance (trapezoidal)
+    let driveDist = 0;
+    for (let i = 1; i < n; i++) {
+        const dt = (samples[i].t - samples[i - 1].t) / 1000;
+        if (dt <= 0 || dt > 0.15) continue;
+        driveDist += ((vCatch + cumulDV[i - 1]) + (vCatch + cumulDV[i])) / 2 * dt;
+    }
+
+    if (driveDist <= 0.3 || driveDist > 15) return null;
+    return +((driveDist / OUTBOARD) * R2D).toFixed(1);
+}
+
 function onStrokeFinish(now, driveDur) {
     if (driveDur < CONFIG.stroke.minDriveMs || driveDur > CONFIG.stroke.maxDriveMs) return;
     const catchSlope = Math.round(Math.abs(catchPeakJerk));
@@ -1398,6 +1434,34 @@ function onStrokeFinish(now, driveDur) {
             }
         }
     }
+    // ── Oar arc angle via IMU integration ─────────────────────────────────
+    // driveAccSamples holds axFast (m/s²) at high rate during the drive.
+    // Integrating once gives ΔV profile; anchored to gpsSpeedEma at drive
+    // end (≈ peak boat speed) gives absolute velocity; integrating again
+    // gives actual drive distance regardless of within-stroke speed variation.
+    // angle_deg = (drive_distance / outboard) × (180/π),  outboard = 2.0m
+    oarAngle = null;
+    if (gpsSpeedEma > 0.3) {
+        const rawAngle = computeOarAngle(driveAccSamples, gpsSpeedEma);
+        if (rawAngle !== null) {
+            pushLimit(oarAngleRawArr, rawAngle, 5);
+            const win  = oarAngleRawArr;
+            const mean = win.reduce((a, b) => a + b, 0) / win.length;
+            if (win.length < 3) {
+                oarAngle = +mean.toFixed(1);
+            } else {
+                const stdev = Math.sqrt(win.reduce((a, b) => a + (b - mean) ** 2, 0) / win.length);
+                if (stdev / mean < 0.08) {
+                    oarAngle = +mean.toFixed(1);
+                } else {
+                    const filt = win.filter(v => Math.abs(v - mean) <= stdev);
+                    oarAngle = +(filt.length >= 2
+                        ? filt.reduce((a, b) => a + b, 0) / filt.length
+                        : rawAngle).toFixed(1);
+                }
+            }
+        }
+    }
     const rateToLog = strokeRate;
     const intervalS = strokeTs.length >= 2 ? (strokeTs[strokeTs.length - 1] - strokeTs[strokeTs.length - 2]) / 1000 : 0;
     if (intervalS > CONFIG.stroke.restGapS) {
@@ -1445,7 +1509,7 @@ function onStrokeFinish(now, driveDur) {
         t: Date.now(), catchPeak: catchSlope, char: strokeChar,
         rate: rateToLog, pace: pace > 0 ? pace : null,
         dist: distance, dps: distPerStroke, runLossM: null,
-        driveImpulse, catchConsistency, rdi, strokeRatio,
+        driveImpulse, catchConsistency, rdi, strokeRatio, oarAngle,
         _prlStroke: prlStroke,
         dbg: {
             intervalMs: catchTsBuf.length >= 2 ? Math.round(catchTsBuf[catchTsBuf.length - 1] - catchTsBuf[catchTsBuf.length - 2]) : null,
@@ -1620,6 +1684,7 @@ const METRIC_DEFS = {
     catch:        { label: 'Catch Slope',    short: 'Catch',       primary: false, bar: 'catch' },
     runloss:      { label: 'Run Loss',       short: 'Run Loss',    primary: false, bar: null },
     impulse:      { label: 'Impulse',        short: 'Impulse',     primary: false, bar: null },
+    oarangle:     { label: 'Oar Arc',        short: 'Oar Arc',     primary: false, bar: null },
     selectable:   { label: 'Selectable',     short: 'Selectable',  primary: false, bar: null },
     workout:      { label: 'Workout',        short: 'Workout',     primary: false, bar: null },
     empty:        { label: '—',              short: '(empty)',     primary: false, bar: null },
@@ -1856,6 +1921,13 @@ function renderMetricSlot(i, key) {
             const ok = driveImpulseEma != null && on;
             setVal(i, ok ? Math.round(driveImpulseEma * 100) : '--', '',
                   !ok, ok ? 'GOOD' : 'WAIT', ok ? 'g' : '');
+            break;
+        }
+        case 'oarangle': {
+            const ok = oarAngle != null && on;
+            setVal(i, ok ? oarAngle + '°' : '--', 'drive · no slip', !ok,
+                ok ? (oarAngleRawArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
+                ok ? (oarAngleRawArr.length >= 3 ? 'g' : 'w') : '');
             break;
         }
         case 'tod': {
@@ -2497,7 +2569,7 @@ function resetSess(){
   if(elapsed>10&&sessStrokes.length>0&&!sessSaved){if(confirm('Save before reset?'))stopSess();else{clearInterval(timerInt);clearInterval(autosaveInt);}}
   else{clearInterval(timerInt);clearInterval(autosaveInt);}
   running=false;paused=false;sessSaved=false;_LS.removeItem(AUTOSAVE_DB);
-  elapsed=0;distance=0;pace=0;strokeRate=0;strokeCount=0;acRate=0;acConf=0;distPerStroke=0;dpsValsArr.length=0;maxDPS=0;lapStartDist=0;lapStartTime=0;catchLast=null;catchPeakSess=null;catchAvg8=null;catchValsArr.length=0;catchConsistency=null;strokeChar=50;charValsArr.length=0;rdi=null;rdiValsArr.length=0;strokeRatio=null;strokeRatioValsArr.length=0;pendingRun=null;runLosses.length=0;runLossM=null;rlDebug.length=0;laps=[];sessStrokes.length=0;sessPaceTrace.length=0;sessGpsTrace.length=0;sessGpsRawTrace.length=0;strokeTs.length=0;paceDistWindow.length=0;velocityWindow.length=0;speedSamples.length=0;prevStrokeDist=0;prevStrokeDistT=0;gpsLastValidT=0;gpsSpeedEma=-1;gpsWasStopped=false;gpsAccuracyM=null;fsmState=FS.IDLE;catchPeakJerk=0;catchStartT=0;lastCatchAbsT=0;lastDriveEndT=0;strokesDetected=0;jerkThreshActive=jerkThreshBase;adaptReady=false;acBuf.length=0;acLastUpdate=0;jerkBuf.length=0;catchTsBuf.length=0;axisLocked=false;axisAutoDetected=false;lastAxisCheck=0;sessStart=null;lastStrokeCurve=null;strokeCurveHistory.length=0;catchToCatchSamples=[];pendingCurveDriveCount=0;motionSamples=0;motionStartedAt=0;lastMotionT=0;imuRL = null;driveImpulseEma = null;
+  elapsed=0;distance=0;pace=0;strokeRate=0;strokeCount=0;acRate=0;acConf=0;distPerStroke=0;dpsValsArr.length=0;maxDPS=0;lapStartDist=0;lapStartTime=0;catchLast=null;catchPeakSess=null;catchAvg8=null;catchValsArr.length=0;catchConsistency=null;strokeChar=50;charValsArr.length=0;rdi=null;rdiValsArr.length=0;strokeRatio=null;strokeRatioValsArr.length=0;pendingRun=null;runLosses.length=0;runLossM=null;rlDebug.length=0;laps=[];sessStrokes.length=0;sessPaceTrace.length=0;sessGpsTrace.length=0;sessGpsRawTrace.length=0;strokeTs.length=0;paceDistWindow.length=0;velocityWindow.length=0;speedSamples.length=0;prevStrokeDist=0;prevStrokeDistT=0;gpsLastValidT=0;gpsSpeedEma=-1;gpsWasStopped=false;gpsAccuracyM=null;fsmState=FS.IDLE;catchPeakJerk=0;catchStartT=0;lastCatchAbsT=0;lastDriveEndT=0;strokesDetected=0;jerkThreshActive=jerkThreshBase;adaptReady=false;acBuf.length=0;acLastUpdate=0;jerkBuf.length=0;catchTsBuf.length=0;axisLocked=false;axisAutoDetected=false;lastAxisCheck=0;sessStart=null;lastStrokeCurve=null;strokeCurveHistory.length=0;catchToCatchSamples=[];pendingCurveDriveCount=0;motionSamples=0;motionStartedAt=0;lastMotionT=0;imuRL = null;driveImpulseEma = null;oarAngle=null;oarAngleRawArr.length=0;
   for(const k of AXES){gravity[k]=0;axFast[k]=0;axSmooth[k]=0;}
   wkt={active:false,def:null,sequence:[],seqIdx:0,startDist:0,startElapsed:0,lapMetrics:[],countdownActive:false,waitingForRow:false,waitStrokeCount:0,fromRestCountdown:false};
   const bar=document.getElementById('wkt-bar');if(bar)bar.classList.remove('wactive');
