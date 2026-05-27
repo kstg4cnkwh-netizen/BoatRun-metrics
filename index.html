@@ -1422,7 +1422,7 @@ function computeOarAngleFullStroke(samples, driveCount, gpsStrokeDist) {
 function onStrokeFinish(now, driveDur) {
     if (driveDur < CONFIG.stroke.minDriveMs || driveDur > CONFIG.stroke.maxDriveMs) return;
     const catchSlope = Math.round(Math.abs(catchPeakJerk));
-    if (catchSlope < 2 || catchSlope < jerkThreshBase * 1.5) return;
+    if (catchSlope < 2 || catchSlope < jerkThreshActive * 1.2) return;
     const peakOffset = drivePeakAccT - driveStartT;
     const rawChar = driveDur > 0 ? clamp((peakOffset / driveDur) * 100, 0, 100) : 50;
     catchTsBuf.push(driveStartT);
@@ -1452,10 +1452,11 @@ function onStrokeFinish(now, driveDur) {
     if (catchValsArr.length >= 5) {
         const m = catchValsArr.reduce((a, b) => a + b, 0) / catchValsArr.length;
         const sd = Math.sqrt(catchValsArr.reduce((s, v) => s + (v - m) ** 2, 0) / catchValsArr.length);
-        const tgt = Math.max(jerkThreshBase, m * 0.50 - sd * 0.35);
-        jerkThreshActive = adaptReady
-            ? Math.max(jerkThreshBase * 0.8, 0.80 * jerkThreshActive + 0.20 * tgt)
-            : Math.max(jerkThreshBase * 0.8, tgt);
+				const lowerFloor = clamp((cal.noiseFloor || 1.6) * 2.5, 3.0, 10.0);
+				const tgt = Math.max(adaptReady ? lowerFloor : jerkThreshBase, m * 0.50 - sd * 0.35);
+				jerkThreshActive = adaptReady
+    				? Math.max(lowerFloor * 0.8, 0.80 * jerkThreshActive + 0.20 * tgt)
+    				: Math.max(jerkThreshBase * 0.8, tgt);
         if (!adaptReady) {
             adaptReady = true;
             if (strokesDetected >= 4) {
