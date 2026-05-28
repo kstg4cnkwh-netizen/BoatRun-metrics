@@ -612,9 +612,9 @@ const CONFIG = Object.freeze({
         acUpdateMs: 2000
     },
     stroke: {
-        periodMinMs: 1200,
+        periodMinMs: 1550,
         periodMaxMs: 6000,
-        refractoryMinMs: 1200,
+        refractoryMinMs: 1550,
         maxDriveMs: 2800,
         minDriveMs: 300,
         postDriveLockoutMs: 500,
@@ -1180,7 +1180,7 @@ function runFSM(now, fast, jerk) {
     if (!running || paused) { if (fsmState !== FS.IDLE) fsmState = FS.IDLE; return; }
     const tSinceCatch = now - lastCatchAbsT;
     const ref = strokeRate > 0
-        ? Math.max(CONFIG.stroke.refractoryMinMs, (60000 / Math.min(strokeRate + 2, CONFIG.stroke.spmMax)) * 0.65)
+        ? Math.max(CONFIG.stroke.refractoryMinMs, (60000 / Math.min(strokeRate + 2, CONFIG.stroke.spmMax)) * 0.82)
         : CONFIG.stroke.refractoryMinMs;
     switch (fsmState) {
         case FS.IDLE:
@@ -1422,7 +1422,7 @@ function computeOarAngleFullStroke(samples, driveCount, gpsStrokeDist) {
 function onStrokeFinish(now, driveDur) {
     if (driveDur < CONFIG.stroke.minDriveMs || driveDur > CONFIG.stroke.maxDriveMs) return;
     const catchSlope = Math.round(Math.abs(catchPeakJerk));
-    if (catchSlope < 2 || catchSlope < jerkThreshActive * 1.2) return;
+    if (catchSlope < 2 || catchSlope < jerkThreshBase * 1.5) return;
     const peakOffset = drivePeakAccT - driveStartT;
     const rawChar = driveDur > 0 ? clamp((peakOffset / driveDur) * 100, 0, 100) : 50;
     catchTsBuf.push(driveStartT);
@@ -1441,6 +1441,8 @@ function onStrokeFinish(now, driveDur) {
             // Steady rowing: trust FSM intervals, ignore acRate
             bl = 0.70 * medRate + 0.30 * strokeRate;
         }
+        // Rate-change limiter — cap at ±3.5 spm per stroke to dampen false-catch noise
+        if (strokeRate > 0) bl = Math.max(strokeRate - 3.5, Math.min(strokeRate + 3.5, bl));
         strokeRate = clamp(Math.round(bl * 2) / 2, CONFIG.stroke.spmMin, CONFIG.stroke.spmMax);
     }
     strokesDetected++;
