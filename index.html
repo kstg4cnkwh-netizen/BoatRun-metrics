@@ -1388,9 +1388,10 @@ function computeDriveImpulse(samples) {
 //
 // Drive distance = ∫v dt over drive portion only → angle = dist / outboard
 function computeOarAngleFullStroke(samples, driveCount, gpsStrokeDist) {
-    const OUTBOARD = 2.0;
-    const R2D      = 180 / Math.PI;
-    const n        = samples.length;
+    const OUTBOARD     = 2.0;
+    const R2D          = 180 / Math.PI;
+    const SLIP_FRACTION = 0.10;  // catch + finish + mid-drive slip, ~10% typical sculling
+    const n            = samples.length;
     if (n < 8 || driveCount < 2 || driveCount >= n) return null;
     if (gpsStrokeDist < 0.5 || gpsStrokeDist > 30)  return null;
 
@@ -1427,7 +1428,16 @@ function computeOarAngleFullStroke(samples, driveCount, gpsStrokeDist) {
     }
 
     if (driveDist <= 0.3 || driveDist > 15) return null;
-    return +((driveDist / OUTBOARD) * R2D).toFixed(1);
+
+    // Correct geometry: oar sweeps an arc, not a straight line.
+    // No-slip: boat_dist = L(sin θ_catch + sin θ_finish) = 2L sin(half_arc)
+    // → half_arc = arcsin(boat_dist / 2L), total arc = 2 × half_arc
+    // Slip correction: subtract ~10% of drive distance that represents
+    // catch spear-in (~80-150ms) and finish slide-out (~100-200ms) phases
+    // where the blade slips forward through the water without anchoring.
+    const effectiveDist = driveDist * (1 - SLIP_FRACTION);
+    const sinArg        = Math.min(effectiveDist / (2 * OUTBOARD), 0.9999);
+    return +(2 * Math.asin(sinArg) * R2D).toFixed(1);
 }
 
 function onStrokeFinish(now, driveDur) {
