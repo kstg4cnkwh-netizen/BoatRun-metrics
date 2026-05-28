@@ -1495,16 +1495,16 @@ function onStrokeFinish(now, driveDur) {
         }
     }
     // ── Oar arc angle ──────────────────────────────────────────────────────
-    // Computed in onNewCatch (next catch) where we have the full catch-to-catch
-    // IMU profile and exact GPS stroke distance for anchoring.
-    oarAngle = null;
+    // Computed in onNewCatch (next catch). Value persists on display until the
+    // next valid computation — only cleared on rest gap (boat stopped).
     const rateToLog = strokeRate;
     const intervalS = strokeTs.length >= 2 ? (strokeTs[strokeTs.length - 1] - strokeTs[strokeTs.length - 2]) / 1000 : 0;
     if (intervalS > CONFIG.stroke.restGapS) {
+        oarAngle = null;
         acBuf.length = 0; acConf = 0;
-        const seedT = catchTsBuf[catchTsBuf.length - 1];  // ← current stroke's timestamp
+        const seedT = catchTsBuf[catchTsBuf.length - 1];
         catchTsBuf.length = 0;
-        catchTsBuf.push(seedT);                            // ← seed for next piece
+        catchTsBuf.push(seedT);
         strokeRate = 0; catchToCatchSamples = []; pendingCurveDriveCount = 0;
     }
     if (intervalS > 0.8 && intervalS < 8 && prevStrokeDistT > 0) {
