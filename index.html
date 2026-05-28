@@ -720,12 +720,23 @@ function saveSess(a) {
     }
 }
 function addSess(s) {
-    try { const a = loadSess(); a.unshift(s); saveSess(a); } catch {}
-    if (DriveSync.isSignedIn()) {
+    let saved = false;
+    try {
+        const a = loadSess();
+        a.unshift(s);
+        saveSess(a);
+        // Verify the write actually landed
+        const check = loadSess();
+        if (check.length && check[0].id === s.id) saved = true;
+    } catch (e) {
+        saved = false;
+    }
+    if (saved && DriveSync.isSignedIn()) {
         DriveSync.upload(s)
             .then(() => { markSynced(s.id); updateDriveBtn(); toast('Saved to Drive'); })
-            .catch(e => { queuePending(s.id); toast('Saved locally'); });
+            .catch(() => { queuePending(s.id); });
     }
+    return saved;
 }
 function queuePending(id) {
     try {
@@ -2555,51 +2566,75 @@ function renderCtrl(){
   show('reset',!running&&elapsed>0&&!sessLocked);show('lock',running||(!running&&elapsed>0));
   document.getElementById('rec-ind').style.display=(running&&!paused)?'flex':'none';
 }
-function startSess(){
-  if(!sessStart)sessStart=Date.now();lapStartDist=distance;lapStartTime=elapsed;
-  running=true;paused=false;
-  timerInt=setInterval(()=>{elapsed++;wktCheckAuto();updateUI();updateWorkoutBar();},1000);
-  saveInProgress();autosaveInt=setInterval(saveInProgress,CONFIG.ui.autosaveMs);
-  requestAnimationFrame(renderCtrl);
+function startSess() {
+    if (running) return; // already running, don't stack intervals
+    clearInterval(timerInt); clearInterval(autosaveInt); // clean up any orphaned intervals
+    if (!sessStart) sessStart = Date.now();
+    lapStartDist = distance; lapStartTime = elapsed;
+    running = true; paused = false;
+    timerInt = setInterval(() => { elapsed++; wktCheckAuto(); updateUI(); updateWorkoutBar(); }, 1000);
+    saveInProgress(); autosaveInt = setInterval(saveInProgress, CONFIG.ui.autosaveMs);
+    requestAnimationFrame(renderCtrl);
 }
 function pauseSess(){paused=true;running=false;clearInterval(timerInt);requestAnimationFrame(renderCtrl);}
-function resumeSess(){
-  paused=false;running=true;paceDistWindow.length=0;velocityWindow.length=0;gpsSpeedEma=-1;speedSamples.length=0;
-  timerInt=setInterval(()=>{elapsed++;wktCheckAuto();updateUI();updateWorkoutBar();},1000);
-  requestAnimationFrame(renderCtrl);
+function resumeSess() {
+    if (running) return; // already running
+    clearInterval(timerInt); // clean up any orphaned interval
+    paused = false; running = true;
+    paceDistWindow.length = 0; velocityWindow.length = 0; gpsSpeedEma = -1; speedSamples.length = 0;
+    timerInt = setInterval(() => { elapsed++; wktCheckAuto(); updateUI(); updateWorkoutBar(); }, 1000);
+    requestAnimationFrame(renderCtrl);
 }
-function stopSess(){
-  running=false;paused=false;clearInterval(timerInt);clearInterval(autosaveInt);
-  if(wkt.active)wktEnd();
-  if(elapsed>10&&sessStrokes.length>0&&!sessSaved){
-    try{
-      const ap=sessPaceTrace.length>0?Math.round(sessPaceTrace.reduce((a,b)=>a+b,0)/sessPaceTrace.length):0;
-      const ar=sessStrokes.length>0?Math.round(sessStrokes.reduce((a,b)=>a+b.rate,0)/sessStrokes.length):0;
-      const maxRate=sessStrokes.reduce((m,s)=>s.rate>m?s.rate:m,0);
-      const avg=(arr,k)=>{const v=arr.map(x=>x[k]).filter(v=>v!=null&&!isNaN(v));return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;};
-      const ac=(()=>{const v=sessStrokes.map(x=>x.catchConsistency).filter(v=>v!=null&&!isNaN(v));return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null;})();
-      addSess({
-        id:Date.now().toString(),startTime:sessStart,endTime:Date.now(),duration:elapsed,
-        distance:Math.round(distance),avgPace:ap,avgRate:ar,maxRate,
-        catchPeakSess,catchAvg8,strokeCount,
-        avgRunLossM:avg(sessStrokes,'runLossM'),avgDPS:avg(sessStrokes,'dps'),
-        avgCatch:avg(sessStrokes,'catchPeak'),avgChar:avg(sessStrokes,'char'),
-        avgConsistency:ac,avgImpulse:avg(sessStrokes,'driveImpulse'),avgRdi:avg(sessStrokes,'rdi'),
-        avgRatio:avg(sessStrokes,'strokeRatio'),
-        strokes:sessStrokes.map(({_prlStroke,...r})=>r),
-        paceTrace:sessPaceTrace.slice(),gpsTrace:sessGpsTrace.slice(),
-        gpsRawTrace:sessGpsRawTrace.slice(),rlDebug:rlDebug.slice(),
-        hrTrace:null,laps:laps.slice(),
-        workoutLapMetrics:wkt.lapMetrics.length?wkt.lapMetrics.slice():null,
-        workoutName:wkt.def?.name||null,
-        calNoiseFloor:cal.noiseFloor,calThresh:cal.jerkThresh,detectedAxis:selAxis,
-        config:{rl:CONFIG.runLoss,gps:{alpha:CONFIG.gps.speedEmaAlpha,medN:CONFIG.gps.speedMedianN,spike:CONFIG.gps.spikeMarginMps}},
-      });
-      sessSaved=true;toast('Session saved');
-    }catch(e){toast('Save error');}
-    _LS.removeItem(AUTOSAVE_DB);
-  }
-  requestAnimationFrame(renderCtrl);
+function stopSess() {
+    if (!running && !paused) return;
+    running = false; paused = false;
+    clearInterval(timerInt); clearInterval(autosaveInt);
+    if (wkt.active) wktEnd();
+    if (elapsed > 10 && sessStrokes.length > 0 && !sessSaved) {
+        try {
+            const ap = sessPaceTrace.length > 0 ? Math.round(sessPaceTrace.reduce((a, b) => a + b, 0) / sessPaceTrace.length) : 0;
+            const ar = sessStrokes.length > 0 ? Math.round(sessStrokes.reduce((a, b) => a + b.rate, 0) / sessStrokes.length) : 0;
+            const maxRate = sessStrokes.reduce((m, s) => s.rate > m ? s.rate : m, 0);
+            const avg = (arr, k) => { const v = arr.map(x => x[k]).filter(v => v != null && !isNaN(v)); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+            const ac = (() => { const v = sessStrokes.map(x => x.catchConsistency).filter(v => v != null && !isNaN(v)); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; })();
+            const sessObj = {
+                id: Date.now().toString(), startTime: sessStart, endTime: Date.now(), duration: elapsed,
+                distance: Math.round(distance), avgPace: ap, avgRate: ar, maxRate,
+                catchPeakSess, catchAvg8, strokeCount,
+                avgRunLossM: avg(sessStrokes, 'runLossM'), avgDPS: avg(sessStrokes, 'dps'),
+                avgCatch: avg(sessStrokes, 'catchPeak'), avgChar: avg(sessStrokes, 'char'),
+                avgConsistency: ac, avgImpulse: avg(sessStrokes, 'driveImpulse'), avgRdi: avg(sessStrokes, 'rdi'),
+                avgRatio: avg(sessStrokes, 'strokeRatio'),
+                strokes: sessStrokes.map(({ _prlStroke, ...r }) => r),
+                paceTrace: sessPaceTrace.slice(), gpsTrace: sessGpsTrace.slice(),
+                gpsRawTrace: sessGpsRawTrace.slice(), rlDebug: rlDebug.slice(),
+                hrTrace: null, laps: laps.slice(),
+                workoutLapMetrics: wkt.lapMetrics.length ? wkt.lapMetrics.slice() : null,
+                workoutName: wkt.def?.name || null,
+                calNoiseFloor: cal.noiseFloor, calThresh: cal.jerkThresh, detectedAxis: selAxis,
+                config: { rl: CONFIG.runLoss, gps: { alpha: CONFIG.gps.speedEmaAlpha, medN: CONFIG.gps.speedMedianN, spike: CONFIG.gps.spikeMarginMps } },
+            };
+            const ok = addSess(sessObj);
+            if (ok) {
+                sessSaved = true;
+                _LS.removeItem(AUTOSAVE_DB);
+                toast('Session saved ✓ (' + sessStrokes.length + ' strokes)');
+            } else {
+                // Save failed — keep autosave in place so recovery is possible
+                toast('⚠️ Save failed — do NOT reset. Try stopping again.');
+                // Put the session back into autosave so checkAutosave can recover it on next open
+                try {
+                    const snap = { id: sessStart.toString(), startTime: sessStart, duration: elapsed, distance: Math.round(distance), strokeCount, catchPeakSess, catchAvg8, laps, strokes: sessStrokes, paceTrace: sessPaceTrace, gpsTrace: sessGpsTrace, _autosave: true, _savedAt: Date.now() };
+                    _LS.setItem(AUTOSAVE_DB, JSON.stringify(snap));
+                } catch {}
+            }
+        } catch (e) {
+            toast('⚠️ Save error — do NOT reset. Try stopping again.');
+        }
+    } else if (elapsed <= 10 || sessStrokes.length === 0) {
+        _LS.removeItem(AUTOSAVE_DB);
+    }
+    requestAnimationFrame(renderCtrl);
 }
 function resetSess(){
   sessLocked=false;
