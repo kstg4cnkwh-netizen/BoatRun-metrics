@@ -445,16 +445,16 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 </div>
 <div class="curve-tiles" id="curve-tiles">
 <div class="tile curve-tile" data-cw="0"><span class="tq" id="ct-0-q"></span><div class="tile-val-wrap"><div class="metric-val dim" id="ct-0-val">--</div><div class="sub-micro" id="ct-0-sub"></div><div class="tile-meta-row"><span class="tile-metric-name" id="ct-0-lbl">Stroke rate 
-\u9656 
+▶ 
 </span></div></div></div>
 <div class="tile curve-tile" data-cw="1"><span class="tq" id="ct-1-q"></span><div class="tile-val-wrap"><div class="metric-val dim" id="ct-1-val">--</div><div class="sub-micro" id="ct-1-sub"></div><div class="tile-meta-row"><span class="tile-metric-name" id="ct-1-lbl">Catch slope 
-\u9656 
+▶ 
 </span></div></div></div>
 <div class="tile curve-tile" data-cw="2"><span class="tq" id="ct-2-q"></span><div class="tile-val-wrap"><div class="metric-val dim" id="ct-2-val">--</div><div class="sub-micro" id="ct-2-sub"></div><div class="tile-meta-row"><span class="tile-metric-name" id="ct-2-lbl">Dist/stroke 
-\u9656 
+▶ 
 </span></div></div></div>
 <div class="tile curve-tile" data-cw="3"><span class="tq" id="ct-3-q"></span><div class="tile-val-wrap"><div class="metric-val dim" id="ct-3-val">--</div><div class="sub-micro" id="ct-3-sub"></div><div class="tile-meta-row"><span class="tile-metric-name" id="ct-3-lbl">Impulse 
-\u9656 
+▶ 
 </span></div></div></div>
 </div></div>
 <!-- Intervals panel (P3) -->
@@ -947,12 +947,8 @@ function updateDriveBtn() {
     const btn = document.getElementById('drive-btn');
     if (!btn) return;
     DriveSync.isSignedIn()
-        ? (btn.textContent = '
-\u9729 
-Linked', btn.classList.add('drive-linked'))
-        : (btn.textContent = '
-\u9729 
-Drive',  btn.classList.remove('drive-linked'));
+        ? (btn.textContent = '☁ Linked', btn.classList.add('drive-linked'))
+        : (btn.textContent = '☁ Drive',  btn.classList.remove('drive-linked'));
 }
 async function checkOAuthReturn() {
     let pending = window._scullOAuth || null;
@@ -1021,9 +1017,7 @@ function finishCalibration() {
     const at = clamp(nf * 1.5, 0.4, 2.0);
     cal = { done: true, noiseFloor: +nf.toFixed(3), jerkThresh: +jt.toFixed(2), accThresh: +at.toFixed(2), bestAxis: null };
     _LS.setItem(CAL_DB, JSON.stringify(cal));
-    document.getElementById('cal-status').textContent = 'Calibration complete 
-\u10003 
-';
+    document.getElementById('cal-status').textContent = 'Calibration complete ✓';
     document.getElementById('cal-result').textContent = `Noise ${nf.toFixed(2)} m/s²  ·  Jerk threshold ${jt.toFixed(1)} m/s³`;
     document.getElementById('p-cal').className = 'pill pill-on';
     jerkThreshBase = jerkThreshActive = cal.jerkThresh;
@@ -2265,11 +2259,7 @@ function toggleSessLock() {
     sessLocked = !sessLocked;
     const btn = document.getElementById('cc-lock');
     if (btn) {
-        btn.textContent = sessLocked ? '
-\u55357 \u56594 
-Unlock' : '
-\u55357 \u56595 
-Lock';
+        btn.textContent = sessLocked ? '🔒 Unlock' : '🔓 Lock';
         btn.style.background = sessLocked ? '#f39c12' : 'rgba(255,255,255,.18)';
         btn.style.color = sessLocked ? '#000' : '#fff';
     }
@@ -2355,9 +2345,7 @@ function updateCurveTiles() {
         const base = ve.className.replace(/\s?dim/g, '');
         ve.className = dim ? base + ' dim' : base;
         if (se) se.textContent = sub || '';
-        if (le) le.textContent = (CURVE_TILE_LABELS[key] || key) + ' 
-\u9656 
-';
+        if (le) le.textContent = (CURVE_TILE_LABELS[key] || key) + ' ▶ ';
         if (qe) setQEl(qe, qlabel || '', qcls || '');
     });
 }
@@ -2803,14 +2791,10 @@ function stopSess() {
             if (ok) {
                 sessSaved = true;
                 _LS.removeItem(AUTOSAVE_DB);
-                toast('Session saved 
-\u10003 
-(' + sessStrokes.length + ' strokes)');
+                toast('Session saved ✓ (' + sessStrokes.length + ' strokes)');
             } else {
                 // Save failed — keep autosave in place so recovery is possible
-                toast('
-\u9888 \u65039 
-Save failed — do NOT reset. Try stopping again.');
+                toast('⚠️ Save failed — do NOT reset. Try stopping again.');
                 // Put the session back into autosave so checkAutosave can recover it on next open
                 try {
                     const snap = { id: sessStart.toString(), startTime: sessStart, duration: elapsed, distance: Math.round(distance), strokeCount, catchPeakSess, catchAvg8, laps, strokes: sessStrokes, paceTrace: sessPaceTrace, gpsTrace: sessGpsTrace, _autosave: true, _savedAt: Date.now() };
@@ -2818,9 +2802,7 @@ Save failed — do NOT reset. Try stopping again.');
                 } catch {}
             }
         } catch (e) {
-            toast('
-\u9888 \u65039 
-Save error — do NOT reset. Try stopping again.');
+            toast('⚠️ Save error — do NOT reset. Try stopping again.');
         }
     } else if (elapsed <= 10 || sessStrokes.length === 0) {
         _LS.removeItem(AUTOSAVE_DB);
@@ -3402,9 +3384,7 @@ function stepRowHTML(s,i,arr,sel,isFirst,isLast,gi,si){
     // Start-when-rowing toggle (work and rest only)
     (s.type==='work'||s.type==='rest'
       ? '<button class="start-row-btn'+(s.startWhenRowing?' active':'')+'"'+
-        ' onclick="'+toggleFn+'" title="Start when rowing">
-\u9654 
-|</button>'
+        ' onclick="'+toggleFn+'" title="Start when rowing">▶|</button>'
       : ''
     )+
     // Reorder (top-level only)
