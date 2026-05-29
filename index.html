@@ -1113,9 +1113,7 @@ function maybeDetectAxis(now) {
 }
 
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
-// MOTION HANDLER — DeviceMotion event 
-\u8594 
-jerk, acBuf, FSM
+// MOTION HANDLER — DeviceMotion event → jerk, acBuf, FSM
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 const jerkBuf = [];
 let lastMotionT = 0, motionSamples = 0, motionStartedAt = 0;
@@ -1200,13 +1198,7 @@ function computeAutocorrelationRate(now) {
 }
 
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
-// STROKE FSM — IDLE 
-\u8594 
-CATCH 
-\u8594 
-DRIVE 
-\u8594 
-RECOVERY state machine
+// STROKE FSM — IDLE → CATCH → DRIVE → RECOVERY state machine
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 const FS = Object.freeze({ IDLE: 0, CATCH: 1, DRIVE: 2, RECOVERY: 3 });
 let fsmState = FS.IDLE,
@@ -1236,9 +1228,7 @@ function runFSM(now, fast, jerk) {
             const wasRecovery = (fsmState === FS.RECOVERY);
             if (jerk > jerkThreshActive && fast > accThreshBase && tSinceCatch > ref
                     && (now - lastDriveEndT) > CONFIG.stroke.postDriveLockoutMs) {
-                onNewCatch(now);                               // 
-\u8592 
-now passed in
+                onNewCatch(now);                               // ← now passed in
                 fsmState = FS.CATCH;
                 catchStartT = now; catchPeakJerk = jerk;
                 driveAccSamples = [{ t: now, v: fast }];
@@ -1431,13 +1421,9 @@ function computeDriveImpulse(samples) {
 //
 // GPS gives total stroke distance exactly:
 //   gpsStrokeDist = \u8747 v dt = vCatch × T + \u8747 \u916 V dt
-// 
-\u8594 
-vCatch = (gpsStrokeDist \u8722  \u8747 \u916 V dt) / T   (solved analytically)
+// → vCatch = (gpsStrokeDist − ∫ ΔV dt) / T   (solved analytically)
 //
-// Drive distance = \u8747 v dt over drive portion only 
-\u8594 
-angle = dist / outboard
+// Drive distance = ∫ v dt over drive portion only → angle = dist / outboard
 function computeOarAngleFullStroke(samples, driveCount, gpsStrokeDist) {
     const OUTBOARD     = 2.0;
     const R2D          = 180 / Math.PI;
@@ -1482,9 +1468,7 @@ function computeOarAngleFullStroke(samples, driveCount, gpsStrokeDist) {
 
     // Correct geometry: oar sweeps an arc, not a straight line.
     // No-slip: boat_dist = L(sin \u952 _catch + sin \u952 _finish) = 2L sin(half_arc)
-    // 
-\u8594 
-half_arc = arcsin(boat_dist / 2L), total arc = 2 × half_arc
+    // → half_arc = arcsin(boat_dist / 2L), total arc = 2 × half_arc
     // Slip correction: subtract ~10% of drive distance that represents
     // catch spear-in (~80-150ms) and finish slide-out (~100-200ms) phases
     // where the blade slips forward through the water without anchoring.
