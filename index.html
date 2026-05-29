@@ -2865,14 +2865,19 @@ document.getElementById('perm-btn').addEventListener('click',async()=>{
         document.getElementById('perm-note').innerHTML=
           '<strong style="color:#ffcc00">Motion access denied.</strong><br/>'+
           'iOS only allows one permission prompt per page load.<br/>'+
-          '<strong style="color:#fff">Please reload this page, then tap Enable Sensors and choose Allow.</strong><br/><br/>'+
           'Or: Settings &rarr; Safari &rarr; Motion &amp; Orientation Access';
+        const btn=document.getElementById('perm-btn');
+        btn.textContent='RELOAD PAGE';
+        btn.onclick=()=>location.reload();
         return;
       }
     }
     catch(e){
       document.getElementById('perm-note').innerHTML=
-        '<strong style="color:#ffcc00">Permission error — please reload the page and try again.</strong>';
+        '<strong style="color:#ffcc00">Permission error — please reload and try again.</strong>';
+      const btn=document.getElementById('perm-btn');
+      btn.textContent='RELOAD PAGE';
+      btn.onclick=()=>location.reload();
       return;
     }
   }
@@ -2908,7 +2913,6 @@ document.getElementById('perm-btn').addEventListener('click',async()=>{
     document.getElementById('cal-skip-btn').addEventListener('click',()=>{clearInterval(calTimer);calRunning=false;enterLive();},{once:true});
   }
 });
-
 function enterLive(){
   if(enterLive._done)return;enterLive._done=true;
   document.getElementById('screen-cal').classList.remove('active');
