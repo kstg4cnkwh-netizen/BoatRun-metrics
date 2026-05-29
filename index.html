@@ -2845,7 +2845,7 @@ SENSOR INIT
 */
 document.getElementById('perm-btn').addEventListener('click',async()=>{
   if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
-    try{const r=await DeviceMotionEvent.requestPermission();if(r!=='granted'){alert('Motion permission denied.\nSettings > Safari > Motion & Orientation Access');return;}}
+    try{const r=await DeviceMotionEvent.requestPermission();if(r!=='granted'){alert('Motion permission denied.\nTap "Enable Sensors" again, or go to Settings > Safari > Motion & Orientation Access');return;}}
     catch(e){alert('Permission error: '+e.message);return;}
   }
   window.addEventListener('devicemotion',handleMotion,{passive:true});
