@@ -1477,10 +1477,24 @@ function computeOarAngleFullStroke(samples, driveCount, gpsStrokeDist) {
     return +(2 * Math.asin(sinArg) * R2D).toFixed(1);
 }
 
+// Lines 1480–1572 — REPLACE the entire onStrokeFinish function
 function onStrokeFinish(now, driveDur) {
     if (driveDur < CONFIG.stroke.minDriveMs || driveDur > CONFIG.stroke.maxDriveMs) return;
     const catchSlope = Math.round(Math.abs(catchPeakJerk));
     if (catchSlope < 2 || catchSlope < jerkThreshBase * 1.5) return;
+
+    // ── Rest-gap reset: check BEFORE touching catchTsBuf or strokeRate ──────
+    // Use driveStartT vs lastCatchAbsT — this is the actual gap before THIS stroke.
+    const gapMs = lastCatchAbsT > 0 ? driveStartT - lastCatchAbsT : 0;
+    if (gapMs / 1000 > CONFIG.stroke.restGapS) {
+        oarAngle = null;
+        lastKnownPeriodMs = Math.max(lastKnownPeriodMs * 0.70, 1500);
+        acBuf.length = 0; acConf = 0;
+        catchTsBuf.length = 0;                // clear completely — seed happens below
+        strokeRate = 0; catchToCatchSamples = []; pendingCurveDriveCount = 0;
+    }
+    // ── End rest-gap reset ───────────────────────────────────────────────────
+
     const peakOffset = drivePeakAccT - driveStartT;
     const rawChar = driveDur > 0 ? clamp((peakOffset / driveDur) * 100, 0, 100) : 50;
     catchTsBuf.push(driveStartT);
@@ -1556,19 +1570,19 @@ function onStrokeFinish(now, driveDur) {
             }
         }
     }
-    // \u9472 \u9472  Oar arc angle \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 
+    // ── Oar arc angle ────────────────────────────────────────────────────────
     // Computed in onNewCatch (next catch). Value persists on display until the
     // next valid computation — only cleared on rest gap (boat stopped).
     const rateToLog = strokeRate;
-    const intervalS = strokeTs.length >= 2 ? (strokeTs[strokeTs.length - 1] - strokeTs[strokeTs.length - 2]) / 1000 : 0;
-    if (intervalS > CONFIG.stroke.restGapS) {
-        oarAngle = null;
-        lastKnownPeriodMs = Math.max(lastKnownPeriodMs * 0.70, 1500);
-        acBuf.length = 0; acConf = 0;
-        const seedT = catchTsBuf[catchTsBuf.length - 1];
-        catchTsBuf.length = 0;
-        catchTsBuf.push(seedT);
-        strokeRate = 0; catchToCatchSamples = []; pendingCurveDriveCount = 0;
+    // ── DPS (GPS only) ───────────────────────────────────────────────────────
+    const intervalS = gapMs / 1000;
+    if (intervalS > 0.8 && intervalS < 8 && prevStrokeDistT > 0) {
+        const dD = distance - prevStrokeDist;
+        if (dD > 0.5 && dD < 25) {
+            pushLimit(dpsValsArr, dD, CONFIG.stroke.dpsMedianN);
+            distPerStroke = Math.round((median(dpsValsArr) ?? dD) * 10) / 10;
+            if (distPerStroke > maxDPS) maxDPS = distPerStroke;
+        }
     }
     if (intervalS > 0.8 && intervalS < 8 && prevStrokeDistT > 0) {
         const dD = distance - prevStrokeDist;
