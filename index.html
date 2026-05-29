@@ -29,7 +29,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .cal-status{font-size:13px;color:rgba(255,255,255,.8);letter-spacing:.06em;min-height:1.4em;}
 .cal-result{font-size:11px;color:rgba(255,255,255,.5);line-height:1.8;min-height:3em;}
 
-/* ── LIVE SCREEN ── */
+/* \u9472 \u9472  LIVE SCREEN \u9472 \u9472  */
 #screen-live{flex-direction:column}
 .sbar{background:#f0f0f0;border-bottom:1px solid #ddd;display:flex;align-items:center;justify-content:space-between;padding:3px 10px;flex-shrink:0;min-height:28px;}
 .sbar-l{display:flex;align-items:center;gap:5px;flex:1;min-width:0;}
@@ -41,7 +41,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .recdot{width:7px;height:7px;border-radius:50%;background:#e74c3c;animation:blink 1s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
 
-/* ── WORKOUT STATUS BAR ── */
+/* \u9472 \u9472  WORKOUT STATUS BAR \u9472 \u9472  */
 .wkt-bar{background:#f5f5f5;border-bottom:2px solid #1a5276;display:none;align-items:center;gap:6px;padding:4px 8px;flex-shrink:0;min-height:34px;}
 .wkt-bar.wactive{display:flex;}
 .wkt-phase{font-size:11px;font-weight:700;letter-spacing:.12em;padding:3px 8px;border-radius:3px;flex-shrink:0;}
@@ -52,7 +52,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .wkt-ctrl-btn{background:rgba(0,0,0,.10);color:#333;border:none;font-family:"Roboto",sans-serif;font-size:9px;font-weight:700;letter-spacing:.08em;padding:4px 8px;border-radius:3px;cursor:pointer;touch-action:manipulation;flex-shrink:0;}
 .wkt-ctrl-btn.end{background:rgba(192,57,43,.15);color:#c0392b;}
 
-/* ── COUNTDOWN OVERLAY ── */
+/* \u9472 \u9472  COUNTDOWN OVERLAY \u9472 \u9472  */
 .countdown-overlay{position:absolute;inset:0;background:rgba(0,0,0,.78);display:none;align-items:center;justify-content:center;z-index:200;flex-direction:column;gap:12px;pointer-events:none;}
 .countdown-overlay.show{display:flex;}
 /* Lap split overlay */
@@ -73,11 +73,11 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .cdown-warmup{font-size:clamp(24px,7vw,64px);color:#5dade2;}
 .cdown-cooldown{font-size:clamp(24px,7vw,64px);color:#8e44ad;}
 
-/* ── LIVE BODY & GRID ── */
+/* \u9472 \u9472  LIVE BODY & GRID \u9472 \u9472  */
 .live-body{flex:1;min-height:0;min-width:0;display:flex;flex-direction:row;position:relative;}
 .tile-grid{flex:1;min-height:0;min-width:0;display:grid;gap:2px;background:#000;padding:2px;}
 
-/* ── TILE FONT SCALING (portrait baseline) ── */
+/* \u9472 \u9472  TILE FONT SCALING (portrait baseline) \u9472 \u9472  */
 .metric-val,.char-num{font-family:"Roboto Condensed",sans-serif;font-weight:700;line-height:1;color:#000;white-space:nowrap;overflow:hidden;max-width:100%;text-align:center;}
 .metric-val.dim,.char-num.dim{color:#ccc}
 
@@ -156,11 +156,11 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .wkt-tile-phase.warmup{background:#5dade2;color:#fff;}.wkt-tile-phase.work{background:#e67e22;color:#fff;}
 .wkt-tile-phase.rest{background:#f39c12;color:#000;}.wkt-tile-phase.cooldown{background:#8e44ad;color:#fff;}.wkt-tile-phase.done{background:#888;color:#fff;}.wkt-tile-phase.ready{background:#27ae60;color:#fff;}
 
-/* ── CONTROL COLUMN ── */
+/* \u9472 \u9472  CONTROL COLUMN \u9472 \u9472  */
 .ctrl-col{display:flex;flex-direction:column;gap:4px;background:#1a5276;flex-shrink:0;width:clamp(64px,9vw,96px);padding:5px;}
 .ctrl-col .btn{flex:1;width:100%;padding:0 2px;font-size:clamp(9px,1vw,12px);letter-spacing:.03em;}
 
-/* ── TABS — always at bottom, always horizontal (P4) ── */
+/* \u9472 \u9472  TABS — always at bottom, always horizontal (P4) \u9472 \u9472  */
 .tab-bar,#live-tabs{display:flex;flex-direction:row;background:#f0f0f0;flex-shrink:0;border-top:1px solid #ccc;padding-bottom:calc(env(safe-area-inset-bottom) + 2px);}
 @media(orientation:landscape){
 #live-tabs{flex-direction:column;border-top:none;border-left:1px solid #ccc;padding-bottom:0;padding-right:0;width:clamp(52px,7vw,68px);align-self:stretch;}
@@ -171,14 +171,14 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .tab.active{color:#000;border-top:2px solid #000}
 .tab-icon{font-size:14px;display:block;margin-bottom:1px}.tab-txt{font-size:7px;display:block;letter-spacing:.1em;}
 
-/* ── BUTTONS ── */
+/* \u9472 \u9472  BUTTONS \u9472 \u9472  */
 .btn{flex:1;border:none;border-radius:3px;font-family:"Roboto",sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;padding:clamp(8px,1.8dvh,16px) 4px;font-size:clamp(13px,1.9dvh,19px);line-height:1.1;touch-action:manipulation;-webkit-user-select:none;user-select:none;display:flex;align-items:center;justify-content:center;text-align:center}
 .btn-start{background:#27ae60;color:#fff}.btn-resume{background:#27ae60;color:#fff}
 .btn-stop{background:#c0392b;color:#fff}.btn-pause{background:#f39c12;color:#fff}
 .btn-lap{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3)}
 .btn-reset{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
 
-/* ── CURVE PANEL ── */
+/* \u9472 \u9472  CURVE PANEL \u9472 \u9472  */
 .curve-panel{flex:1;min-height:0;min-width:0;display:none;flex-direction:column;background:#f0f0f0;gap:2px;padding:2px;}
 .curve-panel.cpanel-active{display:flex;}
 .curve-canvas-wrap{flex:1;min-height:0;min-width:0;background:#fff;border-radius:2px;position:relative;overflow:hidden;}
@@ -196,7 +196,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .curve-tile .metric-val{font-size:clamp(22px,14dvh,60px);}
 }
 
-/* ── INTERVALS PANEL ── */
+/* \u9472 \u9472  INTERVALS PANEL \u9472 \u9472  */
 .intervals-panel{flex:1;min-height:0;min-width:0;display:none;flex-direction:column;background:#f0f0f0;overflow-y:auto;}
 .intervals-panel.ipanel-active{display:flex;}
 .intervals-hdr{background:#fff;padding:6px 10px;display:flex;align-items:center;gap:6px;flex-shrink:0;border-bottom:1px solid #ddd;}
@@ -213,7 +213,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .int-badge-sm.cooldown{background:#8e44ad;color:#fff;}
 .no-workout-msg{color:#aaa;font-size:12px;text-align:center;padding:40px 20px;}
 
-/* ── PORTRAIT OVERRIDES ── */
+/* \u9472 \u9472  PORTRAIT OVERRIDES \u9472 \u9472  */
 @media(orientation:portrait){
 .live-body{flex-direction:column;}
 .ctrl-col{display:flex;flex-direction:row;width:100%;height:76px;gap:4px;padding:5px;flex-shrink:0;}
@@ -224,7 +224,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .curve-tile{flex:none;}
 }
 
-/* ── ANALYSIS / HOME SHARED STYLES ── */
+/* \u9472 \u9472  ANALYSIS / HOME SHARED STYLES \u9472 \u9472  */
 .ahdr{background:#f0f0f0;padding:6px 12px;flex-shrink:0;display:flex;align-items:center;gap:8px;border-bottom:1px solid #ddd;}
 .ahdr-title{font-size:10px;letter-spacing:.2em;color:#555;font-weight:700;flex:1}
 .drive-btn{background:#fff;color:#555;border:1px solid #ccc;font-family:"Roboto",sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;padding:7px 11px;border-radius:4px;cursor:pointer;text-transform:uppercase;touch-action:manipulation;min-height:32px;}
@@ -269,7 +269,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1a5276;color:#fff;padding:7px 18px;border-radius:18px;font-size:11px;letter-spacing:.08em;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:nowrap;}
 .toast.show{opacity:1}
 
-/* ── HOME SCREEN (was SETUP) ── */
+/* \u9472 \u9472  HOME SCREEN (was SETUP) \u9472 \u9472  */
 #screen-home{flex-direction:column;background:#efefef;}
 .home-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .home-panel{display:none;padding:10px;}.home-panel.active{display:block;}
@@ -311,7 +311,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .mpick-btn{padding:9px 4px;border-radius:4px;border:1px solid #e0e0e0;background:#fff;font-family:"Roboto",sans-serif;font-size:10px;font-weight:700;letter-spacing:.04em;cursor:pointer;text-align:center;color:#333;line-height:1.3;touch-action:manipulation;}
 .mpick-btn:active{background:#f0f7ff;border-color:#1a5276;}.mpick-btn.sel{background:#1a5276;color:#fff;border-color:#1a5276;}.mpick-btn.empty-m{color:#bbb;border-style:dashed;}
 
-/* ── WORKOUT BUILDER (P2) ── */
+/* \u9472 \u9472  WORKOUT BUILDER (P2) \u9472 \u9472  */
 .wkt-card{background:#fff;border-radius:4px;margin-bottom:6px;border-left:4px solid #f39c12;box-shadow:0 1px 3px rgba(0,0,0,.07);overflow:hidden;}
 .wkc-header{display:flex;align-items:center;padding:10px 12px;cursor:pointer;gap:8px;user-select:none;}
 .wkc-name{font-size:13px;font-weight:700;color:#000;flex:1;}
@@ -444,10 +444,18 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div class="curve-legend"><div class="curve-leg-item"><div class="curve-leg-dot" style="background:#0077cc"></div>LAST</div><div class="curve-leg-item"><div class="curve-leg-dot" style="background:#e07b00"></div>AVG 5</div></div>
 </div>
 <div class="curve-tiles" id="curve-tiles">
-<div class="tile curve-tile" data-cw="0"><span class="tq" id="ct-0-q"></span><div class="tile-val-wrap"><div class="metric-val dim" id="ct-0-val">--</div><div class="sub-micro" id="ct-0-sub"></div><div class="tile-meta-row"><span class="tile-metric-name" id="ct-0-lbl">Stroke rate ▸</span></div></div></div>
-<div class="tile curve-tile" data-cw="1"><span class="tq" id="ct-1-q"></span><div class="tile-val-wrap"><div class="metric-val dim" id="ct-1-val">--</div><div class="sub-micro" id="ct-1-sub"></div><div class="tile-meta-row"><span class="tile-metric-name" id="ct-1-lbl">Catch slope ▸</span></div></div></div>
-<div class="tile curve-tile" data-cw="2"><span class="tq" id="ct-2-q"></span><div class="tile-val-wrap"><div class="metric-val dim" id="ct-2-val">--</div><div class="sub-micro" id="ct-2-sub"></div><div class="tile-meta-row"><span class="tile-metric-name" id="ct-2-lbl">Dist/stroke ▸</span></div></div></div>
-<div class="tile curve-tile" data-cw="3"><span class="tq" id="ct-3-q"></span><div class="tile-val-wrap"><div class="metric-val dim" id="ct-3-val">--</div><div class="sub-micro" id="ct-3-sub"></div><div class="tile-meta-row"><span class="tile-metric-name" id="ct-3-lbl">Impulse ▸</span></div></div></div>
+<div class="tile curve-tile" data-cw="0"><span class="tq" id="ct-0-q"></span><div class="tile-val-wrap"><div class="metric-val dim" id="ct-0-val">--</div><div class="sub-micro" id="ct-0-sub"></div><div class="tile-meta-row"><span class="tile-metric-name" id="ct-0-lbl">Stroke rate 
+\u9656 
+</span></div></div></div>
+<div class="tile curve-tile" data-cw="1"><span class="tq" id="ct-1-q"></span><div class="tile-val-wrap"><div class="metric-val dim" id="ct-1-val">--</div><div class="sub-micro" id="ct-1-sub"></div><div class="tile-meta-row"><span class="tile-metric-name" id="ct-1-lbl">Catch slope 
+\u9656 
+</span></div></div></div>
+<div class="tile curve-tile" data-cw="2"><span class="tq" id="ct-2-q"></span><div class="tile-val-wrap"><div class="metric-val dim" id="ct-2-val">--</div><div class="sub-micro" id="ct-2-sub"></div><div class="tile-meta-row"><span class="tile-metric-name" id="ct-2-lbl">Dist/stroke 
+\u9656 
+</span></div></div></div>
+<div class="tile curve-tile" data-cw="3"><span class="tq" id="ct-3-q"></span><div class="tile-val-wrap"><div class="metric-val dim" id="ct-3-val">--</div><div class="sub-micro" id="ct-3-sub"></div><div class="tile-meta-row"><span class="tile-metric-name" id="ct-3-lbl">Impulse 
+\u9656 
+</span></div></div></div>
 </div></div>
 <!-- Intervals panel (P3) -->
 <div class="intervals-panel" id="intervals-panel">
@@ -521,7 +529,9 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <button class="add-step-btn cooldown" id="btn-add-cooldown">+ COOLDOWN</button>
 <button class="add-step-btn repeats" id="btn-add-repeats">&#x21BB; REPEATS</button>
 </div>
-<div style="font-size:10px;color:#999;padding:6px 2px 0;line-height:1.5;">▶| only start the interval when rowing — tap on any work or rest step to enable. Requires two strokes ≥ 12 spm to trigger.</div>
+<div style="font-size:10px;color:#999;padding:6px 2px 0;line-height:1.5;">
+\u9654 
+| only start the interval when rowing — tap on any work or rest step to enable. Requires two strokes \u8805  12 spm to trigger.</div>
 </div>
 <div style="display:flex;gap:6px;margin-top:6px;">
 <button class="wkt-btn save" style="flex:2;" id="save-wkt-btn">SAVE WORKOUT</button>
@@ -545,7 +555,19 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div class="modal-overlay" id="metric-picker" style="display:none;">
 <div class="modal-card">
 <div class="modal-header"><span class="modal-title">ASSIGN METRIC &#8212; <span id="mpick-slot-label"></span></span><button class="modal-close" id="mpick-close">&#x2715;</button></div>
-<div class="modal-body"><div class="metric-picker-grid" id="mpick-grid"></div><div style="font-size:10px;color:#888;padding:10px 4px 2px;line-height:1.6;border-top:1px solid #f0f0f0;margin-top:8px;"><strong>Selectable</strong> cycles on tap: TOD → Total Time → Lap Time → Total Dist → Lap Dist → Avg Pace → Lap Pace. Setting persists between sessions.</div></div>
+<div class="modal-body"><div class="metric-picker-grid" id="mpick-grid"></div><div style="font-size:10px;color:#888;padding:10px 4px 2px;line-height:1.6;border-top:1px solid #f0f0f0;margin-top:8px;"><strong>Selectable</strong> cycles on tap: TOD 
+\u8594 
+Total Time 
+\u8594 
+Lap Time 
+\u8594 
+Total Dist 
+\u8594 
+Lap Dist 
+\u8594 
+Avg Pace 
+\u8594 
+Lap Pace. Setting persists between sessions.</div></div>
 </div>
 </div>
 
@@ -555,9 +577,9 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <script>
 'use strict';
 
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // STORAGE SHIMS — localStorage and sessionStorage with in-memory fallback
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 const _LS = (() => {
     const m = {};
     const fake = {
@@ -585,9 +607,9 @@ const _SS = (() => {
     catch { return fake; }
 })();
 
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // CONFIGURATION — all tuning constants frozen at startup
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 const CONFIG = Object.freeze({
     gps: {
         maxAccuracyM: 25,
@@ -635,9 +657,9 @@ const CONFIG = Object.freeze({
     }
 });
 
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // UTILITY — math, formatting, DOM helpers
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 function median(arr) {
     const a = arr.filter(Number.isFinite).slice().sort((a, b) => a - b);
@@ -685,9 +707,9 @@ function toast(m) {
     setTimeout(() => t.classList.remove('show'), 2200);
 }
 
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // SESSION PERSISTENCE — localStorage CRUD for session records
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 const DB = 'scull_v3', AUTOSAVE_DB = 'scull_autosave',
       SYNCED_DB = 'scull_drive_synced', PENDING_KEY = 'scull_drive_pending';
 const loadSess   = () => { try { return JSON.parse(_LS.getItem(DB) || '[]'); } catch { return []; } };
@@ -759,9 +781,9 @@ async function flushQueue() {
     } catch (e) { toast('Sync failed'); }
 }
 
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // DRIVE SYNC — Google Drive appDataFolder upload / download
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 function formatSessionFilename(sessionId) {
     const d = new Date(parseInt(sessionId));
     return `RowSess_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}_${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}.json`;
@@ -876,9 +898,9 @@ const DriveSync = (() => {
     };
 })();
 
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // OAUTH — Google sign-in flow (popup + redirect fallback)
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 const DRIVE_CLIENT_ID = '729480414852-kko8e7bi3r38tcg2rf6iiupptagoegpc.apps.googleusercontent.com';
 const DRIVE_SCOPE     = 'https://www.googleapis.com/auth/drive.appdata';
 const OAUTH_REDIRECT  = 'https://kstg4cnkwh-netizen.github.io/Scull-metrics/';
@@ -925,8 +947,12 @@ function updateDriveBtn() {
     const btn = document.getElementById('drive-btn');
     if (!btn) return;
     DriveSync.isSignedIn()
-        ? (btn.textContent = '☁ Linked', btn.classList.add('drive-linked'))
-        : (btn.textContent = '☁ Drive',  btn.classList.remove('drive-linked'));
+        ? (btn.textContent = '
+\u9729 
+Linked', btn.classList.add('drive-linked'))
+        : (btn.textContent = '
+\u9729 
+Drive',  btn.classList.remove('drive-linked'));
 }
 async function checkOAuthReturn() {
     let pending = window._scullOAuth || null;
@@ -953,9 +979,9 @@ async function checkOAuthReturn() {
     } catch (e) { toast('Drive auth failed'); return false; }
 }
 
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // CALIBRATION — noise floor measurement and threshold derivation
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 const CAL_DB = 'scull_cal_v2';
 let cal = { done: false, noiseFloor: 2.0, jerkThresh: 8.0, accThresh: 0.8, bestAxis: null };
 (() => {
@@ -995,7 +1021,9 @@ function finishCalibration() {
     const at = clamp(nf * 1.5, 0.4, 2.0);
     cal = { done: true, noiseFloor: +nf.toFixed(3), jerkThresh: +jt.toFixed(2), accThresh: +at.toFixed(2), bestAxis: null };
     _LS.setItem(CAL_DB, JSON.stringify(cal));
-    document.getElementById('cal-status').textContent = 'Calibration complete ✓';
+    document.getElementById('cal-status').textContent = 'Calibration complete 
+\u10003 
+';
     document.getElementById('cal-result').textContent = `Noise ${nf.toFixed(2)} m/s²  ·  Jerk threshold ${jt.toFixed(1)} m/s³`;
     document.getElementById('p-cal').className = 'pill pill-on';
     jerkThreshBase = jerkThreshActive = cal.jerkThresh;
@@ -1021,9 +1049,9 @@ function enterLive() {
     updateUI();
 }
 
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // AXIS SELECTION — per-axis autocorrelation scoring & lock
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 const AXES = ['x', 'y', 'z'];
 let selAxis = 'x', axisLocked = false, axisAutoDetected = false, lastAxisCheck = 0;
 const gravity = { x: 0, y: 0, z: 0 };
@@ -1090,9 +1118,11 @@ function maybeDetectAxis(now) {
     p.className = axisAutoDetected ? (axisLocked ? 'pill pill-on' : 'pill pill-warn') : 'pill pill-off';
 }
 
-// ═══════════════════════════════════════════════════════════
-// MOTION HANDLER — DeviceMotion event → jerk, acBuf, FSM
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
+// MOTION HANDLER — DeviceMotion event 
+\u8594 
+jerk, acBuf, FSM
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 const jerkBuf = [];
 let lastMotionT = 0, motionSamples = 0, motionStartedAt = 0;
 function handleMotion(e) {
@@ -1125,9 +1155,9 @@ function handleMotion(e) {
     runFSM(now, fast, jerk);
 }
 
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // AUTOCORRELATION RATE — background SPM estimate from acBuf
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 const acBuf = [];
 let acLastUpdate = 0, acRate = 0, acConf = 0;
 function computeAutocorrelationRate(now) {
@@ -1175,9 +1205,15 @@ function computeAutocorrelationRate(now) {
     }
 }
 
-// ═══════════════════════════════════════════════════════════
-// STROKE FSM — IDLE → CATCH → DRIVE → RECOVERY state machine
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
+// STROKE FSM — IDLE 
+\u8594 
+CATCH 
+\u8594 
+DRIVE 
+\u8594 
+RECOVERY state machine
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 const FS = Object.freeze({ IDLE: 0, CATCH: 1, DRIVE: 2, RECOVERY: 3 });
 let fsmState = FS.IDLE,
     catchStartT = 0, catchPeakJerk = 0,
@@ -1206,7 +1242,9 @@ function runFSM(now, fast, jerk) {
             const wasRecovery = (fsmState === FS.RECOVERY);
             if (jerk > jerkThreshActive && fast > accThreshBase && tSinceCatch > ref
                     && (now - lastDriveEndT) > CONFIG.stroke.postDriveLockoutMs) {
-                onNewCatch(now);                               // ← now passed in
+                onNewCatch(now);                               // 
+\u8592 
+now passed in
                 fsmState = FS.CATCH;
                 catchStartT = now; catchPeakJerk = jerk;
                 driveAccSamples = [{ t: now, v: fast }];
@@ -1255,9 +1293,9 @@ function runFSM(now, fast, jerk) {
     }
 }
 
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // STROKE CURVE — catch-to-catch sample normalisation & history
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 const CURVE_POINTS = 80;
 let lastStrokeCurve = null;
 const strokeCurveHistory = [];
@@ -1298,7 +1336,7 @@ function onNewCatch(now) {
         }
     }
     imuRL = null;
-    // ── Oar angle: full catch-to-catch integration anchored to GPS stroke dist
+    // \u9472 \u9472  Oar angle: full catch-to-catch integration anchored to GPS stroke dist
     {
         const strokeGpsDist = distance - catchGpsDist;
         if (pendingOarStrokeIdx >= 0 &&
@@ -1347,9 +1385,9 @@ function onNewCatch(now) {
     pendingCurveDriveCount = 0;
 }
 
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // STROKE METRICS — rate, catch slope, DPS, RDI, impulse
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 let strokeRate = 0, strokeCount = 0, strokesDetected = 0;
 let catchValsArr = [], catchLast = null, catchPeakSess = null, catchAvg8 = null, catchConsistency = null;
 let charValsArr = [], strokeChar = 50;
@@ -1390,18 +1428,22 @@ function computeDriveImpulse(samples) {
     }
     return imp > 0 ? +imp.toFixed(4) : null;
 }
-// ── Oar arc angle — full catch-to-catch IMU integration ───────────────────
+// \u9472 \u9472  Oar arc angle — full catch-to-catch IMU integration \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 
 // Uses catchToCatchSamples (axSmooth, full stroke) + GPS stroke distance as
 // an exact anchor, eliminating GPS-speed-lag bias.
 //
-// The velocity profile is:  v(t) = vCatch + ΔV(t)
-// where ΔV(t) = ∫a dt from catch.
+// The velocity profile is:  v(t) = vCatch + \u916 V(t)
+// where \u916 V(t) = \u8747 a dt from catch.
 //
 // GPS gives total stroke distance exactly:
-//   gpsStrokeDist = ∫v dt = vCatch × T + ∫ΔV dt
-// → vCatch = (gpsStrokeDist − ∫ΔV dt) / T   (solved analytically)
+//   gpsStrokeDist = \u8747 v dt = vCatch × T + \u8747 \u916 V dt
+// 
+\u8594 
+vCatch = (gpsStrokeDist \u8722  \u8747 \u916 V dt) / T   (solved analytically)
 //
-// Drive distance = ∫v dt over drive portion only → angle = dist / outboard
+// Drive distance = \u8747 v dt over drive portion only 
+\u8594 
+angle = dist / outboard
 function computeOarAngleFullStroke(samples, driveCount, gpsStrokeDist) {
     const OUTBOARD     = 2.0;
     const R2D          = 180 / Math.PI;
@@ -1410,7 +1452,7 @@ function computeOarAngleFullStroke(samples, driveCount, gpsStrokeDist) {
     if (n < 8 || driveCount < 2 || driveCount >= n) return null;
     if (gpsStrokeDist < 0.5 || gpsStrokeDist > 30)  return null;
 
-    // Pass 1 — cumulative ΔV from catch (sample 0)
+    // Pass 1 — cumulative \u916 V from catch (sample 0)
     const cumulDV = new Array(n).fill(0);
     for (let i = 1; i < n; i++) {
         const dt = (samples[i].t - samples[i - 1].t) / 1000;
@@ -1422,7 +1464,7 @@ function computeOarAngleFullStroke(samples, driveCount, gpsStrokeDist) {
     const T = (samples[n - 1].t - samples[0].t) / 1000;
     if (T < 0.8 || T > 8) return null;
 
-    // ∫ΔV dt over full stroke — the "shape" contribution to distance
+    // \u8747 \u916 V dt over full stroke — the "shape" contribution to distance
     let intDVFull = 0;
     for (let i = 1; i < n; i++) {
         const dt = (samples[i].t - samples[i - 1].t) / 1000;
@@ -1445,8 +1487,10 @@ function computeOarAngleFullStroke(samples, driveCount, gpsStrokeDist) {
     if (driveDist <= 0.3 || driveDist > 15) return null;
 
     // Correct geometry: oar sweeps an arc, not a straight line.
-    // No-slip: boat_dist = L(sin θ_catch + sin θ_finish) = 2L sin(half_arc)
-    // → half_arc = arcsin(boat_dist / 2L), total arc = 2 × half_arc
+    // No-slip: boat_dist = L(sin \u952 _catch + sin \u952 _finish) = 2L sin(half_arc)
+    // 
+\u8594 
+half_arc = arcsin(boat_dist / 2L), total arc = 2 × half_arc
     // Slip correction: subtract ~10% of drive distance that represents
     // catch spear-in (~80-150ms) and finish slide-out (~100-200ms) phases
     // where the blade slips forward through the water without anchoring.
@@ -1534,7 +1578,7 @@ function onStrokeFinish(now, driveDur) {
             }
         }
     }
-    // ── Oar arc angle ──────────────────────────────────────────────────────
+    // \u9472 \u9472  Oar arc angle \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 
     // Computed in onNewCatch (next catch). Value persists on display until the
     // next valid computation — only cleared on rest gap (boat stopped).
     const rateToLog = strokeRate;
@@ -1612,7 +1656,7 @@ function onStrokeFinish(now, driveDur) {
     }
 }
 
-    // ── Oar arc angle ──────────────────────────────────────────────────────
+    // \u9472 \u9472  Oar arc angle \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 
     // Computed in onNewCatch (next catch). Value persists on display until the
     // next valid computation — only cleared on rest gap (boat stopped).
     const rateToLog = strokeRate;
@@ -1651,7 +1695,7 @@ function onStrokeFinish(now, driveDur) {
     imuRL = {
         startAt:    now + CONFIG.runLoss.startAfterDriveMs,
         v0:         gpsSpeedEma > 0.3 ? gpsSpeedEma : null,  // GPS anchor (absolute speed)
-        deltaV:     0,       // cumulative ∫fast dt during recovery (m/s, goes negative)
+        deltaV:     0,       // cumulative \u8747 fast dt during recovery (m/s, goes negative)
         minDeltaV:  0,       // most-negative value seen = peak speed drop
         lastT:      -1,      // -1 = window not yet open
         nSamples:   0,
@@ -1683,16 +1727,16 @@ function onStrokeFinish(now, driveDur) {
     pendingOarStrokeIdx = sessStrokes.length - 1;
     pendingCurveDriveCount = catchToCatchSamples.length;
     updateUI();
-    // startWhenRowing gate: require 2 consecutive strokes ≥12 spm before starting the step
+    // startWhenRowing gate: require 2 consecutive strokes \u8805 12 spm before starting the step
     if (wkt.active && running && !paused && wkt.waitingForRow) {
         if (strokeRate >= 12) { wkt.waitStrokeCount++; } else { wkt.waitStrokeCount = 0; }
         if (wkt.waitStrokeCount >= 2) wktBeginStep();
     }
 }
 
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // GPS HANDLER — speed EMA, pace window, haversine distance
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 let pace = 0, gpsAccuracyM = null, gpsSpeedEma = -1, gpsLastValidT = 0, gpsWasStopped = false;
 const speedSamples = [], paceDistWindow = [], velocityWindow = [];
 let lastPos = null;
@@ -1816,20 +1860,27 @@ function handlePos(pos) {
 function handleGpsErr(err) {
     const p = document.getElementById('p-gps');
     p.className = 'pill pill-err';
-    p.textContent = err.code === 1 ? 'GPS DENIED' : 'GPS ERR';
+    const isDenied = err.code === 1;
+    p.textContent = isDenied ? 'GPS DENIED' : 'GPS ERR';
+    // Alert user prominently if session is running
+    if (running) {
+        toast(isDenied ? '⚠️ GPS DENIED — no pace data being recorded' : '⚠️ GPS error — pace data lost');
+    }
+    gpsLastValidT = 0; // suppress stale pace
+    pace = 0;
 }
 
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // SESSION STATE — running, paused, elapsed, laps, autosave
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 let running = false, paused = false, elapsed = 0;
 let distance = 0, lapStartDist = 0, lapStartTime = 0;
 let laps = [], sessStart = null, sessStrokes = [], sessPaceTrace = [];
 let sessSaved = false, timerInt = null, autosaveInt = null, wakeLock = null, sessLocked = false;
 
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // METRIC & LAYOUT DEFINITIONS — tile catalogue, profile schemas
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 const METRIC_DEFS = {
     pace:         { label: 'Pace / 500m',    short: 'Pace',        primary: true,  bar: null },
     rate:         { label: 'Stroke Rate',    short: 'Rate',        primary: true,  bar: null },
@@ -1854,7 +1905,7 @@ const METRIC_DEFS = {
     lastlapdist:  { label: 'Last Lap Dist',  short: 'Last Lap D',  primary: false, bar: null, hidden: true },
     lastlappace:  { label: 'Last Lap Pace',  short: 'Last Lap P',  primary: false, bar: null, hidden: true },
 };
-// ── SELECTABLE TILE ──────────────────────────────────────────
+// \u9472 \u9472  SELECTABLE TILE \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 
 const SEL_CYCLE  = ['tod','totaltime','laptime','totaldist','lapdist','avgpace','lappace'];
 const SEL_LABELS = {
     tod:'Time of Day', totaltime:'Total Time', laptime:'Lap Time',
@@ -1870,7 +1921,7 @@ function cycleSelectable(i) {
     try { _LS.setItem(SEL_KEY, JSON.stringify(selectableStates)); } catch {}
     updateUI();
 }
-// ─────────────────────────────────────────────────────────────
+// \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 
 const LAYOUT_DEFS = {
     landscape: [
         { id: '3x3', cols: 3, rows: 3, label: '3×3' },
@@ -1888,9 +1939,9 @@ const LAYOUT_DEFS = {
     ]
 };
 
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // PROFILES — load / save named display profiles
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 const PROFILES_KEY = 'scull_profiles_v1', ACTIVE_PROFILE_KEY = 'scull_active_profile';
 const DEFAULT_PROFILES = [
     {
@@ -1941,9 +1992,9 @@ function getCurrentCells() {
     return out.slice(0, n);
 }
 
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // TILE RENDERING — HTML generation, metric slot updates
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 function buildTileHTML(i, key) {
     const def = METRIC_DEFS[key] || METRIC_DEFS.empty;
     let inner = '';
@@ -2214,16 +2265,20 @@ function toggleSessLock() {
     sessLocked = !sessLocked;
     const btn = document.getElementById('cc-lock');
     if (btn) {
-        btn.textContent = sessLocked ? '🔒 Unlock' : '🔓 Lock';
+        btn.textContent = sessLocked ? '
+\u55357 \u56594 
+Unlock' : '
+\u55357 \u56595 
+Lock';
         btn.style.background = sessLocked ? '#f39c12' : 'rgba(255,255,255,.18)';
         btn.style.color = sessLocked ? '#000' : '#fff';
     }
     renderCtrl();
 }
 
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // CURVE TAB — tile cycling, value readout, sub-tab state
-// ═══════════════════════════════════════════════════════════
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 const CURVE_TILE_OPTIONS = ['stroke-rate','catch-slope','dps','impulse','run-loss','char','pace'];
 const CURVE_TILE_LABELS  = { 'stroke-rate':'Stroke rate','catch-slope':'Catch slope','dps':'Dist/stroke','impulse':'Impulse','run-loss':'Run loss','char':'Char %','pace':'Pace' };
 const CURVE_TILE_SUBS    = { 'stroke-rate':'','catch-slope':'','dps':'','impulse':'','run-loss':'','char':'','pace':'' };
@@ -2300,7 +2355,9 @@ function updateCurveTiles() {
         const base = ve.className.replace(/\s?dim/g, '');
         ve.className = dim ? base + ' dim' : base;
         if (se) se.textContent = sub || '';
-        if (le) le.textContent = (CURVE_TILE_LABELS[key] || key) + ' ▸';
+        if (le) le.textContent = (CURVE_TILE_LABELS[key] || key) + ' 
+\u9656 
+';
         if (qe) setQEl(qe, qlabel || '', qcls || '');
     });
 }
@@ -2337,7 +2394,11 @@ function setActiveSubTab(tab) {
     }
 }
 
-/* ══ CURVE CANVAS ══ */
+/* 
+¨T¨T
+CURVE CANVAS 
+¨T¨T
+*/
 function renderCurveCanvas(){
   const canvas=document.getElementById('curve-canvas');if(!canvas)return;
   const wrap=canvas.parentElement,W=wrap.clientWidth,H=wrap.clientHeight;if(!W||!H)return;
@@ -2376,14 +2437,17 @@ function renderCurveCanvas(){
   ctx.fillStyle='rgba(0,0,0,0.40)';ctx.textAlign='center';ctx.fillText('acc.x m/s^2 catch-to-catch',W/2,padT-4);
 }
 
-/* ══════════════════════════════════════════════════
-   WORKOUT SYSTEM v2 (P2)
+/* 
+¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
+WORKOUT SYSTEM v2 (P2)
    Step types: warmup, work, rest, cooldown
    Repeat groups: group of steps that repeats N times
    Workout definition stored as flat steps array plus
    optional repeat_groups for display.
    Runtime: flatten steps into a sequence at start.
-══════════════════════════════════════════════════ */
+
+¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
+*/
 const WORKOUT_KEY='scull_workouts_v2';
 const DEFAULT_WORKOUTS=[
   {id:'default_race1000',name:'Race 1000m',steps:[
@@ -2439,7 +2503,7 @@ let wkt={
   lapMetrics:[],     // collected per-step
   countdownActive:false,
   waitingForRow:false,  // startWhenRowing gate active
-  waitStrokeCount:0,    // gate: strokes ≥12spm seen
+  waitStrokeCount:0,    // gate: strokes \u8805 12spm seen
   fromRestCountdown:false, // true during rest end 3-2-1, clears on work entry
 };
 
@@ -2620,7 +2684,11 @@ function wireWorkoutBar(){
   document.getElementById('wkt-end-btn')?.addEventListener('click',()=>{if(wkt.active&&confirm('End workout?'))wktEnd();});
 }
 
-/* ══ COUNTDOWN OVERLAY (P2) ══ */
+/* 
+¨T¨T
+COUNTDOWN OVERLAY (P2) 
+¨T¨T
+*/
 let _cdownTimer=null;
 function showCountdownOverlay(mode,seconds,step,restSecs){
   const ov=document.getElementById('countdown-overlay');
@@ -2665,7 +2733,11 @@ function hideCountdownOverlay(){
   const ov=document.getElementById('countdown-overlay');if(ov)ov.classList.remove('show');
 }
 
-/* ══ SESSION CONTROLS ══ */
+/* 
+¨T¨T
+SESSION CONTROLS 
+¨T¨T
+*/
 function renderCtrl(){
   const show=(id,vis)=>{const el=document.getElementById('cc-'+id);if(el)el.style.display=vis?'flex':'none';};
   const sr=!running&&!paused,rv=!running&&paused&&elapsed>0;
@@ -2676,6 +2748,11 @@ function renderCtrl(){
 }
 function startSess() {
     if (running) return; // already running, don't stack intervals
+    // Warn if GPS is not active at session start
+    const gpsPill = document.getElementById('p-gps');
+    if (gpsPill && (gpsPill.classList.contains('pill-err') || gpsPill.classList.contains('pill-warn'))) {
+        toast('⚠️ GPS not ready — pace data may be missing');
+    }
     clearInterval(timerInt); clearInterval(autosaveInt); // clean up any orphaned intervals
     if (!sessStart) sessStart = Date.now();
     lapStartDist = distance; lapStartTime = elapsed;
@@ -2726,10 +2803,14 @@ function stopSess() {
             if (ok) {
                 sessSaved = true;
                 _LS.removeItem(AUTOSAVE_DB);
-                toast('Session saved ✓ (' + sessStrokes.length + ' strokes)');
+                toast('Session saved 
+\u10003 
+(' + sessStrokes.length + ' strokes)');
             } else {
                 // Save failed — keep autosave in place so recovery is possible
-                toast('⚠️ Save failed — do NOT reset. Try stopping again.');
+                toast('
+\u9888 \u65039 
+Save failed — do NOT reset. Try stopping again.');
                 // Put the session back into autosave so checkAutosave can recover it on next open
                 try {
                     const snap = { id: sessStart.toString(), startTime: sessStart, duration: elapsed, distance: Math.round(distance), strokeCount, catchPeakSess, catchAvg8, laps, strokes: sessStrokes, paceTrace: sessPaceTrace, gpsTrace: sessGpsTrace, _autosave: true, _savedAt: Date.now() };
@@ -2737,7 +2818,9 @@ function stopSess() {
                 } catch {}
             }
         } catch (e) {
-            toast('⚠️ Save error — do NOT reset. Try stopping again.');
+            toast('
+\u9888 \u65039 
+Save error — do NOT reset. Try stopping again.');
         }
     } else if (elapsed <= 10 || sessStrokes.length === 0) {
         _LS.removeItem(AUTOSAVE_DB);
@@ -2821,7 +2904,11 @@ function wireButtons(){
   document.getElementById('cc-lock').addEventListener('click',toggleSessLock);
 }
 
-/* ══ TAB ROUTING (P3) ══ */
+/* 
+¨T¨T
+TAB ROUTING (P3) 
+¨T¨T
+*/
 
 function showTab(tab){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -2863,7 +2950,11 @@ function wireTabButtons(){
 }
 window.addEventListener('resize',()=>{if(curveTabActive())requestAnimationFrame(renderCurveCanvas);});
 
-/* ══ SENSOR INIT ══ */
+/* 
+¨T¨T
+SENSOR INIT 
+¨T¨T
+*/
 document.getElementById('perm-btn').addEventListener('click',async()=>{
   if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
     try{const r=await DeviceMotionEvent.requestPermission();if(r!=='granted'){alert('Motion permission denied.\nSettings > Safari > Motion & Orientation Access');return;}}
@@ -2910,7 +3001,11 @@ function enterLive(){
   wireButtons();wireTabButtons();wireCurveTiles();wireWorkoutBar();buildGrid();renderCtrl();updateUI();
 }
 
-/* ══ HOME SCREEN (P3 — was SETUP) ══ */
+/* 
+¨T¨T
+HOME SCREEN (P3 — was SETUP) 
+¨T¨T
+*/
 function renderHomeScreen(){
   renderSessionList();  // always refresh LOG when entering HOME
   renderProfileList();
@@ -2946,7 +3041,11 @@ function renderHomeScreen(){
   updateDriveBtn();
 }
 
-/* ══ SESSION LOG (in HOME > LOG) ══ */
+/* 
+¨T¨T
+SESSION LOG (in HOME > LOG) 
+¨T¨T
+*/
 function renderSessionList(){
   const sessions=loadSess();
   const list=document.getElementById('slist');if(!list)return;
@@ -3024,7 +3123,11 @@ function showDetail(id){
   });
 }
 
-/* ══ PROFILE SYSTEM ══ */
+/* 
+¨T¨T
+PROFILE SYSTEM 
+¨T¨T
+*/
 function renderProfileList(){
   const container=document.getElementById('profile-list-container');if(!container)return;
   container.innerHTML=_profiles.map((p,pi)=>`
@@ -3118,7 +3221,11 @@ function selectMetric(key){
   const body=document.getElementById('pcb-'+profIdx);if(body)body.classList.add('open');
 }
 
-/* ══ WORKOUT BUILDER (P2) ══ */
+/* 
+¨T¨T
+WORKOUT BUILDER (P2) 
+¨T¨T
+*/
 let _wktEditId=null; // null = new, string = editing existing
 let _wktSteps=[];   // array of step objects being built
 let _wktSelectedSteps=new Set(); // indices of selected steps
@@ -3295,7 +3402,9 @@ function stepRowHTML(s,i,arr,sel,isFirst,isLast,gi,si){
     // Start-when-rowing toggle (work and rest only)
     (s.type==='work'||s.type==='rest'
       ? '<button class="start-row-btn'+(s.startWhenRowing?' active':'')+'"'+
-        ' onclick="'+toggleFn+'" title="Start when rowing">▶|</button>'
+        ' onclick="'+toggleFn+'" title="Start when rowing">
+\u9654 
+|</button>'
       : ''
     )+
     // Reorder (top-level only)
@@ -3401,9 +3510,9 @@ function getHRData(){
 }
 const HR_MODEL_DESCS={
   friel:'Friel/Coggan: zones based on Lactate Threshold HR (LTHR). Best for trained athletes with a field test.',
-  karvonen:'Karvonen: uses HR reserve (max − resting). Accounts for fitness level via resting HR.',
+  karvonen:'Karvonen: uses HR reserve (max \u8722  resting). Accounts for fitness level via resting HR.',
   maxpct:'% Max HR: simple zones as percentage of max heart rate.',
-  age:'Age-predicted: estimates max HR as 220 − age, then applies % max zones.'
+  age:'Age-predicted: estimates max HR as 220 \u8722  age, then applies % max zones.'
 };
 const HR_MODEL_NAMES={friel:'Friel',karvonen:'Karvonen',maxpct:'% Max HR',age:'Age-based'};
 function computeHRZones(d){
@@ -3464,7 +3573,11 @@ function renderHRZones(){
   renderHRZoneRows();
 }
 
-/* ══ CHARTS ══ */
+/* 
+¨T¨T
+CHARTS 
+¨T¨T
+*/
 function drawChart(id,data,color,invertY,yMax,points,yMin=null,refLine=null){
   const c=document.getElementById(id);if(!c||data.length<2)return;
   const dpr=window.devicePixelRatio||1,W=c.offsetWidth*dpr,H=c.offsetHeight*dpr;c.width=W;c.height=H;
@@ -3480,7 +3593,11 @@ function drawChart(id,data,color,invertY,yMax,points,yMin=null,refLine=null){
   ctx.fillText((invertY?mn:mx).toFixed(1),4,11*dpr);ctx.fillText((invertY?mx:mn).toFixed(1),4,H-3);
 }
 
-/* ══ FIT / TCX / GPX ══ */
+/* 
+¨T¨T
+FIT / TCX / GPX 
+¨T¨T
+*/
 async function handleGPX(e,sessionId){
   const file=e.target.files[0];if(!file)return;
   const st=document.getElementById('fit-st'),name=file.name.toLowerCase();
@@ -3515,7 +3632,11 @@ function parseTCX(text){
 }
 function parseGPX(text){const doc=new DOMParser().parseFromString(text,'application/xml');if(doc.querySelector('parseerror'))throw new Error('Invalid XML');const hr=[];doc.querySelectorAll('trkpt').forEach(pt=>{const timeEl=pt.querySelector('time');if(!timeEl)return;const t=new Date(timeEl.textContent.trim()).getTime();if(isNaN(t))return;for(const el of[...pt.querySelectorAll('*')]){if(el.localName==='hr'){const v=parseInt(el.textContent.trim());if(v>0&&v<250){hr.push({t,hr:v});break;}}}});return{hr,speedTrace:null,laps:null};}
 
-/* ══ CSV EXPORT ══ */
+/* 
+¨T¨T
+CSV EXPORT 
+¨T¨T
+*/
 function exportCSV(s){
   const n=v=>(v!=null&&!isNaN(v))?v:'';const f1=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(1):'';const f2=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(2):'';
   const rows=[['SESSION SUMMARY'],['start_time',new Date(s.startTime).toISOString()],['end_time',new Date(s.endTime||s.startTime+s.duration*1000).toISOString()],['duration_s',n(s.duration),'distance_m',n(s.distance),'stroke_count',n(s.strokeCount)],['avg_pace_s500',n(s.avgPace),'avg_rate_spm',n(s.avgRate),'max_rate_spm',n(s.maxRate)],['catch_peak_ms3',n(s.catchPeakSess),'avg_dps_m',f1(s.avgDPS),'avg_run_loss_m',f2(s.avgRunLossM)],['avg_impulse',f2(s.avgImpulse),'avg_char',n(s.avgChar),'avg_ratio',f2(s.avgRatio),'workout',s.workoutName||''],[]];
@@ -3542,7 +3663,11 @@ function exportDebugCSV(s){
   const blob=new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);const d=new Date(s.startTime),pad=x=>String(x).padStart(2,'0');a.download='ScullDebug_'+d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes())+'.csv';a.click();toast('Debug CSV exported');
 }
 
-/* ══ DRIVE SYNC HELPERS ══ */
+/* 
+¨T¨T
+DRIVE SYNC HELPERS 
+¨T¨T
+*/
 function handleDriveBtnTap(){if(DriveSync.isSignedIn()){if(confirm('Unlink Google Drive?')){DriveSync.signOut();updateDriveBtn();toast('Drive unlinked');}}else driveSignIn();}
 function updateDriveBtn(){const btn=document.getElementById('drive-btn');if(!btn)return;DriveSync.isSignedIn()?(btn.textContent='Linked',btn.classList.add('drive-linked')):(btn.textContent='Drive',btn.classList.remove('drive-linked'));}
 async function checkOAuthReturn(){
@@ -3551,7 +3676,11 @@ async function checkOAuthReturn(){
   try{DriveSync._injectToken(pending.token,pending.expires);wireTabButtons();showTab('home');updateDriveBtn();toast('Drive linked');flushQueue();await migrateLocalSessionsToDrive();await DriveSync.syncFromDrive();return true;}catch(e){toast('Drive auth failed');return false;}
 }
 
-/* ══ SERVICE WORKER + GLOBAL INIT ══ */
+/* 
+¨T¨T
+SERVICE WORKER + GLOBAL INIT 
+¨T¨T
+*/
 if('serviceWorker' in navigator){
   const sw="const C='scull-v18';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});";
   try{navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw],{type:'application/javascript'}))).catch(()=>{});}catch{}
