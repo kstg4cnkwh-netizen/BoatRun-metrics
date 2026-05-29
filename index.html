@@ -612,9 +612,9 @@ const CONFIG = Object.freeze({
         acUpdateMs: 2000
     },
     stroke: {
-        periodMinMs: 1550,
+        periodMinMs: 900,
         periodMaxMs: 6000,
-        refractoryMinMs: 1550,
+        refractoryMinMs: 900,
         maxDriveMs: 2800,
         minDriveMs: 300,
         postDriveLockoutMs: 500,
@@ -1190,9 +1190,16 @@ let jerkThreshBase = cal.jerkThresh || 8.0,
 function runFSM(now, fast, jerk) {
     if (!running || paused) { if (fsmState !== FS.IDLE) fsmState = FS.IDLE; return; }
     const tSinceCatch = now - lastCatchAbsT;
-    const ref = strokeRate > 0
-        ? Math.max(CONFIG.stroke.refractoryMinMs, (60000 / Math.min(strokeRate + 2, CONFIG.stroke.spmMax)) * 0.82)
-        : CONFIG.stroke.refractoryMinMs;
+    let nominalMs;
+    if (strokeRate > 0) {
+        nominalMs = 60000 / Math.min(strokeRate, CONFIG.stroke.spmMax);
+    } else if (catchTsBuf.length >= 2) {
+        const lastMs = catchTsBuf[catchTsBuf.length - 1] - catchTsBuf[catchTsBuf.length - 2];
+        nominalMs = clamp(lastMs, 1200, 3000);
+    } else {
+        nominalMs = 1500;
+    }
+    const ref = Math.max(CONFIG.stroke.refractoryMinMs, nominalMs * 0.85);
     switch (fsmState) {
         case FS.IDLE:
         case FS.RECOVERY: {
@@ -1356,10 +1363,18 @@ let oarAngle = null, oarAngleRawArr = [];
 let catchGpsDist = 0, pendingOarStrokeIdx = -1;
 function rateFromMedianIntervals() {
     if (catchTsBuf.length < 2) return 0;
+    let nominalMs;
+    if (strokeRate > 0) {
+        nominalMs = 60000 / Math.min(strokeRate, CONFIG.stroke.spmMax);
+    } else {
+        const lastMs = catchTsBuf[catchTsBuf.length - 1] - catchTsBuf[catchTsBuf.length - 2];
+        nominalMs = clamp(lastMs, 1200, 3000);
+    }
+    const dynMin = Math.max(CONFIG.stroke.periodMinMs, nominalMs * 0.80);
     const iv = [];
     for (let i = 1; i < catchTsBuf.length; i++) {
         const dt = catchTsBuf[i] - catchTsBuf[i - 1];
-        if (dt >= CONFIG.stroke.periodMinMs && dt <= CONFIG.stroke.periodMaxMs) iv.push(dt);
+        if (dt >= dynMin && dt <= CONFIG.stroke.periodMaxMs) iv.push(dt);
     }
     if (!iv.length) return 0;
     iv.sort((a, b) => a - b);
