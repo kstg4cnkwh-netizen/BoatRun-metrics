@@ -872,22 +872,28 @@ const DriveSync = (() => {
             if (!r.ok) throw new Error(`Download failed ${r.status}`);
             return r.json();
         },
-        async syncFromDrive() {
+                async syncFromDrive() {
             if (!this.isSignedIn()) return;
             try {
                 const files = await this.listSessions();
-                const local = loadSess();
                 const synced = loadSynced();
                 let n = 0;
                 for (const f of files) {
-                    const s = await this.downloadSession(f.id);
-                    if (!local.find(x => x.id === s.id)) { local.unshift(s); synced.add(s.id); n++; }
+                    try {
+                        const s = await this.downloadSession(f.id);
+                        const local = loadSess();
+                        if (!local.find(x => x.id === s.id)) {
+                            local.unshift(s);
+                            saveSess(local);
+                            synced.add(s.id);
+                            _LS.setItem(SYNCED_DB, JSON.stringify([...synced]));
+                            n++;
+                        }
+                    } catch(e) { toast('Skipped a session: ' + e.message); }
                 }
                 if (n) {
-                    saveSess(local);
-                    _LS.setItem(SYNCED_DB, JSON.stringify([...synced]));
                     toast(`${n} sessions from Drive`);
-                                        if(typeof renderHomeScreen==='function')renderHomeScreen();
+                    if(typeof renderHomeScreen==='function') renderHomeScreen();
                 }
             } catch (e) { toast('Sync failed: ' + e.message); }
         },
