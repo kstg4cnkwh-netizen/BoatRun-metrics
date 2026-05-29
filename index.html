@@ -2859,8 +2859,22 @@ SENSOR INIT
 */
 document.getElementById('perm-btn').addEventListener('click',async()=>{
   if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
-    try{const r=await DeviceMotionEvent.requestPermission();if(r!=='granted'){alert('Motion permission denied.\nTap "Enable Sensors" again, or go to Settings > Safari > Motion & Orientation Access');return;}}
-    catch(e){alert('Permission error: '+e.message);return;}
+    try{
+      const r=await DeviceMotionEvent.requestPermission();
+      if(r!=='granted'){
+        document.getElementById('perm-note').innerHTML=
+          '<strong style="color:#ffcc00">Motion access denied.</strong><br/>'+
+          'iOS only allows one permission prompt per page load.<br/>'+
+          '<strong style="color:#fff">Please reload this page, then tap Enable Sensors and choose Allow.</strong><br/><br/>'+
+          'Or: Settings &rarr; Safari &rarr; Motion &amp; Orientation Access';
+        return;
+      }
+    }
+    catch(e){
+      document.getElementById('perm-note').innerHTML=
+        '<strong style="color:#ffcc00">Permission error — please reload the page and try again.</strong>';
+      return;
+    }
   }
   window.addEventListener('devicemotion',handleMotion,{passive:true});
   document.getElementById('p-acc').className='pill pill-on';
