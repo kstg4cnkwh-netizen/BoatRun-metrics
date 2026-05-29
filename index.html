@@ -1197,7 +1197,7 @@ function runFSM(now, fast, jerk) {
         const lastMs = catchTsBuf[catchTsBuf.length - 1] - catchTsBuf[catchTsBuf.length - 2];
         nominalMs = clamp(lastMs, 1200, 3000);
     } else {
-        nominalMs = 1500;
+        nominalMs = lastKnownPeriodMs;   // was: 1500
     }
     const ref = Math.max(CONFIG.stroke.refractoryMinMs, nominalMs * 0.85);
     switch (fsmState) {
@@ -1462,6 +1462,13 @@ function onStrokeFinish(now, driveDur) {
     const peakOffset = drivePeakAccT - driveStartT;
     const rawChar = driveDur > 0 ? clamp((peakOffset / driveDur) * 100, 0, 100) : 50;
     catchTsBuf.push(driveStartT);
+    if (strokeRate > 0 && catchTsBuf.length >= 2) {
+        const iv = catchTsBuf[catchTsBuf.length - 1] - catchTsBuf[catchTsBuf.length - 2];
+        const expectedMs = 60000 / strokeRate;
+        if (iv >= expectedMs * 0.80 && iv <= expectedMs * 1.50) {
+            lastKnownPeriodMs = clamp(iv, 1200, 3000);
+        }
+    }
     if (catchTsBuf.length > CATCH_TS_BUF) catchTsBuf.shift();
     lastCatchAbsT = driveStartT;
     const medRate = rateFromMedianIntervals();
@@ -1470,14 +1477,11 @@ function onStrokeFinish(now, driveDur) {
         if (strokeRate === 0) {
             bl = medRate;
         } else if (acConf > 0.55 && acRate > 0 && catchTsBuf.length < 4) {
-            // Only blend acRate when FSM has sparse intervals (start of piece, gaps)
             const safe = (acRate > medRate * 1.25 || acRate < medRate * 0.80) ? medRate : acRate;
             bl = 0.80 * medRate + 0.20 * safe;
         } else {
-            // Steady rowing: trust FSM intervals, ignore acRate
             bl = 0.70 * medRate + 0.30 * strokeRate;
         }
-        // Rate-change limiter — cap at ±3.5 spm per stroke to dampen false-catch noise
         if (strokeRate > 0) bl = Math.max(strokeRate - 3.5, Math.min(strokeRate + 3.5, bl));
         strokeRate = clamp(Math.round(bl * 2) / 2, CONFIG.stroke.spmMin, CONFIG.stroke.spmMax);
     }
@@ -1490,11 +1494,11 @@ function onStrokeFinish(now, driveDur) {
     if (catchValsArr.length >= 5) {
         const m = catchValsArr.reduce((a, b) => a + b, 0) / catchValsArr.length;
         const sd = Math.sqrt(catchValsArr.reduce((s, v) => s + (v - m) ** 2, 0) / catchValsArr.length);
-				const lowerFloor = clamp((cal.noiseFloor || 1.6) * 2.5, 3.0, 10.0);
-				const tgt = Math.max(adaptReady ? lowerFloor : jerkThreshBase, m * 0.50 - sd * 0.35);
-				jerkThreshActive = adaptReady
-    				? Math.max(lowerFloor * 0.8, 0.80 * jerkThreshActive + 0.20 * tgt)
-    				: Math.max(jerkThreshBase * 0.8, tgt);
+        const lowerFloor = clamp((cal.noiseFloor || 1.6) * 2.5, 3.0, 10.0);
+        const tgt = Math.max(adaptReady ? lowerFloor : jerkThreshBase, m * 0.50 - sd * 0.35);
+        jerkThreshActive = adaptReady
+            ? Math.max(lowerFloor * 0.8, 0.80 * jerkThreshActive + 0.20 * tgt)
+            : Math.max(jerkThreshBase * 0.8, tgt);
         if (!adaptReady) {
             adaptReady = true;
             if (strokesDetected >= 4) {
@@ -1530,6 +1534,84 @@ function onStrokeFinish(now, driveDur) {
             }
         }
     }
+    // ── Oar arc angle ──────────────────────────────────────────────────────
+    // Computed in onNewCatch (next catch). Value persists on display until the
+    // next valid computation — only cleared on rest gap (boat stopped).
+    const rateToLog = strokeRate;
+    const intervalS = strokeTs.length >= 2 ? (strokeTs[strokeTs.length - 1] - strokeTs[strokeTs.length - 2]) / 1000 : 0;
+    if (intervalS > CONFIG.stroke.restGapS) {
+        oarAngle = null;
+        lastKnownPeriodMs = Math.max(lastKnownPeriodMs * 0.70, 1500);
+        acBuf.length = 0; acConf = 0;
+        const seedT = catchTsBuf[catchTsBuf.length - 1];
+        catchTsBuf.length = 0;
+        catchTsBuf.push(seedT);
+        strokeRate = 0; catchToCatchSamples = []; pendingCurveDriveCount = 0;
+    }
+    if (intervalS > 0.8 && intervalS < 8 && prevStrokeDistT > 0) {
+        const dD = distance - prevStrokeDist;
+        if (dD > 0.5 && dD < 25) {
+            pushLimit(dpsValsArr, dD, CONFIG.stroke.dpsMedianN);
+            distPerStroke = Math.round((median(dpsValsArr) ?? dD) * 10) / 10;
+            if (distPerStroke > maxDPS) maxDPS = distPerStroke;
+        }
+    }
+    prevStrokeDist = distance;
+    prevStrokeDistT = driveStartT;
+    const driveImpulse = computeDriveImpulse(driveAccSamples);
+    if (driveImpulse !== null) {
+        driveImpulseEma = driveImpulseEma === null
+            ? driveImpulse
+            : IMP_EMA_ALPHA * driveImpulse + (1 - IMP_EMA_ALPHA) * driveImpulseEma;
+    }
+    const prlStroke = strokeCount + 1;
+    pendingRun = {
+        startAt: now + CONFIG.runLoss.startAfterDriveMs,
+        endAt:   now + CONFIG.runLoss.startAfterDriveMs + CONFIG.runLoss.windowMs,
+        startSpeed: null, minSpeed: null,
+        strokeN: prlStroke, driveEndT: now
+    };
+    imuRL = {
+        startAt:    now + CONFIG.runLoss.startAfterDriveMs,
+        v0:         gpsSpeedEma > 0.3 ? gpsSpeedEma : null,
+        deltaV:     0,
+        minDeltaV:  0,
+        lastT:      -1,
+        nSamples:   0,
+        strokeN:    prlStroke,
+        driveEndT:  now
+    };
+    strokeCount++;
+    sessStrokes.push({
+        t: Date.now(), catchPeak: catchSlope, char: strokeChar,
+        rate: rateToLog, pace: pace > 0 ? pace : null,
+        dist: distance, dps: distPerStroke, runLossM: null,
+        driveImpulse, catchConsistency, rdi, strokeRatio, oarAngle,
+        _prlStroke: prlStroke,
+        dbg: {
+            intervalMs: catchTsBuf.length >= 2 ? Math.round(catchTsBuf[catchTsBuf.length - 1] - catchTsBuf[catchTsBuf.length - 2]) : null,
+            driveDurMs: Math.round(driveDur),
+            catchJerkRaw: +catchPeakJerk.toFixed(1),
+            jerkThresh: +jerkThreshActive.toFixed(2),
+            medRateFsm: rateFromMedianIntervals() > 0 ? +rateFromMedianIntervals().toFixed(1) : null,
+            acRate: acRate > 0 ? acRate : null,
+            acConf: +acConf.toFixed(3),
+            gpsEma: gpsSpeedEma > 0.3 ? +(500 / gpsSpeedEma).toFixed(1) : null,
+            dpsN: dpsValsArr.length,
+            prlStartMs: Math.round(CONFIG.runLoss.startAfterDriveMs),
+            prlWindowMs: CONFIG.runLoss.windowMs,
+            selAxis, axisLocked
+        }
+    });
+    pendingOarStrokeIdx = sessStrokes.length - 1;
+    pendingCurveDriveCount = catchToCatchSamples.length;
+    updateUI();
+    if (wkt.active && running && !paused && wkt.waitingForRow) {
+        if (strokeRate >= 12) { wkt.waitStrokeCount++; } else { wkt.waitStrokeCount = 0; }
+        if (wkt.waitStrokeCount >= 2) wktBeginStep();
+    }
+}
+
     // ── Oar arc angle ──────────────────────────────────────────────────────
     // Computed in onNewCatch (next catch). Value persists on display until the
     // next valid computation — only cleared on rest gap (boat stopped).
@@ -1622,6 +1704,7 @@ let runLossM = null;
 const rlDebug = [];
 let driveImpulseEma = null;
 const IMP_EMA_ALPHA = 0.35;   // effective ~3-stroke window for drive impulse smoothing
+let lastKnownPeriodMs = 2000;
 function updatePendingRunLoss() {
     // GPS debug phase log only — run loss is computed from IMU integration in onNewCatch().
     // pendingRun is kept alive so handlePos can tag each GPS fix with rlPhase,
