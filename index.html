@@ -938,18 +938,6 @@ function driveSignIn() {
     try { _SS.setItem('_oauth_screen', document.querySelector('.screen.active')?.id || ''); } catch {}
     window.location.href = url;
 }
-function handleDriveBtnTap() {
-    if (DriveSync.isSignedIn()) {
-        if (confirm('Unlink Google Drive?')) { DriveSync.signOut(); updateDriveBtn(); toast('Drive unlinked'); }
-    } else driveSignIn();
-}
-function updateDriveBtn() {
-    const btn = document.getElementById('drive-btn');
-    if (!btn) return;
-    DriveSync.isSignedIn()
-        ? (btn.textContent = '☁ Linked', btn.classList.add('drive-linked'))
-        : (btn.textContent = '☁ Drive',  btn.classList.remove('drive-linked'));
-}
 async function checkOAuthReturn() {
     let pending = window._scullOAuth || null;
     window._scullOAuth = null;
