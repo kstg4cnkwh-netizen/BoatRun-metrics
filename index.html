@@ -644,7 +644,10 @@ const CONFIG = Object.freeze({
         catchBufN: 7,
         spmMin: 10,
         spmMax: 50,
-        restGapS: 5.0
+        restGapS: 5.0,
+        nominalMinMs: 1200,
+        nominalMaxMs: 3000,
+        nominalFallbackMs: 1500
     },
     runLoss: {
         startAfterDriveMs: 250,
@@ -1211,7 +1214,7 @@ function runFSM(now, fast, jerk) {
         nominalMs = 60000 / Math.min(strokeRate, CONFIG.stroke.spmMax);
     } else if (catchTsBuf.length >= 2) {
         const lastMs = catchTsBuf[catchTsBuf.length - 1] - catchTsBuf[catchTsBuf.length - 2];
-        nominalMs = clamp(lastMs, 1200, 3000);
+        nominalMs = clamp(lastMs, CONFIG.stroke.nominalMinMs, CONFIG.stroke.nominalMaxMs);
     } else {
         nominalMs = lastKnownPeriodMs;   // was: 1500
     }
@@ -1384,7 +1387,7 @@ function rateFromMedianIntervals() {
         nominalMs = 60000 / Math.min(strokeRate, CONFIG.stroke.spmMax);
     } else {
         const lastMs = catchTsBuf[catchTsBuf.length - 1] - catchTsBuf[catchTsBuf.length - 2];
-        nominalMs = clamp(lastMs, 1200, 3000);
+        nominalMs = clamp(lastMs, CONFIG.stroke.nominalMinMs, CONFIG.stroke.nominalMaxMs);
     }
     const dynMin = Math.max(CONFIG.stroke.periodMinMs, nominalMs * 0.80);
     const iv = [];
@@ -1482,7 +1485,7 @@ function onStrokeFinish(now, driveDur) {
     const gapMs = lastCatchAbsT > 0 ? driveStartT - lastCatchAbsT : 0;
     if (gapMs / 1000 > CONFIG.stroke.restGapS) {
         oarAngle = null;
-        lastKnownPeriodMs = Math.max(lastKnownPeriodMs * 0.70, 1500);
+        lastKnownPeriodMs = Math.max(lastKnownPeriodMs * 0.70, CONFIG.stroke.nominalFallbackMs);
         acBuf.length = 0; acConf = 0;
         catchTsBuf.length = 0;                // clear completely — seed happens below
         strokeRate = 0; catchToCatchSamples = []; pendingCurveDriveCount = 0;
@@ -1496,7 +1499,7 @@ function onStrokeFinish(now, driveDur) {
         const iv = catchTsBuf[catchTsBuf.length - 1] - catchTsBuf[catchTsBuf.length - 2];
         const expectedMs = 60000 / strokeRate;
         if (iv >= expectedMs * 0.80 && iv <= expectedMs * 1.50) {
-            lastKnownPeriodMs = clamp(iv, 1200, 3000);
+            lastKnownPeriodMs = clamp(iv, CONFIG.stroke.nominalMinMs, CONFIG.stroke.nominalMaxMs);
         }
     }
     if (catchTsBuf.length > CATCH_TS_BUF) catchTsBuf.shift();
@@ -1578,14 +1581,6 @@ function onStrokeFinish(now, driveDur) {
             if (distPerStroke > maxDPS) maxDPS = distPerStroke;
         }
     }
-    if (intervalS > 0.8 && intervalS < 8 && prevStrokeDistT > 0) {
-        const dD = distance - prevStrokeDist;
-        if (dD > 0.5 && dD < 25) {
-            pushLimit(dpsValsArr, dD, CONFIG.stroke.dpsMedianN);
-            distPerStroke = Math.round((median(dpsValsArr) ?? dD) * 10) / 10;
-            if (distPerStroke > maxDPS) maxDPS = distPerStroke;
-        }
-    }
     prevStrokeDist = distance;
     prevStrokeDistT = driveStartT;
     const driveImpulse = computeDriveImpulse(driveAccSamples);
@@ -1614,7 +1609,7 @@ function onStrokeFinish(now, driveDur) {
     strokeCount++;
     sessStrokes.push({
         t: Date.now(), catchPeak: catchSlope, char: strokeChar,
-        rate: rateToLog, pace: pace > 0 ? pace : null,
+        rate: rateToLog > 0 ? rateToLog : null, pace: pace > 0 ? pace : null,
         dist: distance, dps: distPerStroke, runLossM: null,
         driveImpulse, catchConsistency, rdi, strokeRatio, oarAngle,
         _prlStroke: prlStroke,
@@ -1623,7 +1618,7 @@ function onStrokeFinish(now, driveDur) {
             driveDurMs: Math.round(driveDur),
             catchJerkRaw: +catchPeakJerk.toFixed(1),
             jerkThresh: +jerkThreshActive.toFixed(2),
-            medRateFsm: rateFromMedianIntervals() > 0 ? +rateFromMedianIntervals().toFixed(1) : null,
+            medRateFsm: (() => { const r = rateFromMedianIntervals(); return r > 0 ? +r.toFixed(1) : null; })(),
             acRate: acRate > 0 ? acRate : null,
             acConf: +acConf.toFixed(3),
             gpsEma: gpsSpeedEma > 0.3 ? +(500 / gpsSpeedEma).toFixed(1) : null,
@@ -1645,7 +1640,7 @@ function onStrokeFinish(now, driveDur) {
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // GPS HANDLER — speed EMA, pace window, haversine distance
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
-let pace = 0, gpsAccuracyM = null, gpsSpeedEma = -1, gpsLastValidT = 0, gpsWasStopped = false;
+let pace = 0, gpsAccuracyM = null, gpsSpeedEma = -1, gpsLastValidT = 0, gpsWasStopped = false, gpsDeadWarned = false;
 const speedSamples = [], paceDistWindow = [], velocityWindow = [];
 let lastPos = null;
 const sessGpsTrace = [], sessGpsRawTrace = [];
@@ -1656,7 +1651,7 @@ let runLossM = null;
 const rlDebug = [];
 let driveImpulseEma = null;
 const IMP_EMA_ALPHA = 0.35;   // effective ~3-stroke window for drive impulse smoothing
-let lastKnownPeriodMs = 2000;
+let lastKnownPeriodMs = CONFIG.stroke.nominalFallbackMs;
 function updatePendingRunLoss() {
     // GPS debug phase log only — run loss is computed from IMU integration in onNewCatch().
     // pendingRun is kept alive so handlePos can tag each GPS fix with rlPhase,
@@ -1723,6 +1718,7 @@ function handlePos(pos) {
     else               { pill.className = 'pill pill-err';  pill.textContent = 'GPS ' + Math.round(acc) + 'm'; }
     const spd = pos.coords.speed, now = performance.now();
     if (running && !paused && spd != null && spd >= 0 && spd < 8) {
+        if (gpsDeadWarned) { gpsDeadWarned = false; toast('GPS restored'); }
         pushVelocity(now, spd);
         updatePendingRunLoss();
         let rlPhase = 'none';
@@ -1776,6 +1772,18 @@ function handleGpsErr(err) {
     }
     gpsLastValidT = 0; // suppress stale pace
     pace = 0;
+}
+function checkGpsAlive() {
+    if (!running || paused) return;
+    const now = performance.now();
+    // gpsLastValidT is 0 if no fix has ever arrived, otherwise the last good fix time.
+    const stale = gpsLastValidT === 0
+        ? elapsed > 30                          // never got a fix this session
+        : (now - gpsLastValidT) > 30000;        // had GPS, now silent >30s
+    if (stale && !gpsDeadWarned) {
+        gpsDeadWarned = true;
+        toast('⚠️ No GPS — Pace, DPS & Run Loss not recording');
+    }
 }
 
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
@@ -2659,7 +2667,7 @@ function startSess() {
     if (!sessStart) sessStart = Date.now();
     lapStartDist = distance; lapStartTime = elapsed;
     running = true; paused = false;
-    timerInt = setInterval(() => { elapsed++; wktCheckAuto(); updateUI(); updateWorkoutBar(); }, 1000);
+    timerInt = setInterval(() => { elapsed++; wktCheckAuto(); checkGpsAlive(); updateUI(); updateWorkoutBar(); }, 1000);
     saveInProgress(); autosaveInt = setInterval(saveInProgress, CONFIG.ui.autosaveMs);
     requestAnimationFrame(renderCtrl);
 }
@@ -2669,7 +2677,7 @@ function resumeSess() {
     clearInterval(timerInt); // clean up any orphaned interval
     paused = false; running = true;
     paceDistWindow.length = 0; velocityWindow.length = 0; gpsSpeedEma = -1; speedSamples.length = 0;
-    timerInt = setInterval(() => { elapsed++; wktCheckAuto(); updateUI(); updateWorkoutBar(); }, 1000);
+    timerInt = setInterval(() => { elapsed++; wktCheckAuto(); checkGpsAlive(); updateUI(); updateWorkoutBar(); }, 1000);
     requestAnimationFrame(renderCtrl);
 }
 function stopSess() {
@@ -2680,8 +2688,9 @@ function stopSess() {
     if (elapsed > 10 && sessStrokes.length > 0 && !sessSaved) {
         try {
             const ap = sessPaceTrace.length > 0 ? Math.round(sessPaceTrace.reduce((a, b) => a + b, 0) / sessPaceTrace.length) : 0;
-            const ar = sessStrokes.length > 0 ? Math.round(sessStrokes.reduce((a, b) => a + b.rate, 0) / sessStrokes.length) : 0;
-            const maxRate = sessStrokes.reduce((m, s) => s.rate > m ? s.rate : m, 0);
+            const rateVals = sessStrokes.map(x => x.rate).filter(v => v != null && v > 0);
+            const ar = rateVals.length ? Math.round(rateVals.reduce((a, b) => a + b, 0) / rateVals.length) : 0;
+            const maxRate = rateVals.length ? rateVals.reduce((m, v) => v > m ? v : m, 0) : 0;
             const avg = (arr, k) => { const v = arr.map(x => x[k]).filter(v => v != null && !isNaN(v)); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
             const ac = (() => { const v = sessStrokes.map(x => x.catchConsistency).filter(v => v != null && !isNaN(v)); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; })();
             const sessObj = {
