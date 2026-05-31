@@ -2990,7 +2990,7 @@ function renderSessionList(){
   const sessions=loadSess();
   const hb=document.querySelector('.home-body');if(hb)hb.scrollTop=0;
   const list=document.getElementById('slist');if(!list)return;
-  list.querySelectorAll('.scard').forEach(e=>e.remove());
+  Array.from(list.children).forEach(el=>{if(el.id!=='no-sess')el.remove();});
   document.getElementById('no-sess').style.display=sessions.length?'none':'block';
   sessions.forEach(s=>{
     const synced=isSynced(s.id),el=document.createElement('div');el.className='scard';
