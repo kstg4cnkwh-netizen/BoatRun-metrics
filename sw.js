@@ -1,7 +1,6 @@
 const C = 'scull-v20';
 const URLS = [
   './',
-  './Metrics_260531_1.html'   // add actual filename
 ];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(C).then(c => c.addAll(URLS)));
