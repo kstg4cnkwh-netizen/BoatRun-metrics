@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Scull"/>
 <meta name="theme-color" content="#1a5276"/>
+<link rel="manifest" href="./manifest.json"/>
 <title>Scull Metrics v5</title>
 <script>
 (function(){try{var h=new URLSearchParams(location.hash.slice(1)),t=h.get("access_token");if(!t)return;var d={token:t,expires:parseInt(h.get("expires_in")||"3600")};try{history.replaceState({},"",location.pathname);}catch{}if(window.opener&&!window.opener.closed){try{window.opener.postMessage({type:"_scullOAuth",token:d.token,expires:d.expires},"*");window.close();return;}catch{}}window._scullOAuth=d;try{sessionStorage.setItem("_oauth_token",JSON.stringify(d));}catch{}}catch{}})();
