@@ -3139,7 +3139,7 @@ function buildPreviewGrid(profile,pi,orient){
   // Portrait: narrow and tall like a phone in portrait (9:19.5 ratio)
   // Landscape: wide and short like a phone in landscape (19.5:9 ratio)
   const wrapStyle = isPortrait
-    ? 'width:170px;aspect-ratio:9/19.5;margin:0 auto 8px;'
+    ? 'width:128px;aspect-ratio:9/19.5;margin:0 auto 8px;'
     : 'width:100%;max-width:340px;aspect-ratio:19.5/9;margin-bottom:8px;';
   const gs='display:grid;height:100%;grid-template-columns:repeat('+ld.cols+',1fr);grid-template-rows:repeat('+ld.rows+',1fr);gap:2px;background:#000;padding:2px;border-radius:2px;';
   return '<div style="'+wrapStyle+'"><div style="'+gs+'">'+cl.map((key,ci)=>{
