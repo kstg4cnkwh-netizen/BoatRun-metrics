@@ -2,7 +2,7 @@
   "name": "Scull Metrics",
   "short_name": "Scull",
   "description": "On-water rowing metrics — real-time pace, rate, catch, and stroke analysis",
-  "start_url": "./Metrics_260531_1.html",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
