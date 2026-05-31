@@ -2988,6 +2988,7 @@ SESSION LOG (in HOME > LOG)
 */
 function renderSessionList(){
   const sessions=loadSess();
+  const hb=document.querySelector('.home-body');if(hb)hb.scrollTop=0;
   const list=document.getElementById('slist');if(!list)return;
   list.querySelectorAll('.scard').forEach(e=>e.remove());
   document.getElementById('no-sess').style.display=sessions.length?'none':'block';
