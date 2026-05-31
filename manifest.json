@@ -1,0 +1,25 @@
+{
+  "name": "Scull Metrics",
+  "short_name": "Scull",
+  "description": "On-water rowing metrics — real-time pace, rate, catch, and stroke analysis",
+  "start_url": "./Metrics_260531_1.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#1a5276",
+  "background_color": "#000000",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
