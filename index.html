@@ -2983,70 +2983,48 @@ function renderSessionList(){
     const synced=isSynced(s.id),el=document.createElement('div');el.className='scard';
     el.innerHTML='<div class="scard-date"><span>'+fmtDate(s.startTime)+'</span>'+(s.hrTrace?'<span>HR</span>':'')+(s.detectedAxis?'<span>AX:'+s.detectedAxis.toUpperCase()+'</span>':'')+(s.workoutName?'<span>'+s.workoutName+'</span>':'')+(synced?'<span class="sync-badge">synced</span>':'')+'</div><div class="scard-stats"><div><span class="scs-v">'+((s.distance/1000).toFixed(2))+'</span><span class="scs-l">km</span></div><div><span class="scs-v">'+fmtH(s.duration)+'</span><span class="scs-l">time</span></div><div><span class="scs-v">'+(s.avgPace>0?fmt(s.avgPace):'--')+'</span><span class="scs-l">avg pace</span></div><div><span class="scs-v">'+(s.strokeCount||0)+'</span><span class="scs-l">strokes</span></div></div>';
     el.addEventListener('click',()=>showDetail(s.id));
-    attachSwipeDelete(el,s.id);list.appendChild(el);
+        list.appendChild(el);attachSwipeDelete(el,s.id);
   });
 }
-function attachSwipeDelete(cardEl, sessionId) {
-  // Wrap card in a swipe container with a red delete button behind it
-  const wrapper = document.createElement('div');
-  wrapper.style.cssText = 'position:relative;overflow:hidden;border-radius:4px;margin-bottom:6px;';
-
-  const delBtn = document.createElement('button');
-  delBtn.textContent = 'DELETE';
-  delBtn.style.cssText = 'position:absolute;top:0;right:0;bottom:0;width:80px;background:#e74c3c;color:#fff;border:none;font-size:11px;font-weight:700;letter-spacing:.1em;cursor:pointer;';
-
-  // Move the card into the wrapper
-  cardEl.style.marginBottom = '0';
-  cardEl.style.borderRadius = '4px';
-  cardEl.parentNode?.insertBefore(wrapper, cardEl);
+function attachSwipeDelete(cardEl,sessionId){
+  const wrapper=document.createElement('div');
+  wrapper.style.cssText='position:relative;overflow:hidden;border-radius:4px;margin-bottom:6px;';
+  const delBtn=document.createElement('button');
+  delBtn.textContent='DELETE';
+  delBtn.style.cssText='position:absolute;top:0;right:0;bottom:0;width:80px;background:#e74c3c;color:#fff;border:none;font-size:11px;font-weight:700;letter-spacing:.1em;cursor:pointer;touch-action:manipulation;';
+  cardEl.style.marginBottom='0';
+  cardEl.style.position='relative';
+  cardEl.style.zIndex='1';
+  cardEl.parentNode.insertBefore(wrapper,cardEl);
   wrapper.appendChild(delBtn);
   wrapper.appendChild(cardEl);
-
-  delBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    delSess(sessionId);
-    renderSessionList();
-    toast('Deleted');
-  });
-
-  let startX = 0, startY = 0, currentX = 0, isDragging = false, swipeMoved = false;
-  const DEAD_ZONE = 12, MAX_SLIDE = 80;
-
-  cardEl.addEventListener('touchstart', e => {
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
-    currentX = startX;
-    isDragging = true;
-    swipeMoved = false;
-    cardEl.style.transition = 'none';
-  }, false);
-
-  cardEl.addEventListener('touchmove', e => {
-    if (!isDragging) return;
-    currentX = e.touches[0].clientX;
-    const diffX = currentX - startX;
-    const diffY = e.touches[0].clientY - startY;
-    if (!swipeMoved && Math.abs(diffY) > Math.abs(diffX)) { isDragging = false; return; }
-    if (diffX < -DEAD_ZONE) {
-      swipeMoved = true;
-      e.preventDefault();
-      cardEl.style.transform = 'translateX(' + Math.max(diffX, -MAX_SLIDE) + 'px)';
+  delBtn.addEventListener('click',e=>{e.stopPropagation();delSess(sessionId);renderSessionList();toast('Deleted');});
+  let startX=0,startY=0,currentX=0,isDragging=false,swipeMoved=false,isOpen=false;
+  const DEAD_ZONE=12,MAX_SLIDE=80;
+  cardEl.addEventListener('touchstart',e=>{
+    startX=e.touches[0].clientX;startY=e.touches[0].clientY;currentX=startX;isDragging=true;swipeMoved=false;cardEl.style.transition='none';
+  },false);
+  cardEl.addEventListener('touchmove',e=>{
+    if(!isDragging)return;
+    currentX=e.touches[0].clientX;
+    const diffX=currentX-startX,diffY=e.touches[0].clientY-startY;
+    if(!swipeMoved&&Math.abs(diffY)>Math.abs(diffX)){isDragging=false;return;}
+    if(diffX<-DEAD_ZONE||isOpen){
+      swipeMoved=true;e.preventDefault();
+      const base=isOpen?-MAX_SLIDE:0;
+      const x=Math.min(0,Math.max(base+diffX,-MAX_SLIDE));
+      cardEl.style.transform='translateX('+x+'px)';
     }
-  }, { passive: false });
-
-  cardEl.addEventListener('touchend', e => {
-    if (!isDragging) return;
-    isDragging = false;
-    const diff = currentX - startX;
-    cardEl.style.transition = 'transform .2s ease';
-    if (swipeMoved && diff < -(MAX_SLIDE / 2)) {
-      cardEl.style.transform = 'translateX(-' + MAX_SLIDE + 'px)';
-    } else {
-      cardEl.style.transform = 'translateX(0)';
-    }
-  }, false);
-
-  cardEl.addEventListener('click', e => { if (swipeMoved) e.stopImmediatePropagation(); }, true);
+  },{passive:false});
+  cardEl.addEventListener('touchend',e=>{
+    if(!isDragging)return;
+    isDragging=false;
+    const diff=currentX-startX;
+    cardEl.style.transition='transform .2s ease';
+    if(diff<-(MAX_SLIDE/2)){isOpen=true;cardEl.style.transform='translateX(-'+MAX_SLIDE+'px)';}
+    else{isOpen=false;cardEl.style.transform='translateX(0)';}
+  },false);
+  cardEl.addEventListener('click',e=>{if(swipeMoved){e.stopImmediatePropagation();}else if(isOpen){isOpen=false;cardEl.style.transition='transform .2s ease';cardEl.style.transform='translateX(0)';}},true);
 }
 
 function showDetail(id){
@@ -3669,7 +3647,7 @@ SERVICE WORKER + GLOBAL INIT
 ¨T¨T
 */
 if('serviceWorker' in navigator){
-  const sw="const C='scull-v19';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});";
+  const sw="const C='scull-v20';self.addEventListener('install',e=>{self.skipWaiting();});self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});self.addEventListener('fetch',e=>{e.respondWith(fetch(e.request).then(r=>{const rc=r.clone();caches.open(C).then(c=>c.put(e.request,rc));return r;}).catch(()=>caches.match(e.request)));});";
   try{navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw],{type:'application/javascript'}))).catch(()=>{});}catch{}
 }
 wireTabButtons();
