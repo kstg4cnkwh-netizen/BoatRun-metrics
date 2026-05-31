@@ -2986,31 +2986,67 @@ function renderSessionList(){
     attachSwipeDelete(el,s.id);list.appendChild(el);
   });
 }
-function attachSwipeDelete(cardEl,sessionId){
-  let startX=0,startY=0,currentX=0,isDragging=false,swipeMoved=false;
-  const DEAD_ZONE=12, DELETE_THRESHOLD=200;
-  cardEl.addEventListener('touchstart',e=>{startX=e.touches[0].clientX;startY=e.touches[0].clientY;currentX=startX;isDragging=true;swipeMoved=false;cardEl.style.transition='none';},false);
-  cardEl.addEventListener('touchmove',e=>{
-    if(!isDragging)return;
-    currentX=e.touches[0].clientX;
-    const diffX=currentX-startX, diffY=e.touches[0].clientY-startY;
-    // Ignore if predominantly vertical (scrolling)
-    if(!swipeMoved && Math.abs(diffY)>Math.abs(diffX)){isDragging=false;return;}
-    if(diffX<-DEAD_ZONE){swipeMoved=true;e.preventDefault();cardEl.style.transform='translateX('+Math.max(diffX,-150)+'px)';}
-  },{passive:false});
-  cardEl.addEventListener('touchend',e=>{
-    if(!isDragging)return;
-    isDragging=false;
-    const diff=currentX-startX;
-    if(swipeMoved && diff<-DELETE_THRESHOLD){
-      cardEl.style.transition='all .3s ease';cardEl.style.transform='translateX(-100%)';cardEl.style.opacity='0';
-      setTimeout(()=>{if(confirm('Delete?')){delSess(sessionId);renderSessionList();toast('Deleted');}else{cardEl.style.transition='all .3s ease';cardEl.style.transform='translateX(0)';cardEl.style.opacity='1';}},150);
-    }else{
-      cardEl.style.transition='all .2s ease';cardEl.style.transform='translateX(0)';
+function attachSwipeDelete(cardEl, sessionId) {
+  // Wrap card in a swipe container with a red delete button behind it
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'position:relative;overflow:hidden;border-radius:4px;margin-bottom:6px;';
+
+  const delBtn = document.createElement('button');
+  delBtn.textContent = 'DELETE';
+  delBtn.style.cssText = 'position:absolute;top:0;right:0;bottom:0;width:80px;background:#e74c3c;color:#fff;border:none;font-size:11px;font-weight:700;letter-spacing:.1em;cursor:pointer;';
+
+  // Move the card into the wrapper
+  cardEl.style.marginBottom = '0';
+  cardEl.style.borderRadius = '4px';
+  cardEl.parentNode?.insertBefore(wrapper, cardEl);
+  wrapper.appendChild(delBtn);
+  wrapper.appendChild(cardEl);
+
+  delBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    delSess(sessionId);
+    renderSessionList();
+    toast('Deleted');
+  });
+
+  let startX = 0, startY = 0, currentX = 0, isDragging = false, swipeMoved = false;
+  const DEAD_ZONE = 12, MAX_SLIDE = 80;
+
+  cardEl.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    currentX = startX;
+    isDragging = true;
+    swipeMoved = false;
+    cardEl.style.transition = 'none';
+  }, false);
+
+  cardEl.addEventListener('touchmove', e => {
+    if (!isDragging) return;
+    currentX = e.touches[0].clientX;
+    const diffX = currentX - startX;
+    const diffY = e.touches[0].clientY - startY;
+    if (!swipeMoved && Math.abs(diffY) > Math.abs(diffX)) { isDragging = false; return; }
+    if (diffX < -DEAD_ZONE) {
+      swipeMoved = true;
+      e.preventDefault();
+      cardEl.style.transform = 'translateX(' + Math.max(diffX, -MAX_SLIDE) + 'px)';
     }
-  },false);
-  // Block click if a meaningful swipe occurred
-  cardEl.addEventListener('click',e=>{if(swipeMoved)e.stopImmediatePropagation();},true);
+  }, { passive: false });
+
+  cardEl.addEventListener('touchend', e => {
+    if (!isDragging) return;
+    isDragging = false;
+    const diff = currentX - startX;
+    cardEl.style.transition = 'transform .2s ease';
+    if (swipeMoved && diff < -(MAX_SLIDE / 2)) {
+      cardEl.style.transform = 'translateX(-' + MAX_SLIDE + 'px)';
+    } else {
+      cardEl.style.transform = 'translateX(0)';
+    }
+  }, false);
+
+  cardEl.addEventListener('click', e => { if (swipeMoved) e.stopImmediatePropagation(); }, true);
 }
 
 function showDetail(id){
