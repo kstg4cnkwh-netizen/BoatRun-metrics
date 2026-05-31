@@ -2193,9 +2193,9 @@ function toggleSessLock() {
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // CURVE TAB — tile cycling, value readout, sub-tab state
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
-const CURVE_TILE_OPTIONS = ['stroke-rate','catch-slope','dps','impulse','run-loss','char','pace','oar-angle','ratio'];
-const CURVE_TILE_LABELS  = { 'stroke-rate':'Stroke rate','catch-slope':'Catch slope','dps':'Dist/stroke','impulse':'Impulse','run-loss':'Run loss','char':'Char %','pace':'Pace','oar-angle':'Oar angle','ratio':'Drive ratio' };
-const CURVE_TILE_SUBS    = { 'stroke-rate':'','catch-slope':'','dps':'','impulse':'','run-loss':'','char':'','pace':'','oar-angle':'','ratio':'' };
+const CURVE_TILE_OPTIONS = ['stroke-rate','catch-slope','dps','impulse','run-loss','char','pace'];
+const CURVE_TILE_LABELS  = { 'stroke-rate':'Stroke rate','catch-slope':'Catch slope','dps':'Dist/stroke','impulse':'Impulse','run-loss':'Run loss','char':'Char %','pace':'Pace' };
+const CURVE_TILE_SUBS    = { 'stroke-rate':'','catch-slope':'','dps':'','impulse':'','run-loss':'','char':'','pace':'' };
 let curveTileKeys = (() => {
     try {
         const s = JSON.parse(_LS.getItem('scull_ctiles') || 'null');
@@ -2245,18 +2245,6 @@ function curveTileValue(key) {
             const ok = on && pace > 0;
             return { val: ok ? fmt(pace) : '--:--', dim: !ok, sub: '',
                 qlabel: ok ? 'GPS' : 'WAIT', qcls: ok ? 'g' : '' };
-        }
-        case 'oar-angle': {
-            const ok = oarAngle != null && on;
-            return { val: ok ? oarAngle + '°' : '--', dim: !ok, sub: '',
-                qlabel: ok ? (oarAngleRawArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
-                qcls: ok ? (oarAngleRawArr.length >= 3 ? 'g' : 'w') : '' };
-        }
-        case 'ratio': {
-            const ok = strokeRatio != null && on;
-            return { val: ok ? strokeRatio.toFixed(2) : '--', dim: !ok, sub: '',
-                qlabel: ok ? (strokeRatioValsArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
-                qcls: ok ? (strokeRatioValsArr.length >= 3 ? 'w' : 'b') : '' };
         }
         default: return { val: '--', dim: true, sub: '', qlabel: '', qcls: '' };
     }
@@ -2961,7 +2949,7 @@ function renderHomeScreen(){
       if(btn.dataset.ht==='log'){
         const dw=document.getElementById('ht-log-detail');
         const ll=document.getElementById('ht-log-list');
-        if(dw&&ll&&dw.style.display!=='none'){dw.style.display='none';ll.style.display='block';renderSessionList();}
+        if(dw&&ll&&dw.style.display!=='none'){dw.style.display='none';ll.style.display='block';const hb=document.querySelector('.home-body');if(hb)hb.scrollTop=0;renderSessionList();}
       }
     };
   });
@@ -2988,9 +2976,8 @@ SESSION LOG (in HOME > LOG)
 */
 function renderSessionList(){
   const sessions=loadSess();
-  const hb=document.querySelector('.home-body');if(hb)hb.scrollTop=0;
   const list=document.getElementById('slist');if(!list)return;
-  Array.from(list.children).forEach(el=>{if(el.id!=='no-sess')el.remove();});
+  Array.from(list.children).forEach(el=>{if(el.id!=='no-sess')el.remove()});
   document.getElementById('no-sess').style.display=sessions.length?'none':'block';
   sessions.forEach(s=>{
     const synced=isSynced(s.id),el=document.createElement('div');el.className='scard';
@@ -3078,7 +3065,7 @@ function showDetail(id){
     +'</div>'
     +'<div style="height:20px"></div>';
   requestAnimationFrame(()=>{
-    document.getElementById('dback-btn').addEventListener('click',()=>{dw.style.display='none';document.getElementById('ht-log-list').style.display='block';renderSessionList();});
+    document.getElementById('dback-btn').addEventListener('click',()=>{dw.style.display='none';document.getElementById('ht-log-list').style.display='block';const hb=document.querySelector('.home-body');if(hb)hb.scrollTop=0;renderSessionList();});
     if(s.paceTrace&&s.paceTrace.length>2){
       const gspd=s.garminSpeedTrace&&s.garminSpeedTrace.length>2?s.garminSpeedTrace.filter(x=>x.spd>0.3).map(x=>500/x.spd):[];
       const allPace=[...s.paceTrace,...gspd].filter(v=>v>60&&v<600);
@@ -3095,7 +3082,7 @@ function showDetail(id){
     const fz=document.getElementById('fit-zone');if(fz)fz.addEventListener('click',()=>{const inp=document.getElementById('fit-input');inp.onchange=ev=>handleGPX(ev,s.id);inp.click();});
     document.getElementById('dbg-btn').addEventListener('click',()=>exportDebugCSV(s));
     document.getElementById('sync-btn').addEventListener('click',async e=>{e.preventDefault();if(DriveSync.isSignedIn()){try{await DriveSync.upload(s);markSynced(s.id);updateDriveBtn();toast('Synced to Drive');}catch(err){toast('Sync failed');}}else{queuePending(s.id);driveSignIn();}});
-    document.getElementById('del-btn').addEventListener('click',()=>{if(confirm('Delete?')){delSess(s.id);dw.style.display='none';document.getElementById('ht-log-list').style.display='block';renderSessionList();toast('Deleted');}});
+    document.getElementById('del-btn').addEventListener('click',()=>{if(confirm('Delete?')){delSess(s.id);dw.style.display='none';document.getElementById('ht-log-list').style.display='block';const hb=document.querySelector('.home-body');if(hb)hb.scrollTop=0;renderSessionList();toast('Deleted');}});
   });
 }
 
@@ -3139,7 +3126,7 @@ function buildPreviewGrid(profile,pi,orient){
   // Portrait: narrow and tall like a phone in portrait (9:19.5 ratio)
   // Landscape: wide and short like a phone in landscape (19.5:9 ratio)
   const wrapStyle = isPortrait
-    ? 'width:155px;height:275px;margin:0 auto 8px;'
+    ? 'width:170px;aspect-ratio:9/19.5;margin:0 auto 8px;'
     : 'width:100%;max-width:340px;aspect-ratio:19.5/9;margin-bottom:8px;';
   const gs='display:grid;height:100%;grid-template-columns:repeat('+ld.cols+',1fr);grid-template-rows:repeat('+ld.rows+',1fr);gap:2px;background:#000;padding:2px;border-radius:2px;';
   return '<div style="'+wrapStyle+'"><div style="'+gs+'">'+cl.map((key,ci)=>{
@@ -3659,8 +3646,9 @@ async function checkOAuthReturn(){
 SERVICE WORKER + GLOBAL INIT 
 ¨T¨T
 */
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
+if('serviceWorker' in navigator){
+  const sw="const C='scull-v20';self.addEventListener('install',e=>{self.skipWaiting();});self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});self.addEventListener('fetch',e=>{e.respondWith(fetch(e.request).then(r=>{const rc=r.clone();caches.open(C).then(c=>c.put(e.request,rc));return r;}).catch(()=>caches.match(e.request)));});";
+  try{navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw],{type:'application/javascript'}))).catch(()=>{});}catch{}
 }
 wireTabButtons();
 wireWorkoutBar();
