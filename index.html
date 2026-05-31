@@ -1632,28 +1632,9 @@ function onStrokeFinish(now, driveDur) {
     pendingCurveDriveCount = catchToCatchSamples.length;
     updateUI();
     if (wkt.active && running && !paused && wkt.waitingForRow) {
-        if (Date.now() - wkt.waitingForRowAt < 2000) return; // ignore first 2s after gate opens
-        if (strokeRate < 12) {
-            wkt.waitGateReady = true;   // rate dropped — gate is now armed
-            wkt.waitStrokeCount = 0;
-        } else if (wkt.waitGateReady) {
-            wkt.waitStrokeCount++;
-            if (wkt.waitStrokeCount >= 2) wktBeginStep();
-        }
-        // if rate >= 12 but gate not armed yet (still rowing from warmup), ignore stroke
-    }
-    // Lap-pending gate: no workout, LAP pressed while not rowing
-    if(lapPending&&running&&!paused&&!wkt.active){
-        if(Date.now()-lapPendingAt<2000)return; // 2s safety window
-        if(strokeRate>=12){
-            lapPendingStrokeCount++;
-            if(lapPendingStrokeCount>=2){
-                lapPending=false;lapPendingAt=0;lapPendingStrokeCount=0;
-                recordLap();updateWorkoutBar();
-            }
-        }else{
-            lapPendingStrokeCount=0;
-        }
+        if (Date.now() - wkt.waitingForRowAt < 2000) return; // ignore strokes in first 2s after gate opens
+        if (strokeRate >= 12) { wkt.waitStrokeCount++; } else { wkt.waitStrokeCount = 0; }
+        if (wkt.waitStrokeCount >= 2) wktBeginStep();
     }
 }
 
@@ -1813,9 +1794,6 @@ let running = false, paused = false, elapsed = 0;
 let distance = 0, lapStartDist = 0, lapStartTime = 0;
 let laps = [], sessStart = null, sessStrokes = [], sessPaceTrace = [];
 let sessSaved = false, timerInt = null, autosaveInt = null, wakeLock = null, sessLocked = false;
-
-// Lap-pending gate: when LAP pressed while not rowing, wait for rowing start
-let lapPending = false, lapPendingAt = 0, lapPendingStrokeCount = 0;
 
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // METRIC & LAYOUT DEFINITIONS — tile catalogue, profile schemas
@@ -2154,19 +2132,12 @@ function renderWorkoutTile(i) {
         if (sq) setQEl(sq, 'OFF', '');
         return;
     }
-    // Gate active — show STOP (unarmed) or READY (armed)
+    // Gate active — show READY regardless of step
     if (wkt.waitingForRow) {
-        if (wkt.waitGateReady) {
-            if (phasEl) { phasEl.textContent = 'READY'; phasEl.className = 'wkt-tile-phase ready'; }
-            if (sv) { sv.textContent = 'ROW'; sv.className = 'metric-val'; }
-            if (ss) ss.textContent = '2 strokes to start';
-            if (sq) setQEl(sq, 'READY', 'g');
-        } else {
-            if (phasEl) { phasEl.textContent = 'STOP'; phasEl.className = 'wkt-tile-phase rest'; }
-            if (sv) { sv.textContent = 'STOP'; sv.className = 'metric-val'; }
-            if (ss) ss.textContent = 'stop rowing first';
-            if (sq) setQEl(sq, 'STOP', '');
-        }
+        if (phasEl) { phasEl.textContent = 'READY'; phasEl.className = 'wkt-tile-phase ready'; }
+        if (sv) { sv.textContent = 'WAIT'; sv.className = 'metric-val'; }
+        if (ss) ss.textContent = 'start rowing';
+        if (sq) setQEl(sq, 'READY', 'g');
         return;
     }
     const s = wktCurrentStep();
@@ -2445,7 +2416,6 @@ let wkt={
   waitingForRow:false,  // startWhenRowing gate active
   waitStrokeCount:0,    // gate: strokes ≥ 12spm seen
   waitingForRowAt:0,    // timestamp when gate was activated (ms)
-  waitGateReady:false,  // gate armed: true once rate drops <12 after gate opens
   fromRestCountdown:false, // true during rest end 3-2-1, clears on work entry
 };
 
@@ -2463,12 +2433,12 @@ function wktGetRemaining(){
 function wktStart(def){
   const seq=flattenWorkout(def);
   wkt={active:true,def,sequence:seq,seqIdx:0,startDist:distance,startElapsed:elapsed,
-       lapMetrics:[],countdownActive:false,waitingForRow:false,waitStrokeCount:0,waitingForRowAt:0,waitGateReady:false,fromRestCountdown:false};
+       lapMetrics:[],countdownActive:false,waitingForRow:false,waitStrokeCount:0,waitingForRowAt:0,fromRestCountdown:false};
   const bar=document.getElementById('wkt-bar');if(bar)bar.classList.add('wactive');
   toast('Workout: '+def.name);
   // Check if first step needs startWhenRowing
   const first=wktCurrentStep();
-  if(first?.startWhenRowing){wkt.waitingForRow=true;wkt.waitingForRowAt=Date.now();wkt.waitGateReady=(strokeRate<12);updateWorkoutBar();updateUI();updateIntervalsPanel();showCountdownOverlay('ready',null,first);return;}
+  if(first?.startWhenRowing){wkt.waitingForRow=true;wkt.waitingForRowAt=Date.now();updateWorkoutBar();updateUI();updateIntervalsPanel();showCountdownOverlay('ready',null,first);return;}
   updateWorkoutBar();updateUI();updateIntervalsPanel();
   wktMaybeShowCountdown();
 }
@@ -2513,7 +2483,7 @@ function wktAdvance(){
   if(wkt.seqIdx>=wkt.sequence.length){wktEnd();return;}
   const next=wktCurrentStep();
   if(next?.startWhenRowing){
-    wkt.waitingForRow=true;wkt.waitStrokeCount=0;wkt.waitingForRowAt=Date.now();wkt.waitGateReady=(strokeRate<12);
+    wkt.waitingForRow=true;wkt.waitStrokeCount=0;wkt.waitingForRowAt=Date.now();
     wkt.fromRestCountdown=false;
     updateWorkoutBar();updateUI();updateIntervalsPanel();
     showCountdownOverlay('ready',null,next);
@@ -2529,19 +2499,13 @@ function wktEnd(){
 }
 /* Called when rowing detected while waitingForRow gate is active */
 function wktBeginStep(){
-  wkt.waitingForRow=false;wkt.waitStrokeCount=0;wkt.waitGateReady=false;
+  wkt.waitingForRow=false;wkt.waitStrokeCount=0;
   wkt.startDist=distance;wkt.startElapsed=elapsed;
   hideCountdownOverlay();
   updateWorkoutBar();updateUI();
 }
 function wktCheckAuto(){
-  if(!wkt.active||!running||paused)return;
-  // Gate arming timeout: if user was rowing when gate opened and hasn't stopped,
-  // arm the gate after 8s so a standing-start or short-pause rower isn't stuck.
-  if(wkt.waitingForRow&&!wkt.waitGateReady&&(Date.now()-wkt.waitingForRowAt)>8000){
-    wkt.waitGateReady=true;wkt.waitStrokeCount=0;updateWorkoutBar();
-  }
-  if(wkt.waitingForRow)return;
+  if(!wkt.active||!running||paused||wkt.waitingForRow)return;
   const rem=wktGetRemaining();
   if(rem!==Infinity&&rem<=0){wktAdvance();return;}
   const s=wktCurrentStep();
@@ -2566,28 +2530,15 @@ function showRestEndCountdown(n,nextStep){
 }
 function updateWorkoutBar(){
   const bar=document.getElementById('wkt-bar');if(!bar)return;
-  if(!wkt.active&&!lapPending){bar.classList.remove('wactive');return;}
+  if(!wkt.active){bar.classList.remove('wactive');return;}
   bar.classList.add('wactive');
   const phEl=document.getElementById('wkt-phase-lbl');
   const cdEl=document.getElementById('wkt-countdown');
   const infoEl=document.getElementById('wkt-info-lbl');
-  // Lap-pending state (no workout)
-  if(lapPending&&!wkt.active){
+  if(wkt.waitingForRow){
     if(phEl){phEl.textContent='READY';phEl.className='wkt-phase ready';}
     if(cdEl)cdEl.textContent='ROW!';
-    if(infoEl)infoEl.textContent='Row to start next lap — 2 strokes  (press LAP to cancel)';
-    return;
-  }
-  if(wkt.waitingForRow){
-    if(wkt.waitGateReady){
-      if(phEl){phEl.textContent='READY';phEl.className='wkt-phase ready';}
-      if(cdEl)cdEl.textContent='ROW!';
-      if(infoEl)infoEl.textContent='Row to start — 2 strokes';
-    }else{
-      if(phEl){phEl.textContent='STOP';phEl.className='wkt-phase rest';}
-      if(cdEl)cdEl.textContent='STOP';
-      if(infoEl)infoEl.textContent='Stop rowing first, then row to start';
-    }
+    if(infoEl)infoEl.textContent='Start rowing to begin work interval';
     return;
   }
   const s=wktCurrentStep();const rem=wktGetRemaining();
@@ -2722,7 +2673,7 @@ function startSess() {
     saveInProgress(); autosaveInt = setInterval(saveInProgress, CONFIG.ui.autosaveMs);
     requestAnimationFrame(renderCtrl);
 }
-function pauseSess(){paused=true;running=false;clearInterval(timerInt);if(lapPending)cancelLapPending();requestAnimationFrame(renderCtrl);}
+function pauseSess(){paused=true;running=false;clearInterval(timerInt);requestAnimationFrame(renderCtrl);}
 function resumeSess() {
     if (running) return; // already running
     clearInterval(timerInt); // clean up any orphaned interval
@@ -2735,24 +2686,25 @@ function stopSess() {
     if (!running && !paused) return;
     running = false; paused = false;
     clearInterval(timerInt); clearInterval(autosaveInt);
-    if(lapPending)cancelLapPending();
     if (wkt.active) wktEnd();
     if (elapsed > 10 && sessStrokes.length > 0 && !sessSaved) {
         try {
             const ap = sessPaceTrace.length > 0 ? Math.round(sessPaceTrace.reduce((a, b) => a + b, 0) / sessPaceTrace.length) : 0;
+            const movingPaceVals = sessPaceTrace.filter(v => v != null && v > 0);
+            const amp = movingPaceVals.length ? Math.round(movingPaceVals.reduce((a, b) => a + b, 0) / movingPaceVals.length) : 0;
             const rateVals = sessStrokes.map(x => x.rate).filter(v => v != null && v > 0);
             const ar = rateVals.length ? Math.round(rateVals.reduce((a, b) => a + b, 0) / rateVals.length) : 0;
             const maxRate = rateVals.length ? rateVals.reduce((m, v) => v > m ? v : m, 0) : 0;
-            const avg = (arr, k) => { const v = arr.map(x => x[k]).filter(v => v != null && !isNaN(v)); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
-            const ac = (() => { const v = sessStrokes.map(x => x.catchConsistency).filter(v => v != null && !isNaN(v)); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; })();
+            const avg = (arr, k) => { const v = arr.map(x => x[k]).filter(v => v != null && !isNaN(v) && v !== 0); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+            const ac = (() => { const v = sessStrokes.map(x => x.catchConsistency).filter(v => v != null && !isNaN(v) && v !== 0); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; })();
             const sessObj = {
                 id: Date.now().toString(), startTime: sessStart, endTime: Date.now(), duration: elapsed,
-                distance: Math.round(distance), avgPace: ap, avgRate: ar, maxRate,
+                distance: Math.round(distance), avgPace: ap, avgMovingPace: amp, avgRate: ar, maxRate,
                 catchPeakSess, catchAvg8, strokeCount,
                 avgRunLossM: avg(sessStrokes, 'runLossM'), avgDPS: avg(sessStrokes, 'dps'),
                 avgCatch: avg(sessStrokes, 'catchPeak'), avgChar: avg(sessStrokes, 'char'),
                 avgConsistency: ac, avgImpulse: avg(sessStrokes, 'driveImpulse'), avgRdi: avg(sessStrokes, 'rdi'),
-                avgRatio: avg(sessStrokes, 'strokeRatio'),
+                avgRatio: avg(sessStrokes, 'strokeRatio'), avgOarAngle: avg(sessStrokes, 'oarAngle'),
                 strokes: sessStrokes.map(({ _prlStroke, ...r }) => r),
                 paceTrace: sessPaceTrace.slice(), gpsTrace: sessGpsTrace.slice(),
                 gpsRawTrace: sessGpsRawTrace.slice(), rlDebug: rlDebug.slice(),
@@ -2791,7 +2743,7 @@ function resetSess(){
   running=false;paused=false;sessSaved=false;_LS.removeItem(AUTOSAVE_DB);
   elapsed=0;distance=0;pace=0;strokeRate=0;strokeCount=0;acRate=0;acConf=0;distPerStroke=0;dpsValsArr.length=0;maxDPS=0;lapStartDist=0;lapStartTime=0;catchLast=null;catchPeakSess=null;catchAvg8=null;catchValsArr.length=0;catchConsistency=null;strokeChar=50;charValsArr.length=0;rdi=null;rdiValsArr.length=0;strokeRatio=null;strokeRatioValsArr.length=0;pendingRun=null;runLosses.length=0;runLossM=null;rlDebug.length=0;laps=[];sessStrokes.length=0;sessPaceTrace.length=0;sessGpsTrace.length=0;sessGpsRawTrace.length=0;strokeTs.length=0;paceDistWindow.length=0;velocityWindow.length=0;speedSamples.length=0;prevStrokeDist=0;prevStrokeDistT=0;gpsLastValidT=0;gpsSpeedEma=-1;gpsWasStopped=false;gpsAccuracyM=null;fsmState=FS.IDLE;catchPeakJerk=0;catchStartT=0;lastCatchAbsT=0;lastDriveEndT=0;strokesDetected=0;jerkThreshActive=jerkThreshBase;adaptReady=false;acBuf.length=0;acLastUpdate=0;jerkBuf.length=0;catchTsBuf.length=0;axisLocked=false;axisAutoDetected=false;lastAxisCheck=0;sessStart=null;lastStrokeCurve=null;strokeCurveHistory.length=0;catchToCatchSamples=[];pendingCurveDriveCount=0;motionSamples=0;motionStartedAt=0;lastMotionT=0;imuRL = null;driveImpulseEma = null;oarAngle=null;oarAngleRawArr.length=0;catchGpsDist=0;pendingOarStrokeIdx=-1;
   for(const k of AXES){gravity[k]=0;axFast[k]=0;axSmooth[k]=0;}
-  wkt={active:false,def:null,sequence:[],seqIdx:0,startDist:0,startElapsed:0,lapMetrics:[],countdownActive:false,waitingForRow:false,waitStrokeCount:0,waitingForRowAt:0,waitGateReady:false,fromRestCountdown:false};
+  wkt={active:false,def:null,sequence:[],seqIdx:0,startDist:0,startElapsed:0,lapMetrics:[],countdownActive:false,waitingForRow:false,waitStrokeCount:0,fromRestCountdown:false};
   const bar=document.getElementById('wkt-bar');if(bar)bar.classList.remove('wactive');
   hideCountdownOverlay();
   if(curveTabActive())renderCurveCanvas();
@@ -2834,24 +2786,11 @@ function recordLap(){
   if(!curStep||curStep.type==='work') showLapSplit(laps[laps.length-1]);
   updateIntervalsPanel();
 }
-function cancelLapPending(){
-  lapPending=false;lapPendingAt=0;lapPendingStrokeCount=0;
-  updateWorkoutBar();updateUI();
-}
 function handleLapBtn(){
   if(!running||paused)return;
   if(wkt.active&&wkt.waitingForRow)return;
-  if(wkt.active){wktAdvance();return;}
-  // No workout: branch on whether currently rowing
-  if(strokeRate>=12){
-    // Already rowing — record lap immediately (cancel any pending gate)
-    if(lapPending)cancelLapPending();
-    recordLap();
-  }else{
-    // Not rowing — toggle pending gate (second press cancels)
-    if(lapPending){cancelLapPending();}
-    else{lapPending=true;lapPendingAt=Date.now();lapPendingStrokeCount=0;updateWorkoutBar();updateUI();}
-  }
+  if(wkt.active) wktAdvance();
+  else recordLap();
 }
 function toggleSessLock(){
   sessLocked=!sessLocked;
@@ -3090,6 +3029,7 @@ function showDetail(id){
   dw.querySelector('#detail-content').innerHTML='<button class="dback" id="dback-btn">Back to Log</button>'
     +'<div style="font-size:10px;color:#aaa;margin-bottom:10px;">'+fmtDate(s.startTime)+(s.detectedAxis?' Axis: '+s.detectedAxis.toUpperCase():'')+(syncedNow?' synced':'')+'</div>'
     +'<div class="sgrid"><div class="sbox"><span class="sbox-v">'+((s.distance/1000).toFixed(2))+'</span><span class="sbox-l">Distance</span><span class="sbox-u">KM</span></div><div class="sbox g"><span class="sbox-v">'+(s.avgPace>0?fmt(s.avgPace):'--')+'</span><span class="sbox-l">Avg Pace</span><span class="sbox-u">/500M</span></div><div class="sbox a"><span class="sbox-v">'+fmtH(s.duration)+'</span><span class="sbox-l">Duration</span><span class="sbox-u">H:MM:SS</span></div></div>'
+    +'<div class="sgrid" style="grid-template-columns:1fr 1fr"><div class="sbox g"><span class="sbox-v">'+(s.avgMovingPace>0?fmt(s.avgMovingPace):'--')+'</span><span class="sbox-l">Moving Pace</span><span class="sbox-u">/500M</span></div><div class="sbox" style="border-color:#2de0d4"><span class="sbox-v">'+(s.avgOarAngle!=null?s.avgOarAngle.toFixed(1)+'°':'--')+'</span><span class="sbox-l">Oar Angle</span><span class="sbox-u">DEG</span></div></div>'
     +'<div class="sgrid"><div class="sbox a"><span class="sbox-v">'+(s.avgRate||'--')+'</span><span class="sbox-l">Avg Rate</span><span class="sbox-u">S/MIN</span></div><div class="sbox a"><span class="sbox-v">'+(s.maxRate||'--')+'</span><span class="sbox-l">Max Rate</span><span class="sbox-u">S/MIN</span></div><div class="sbox"><span class="sbox-v">'+(s.strokeCount||0)+'</span><span class="sbox-l">Strokes</span></div></div>'
     +'<div class="sgrid"><div class="sbox"><span class="sbox-v">'+(s.catchPeakSess!=null?'+'+Math.round(s.catchPeakSess):'--')+'</span><span class="sbox-l">Catch Peak</span></div><div class="sbox"><span class="sbox-v">'+(avgCatch!=='--'?'+'+avgCatch:avgCatch)+'</span><span class="sbox-l">Catch Avg</span></div><div class="sbox"><span class="sbox-v">'+(s.avgConsistency?s.avgConsistency.toFixed(1):'--')+'</span><span class="sbox-l">Consistency</span></div></div>'
     +'<div class="sgrid"><div class="sbox"><span class="sbox-v">'+(s.avgDPS?s.avgDPS.toFixed(1):'--')+'</span><span class="sbox-l">DPS</span><span class="sbox-u">m</span></div><div class="sbox"><span class="sbox-v">'+(s.avgImpulse!=null?s.avgImpulse.toFixed(2):'--')+'</span><span class="sbox-l">Impulse</span></div><div class="sbox"><span class="sbox-v">'+(s.avgChar!=null?Math.round(s.avgChar)+'%':'--')+'</span><span class="sbox-l">Stroke Char</span></div></div>'
