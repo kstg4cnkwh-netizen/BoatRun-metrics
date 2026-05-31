@@ -1632,6 +1632,7 @@ function onStrokeFinish(now, driveDur) {
     pendingCurveDriveCount = catchToCatchSamples.length;
     updateUI();
     if (wkt.active && running && !paused && wkt.waitingForRow) {
+        if (Date.now() - wkt.waitingForRowAt < 2000) return; // ignore strokes in first 2s after gate opens
         if (strokeRate >= 12) { wkt.waitStrokeCount++; } else { wkt.waitStrokeCount = 0; }
         if (wkt.waitStrokeCount >= 2) wktBeginStep();
     }
@@ -2413,7 +2414,8 @@ let wkt={
   lapMetrics:[],     // collected per-step
   countdownActive:false,
   waitingForRow:false,  // startWhenRowing gate active
-  waitStrokeCount:0,    // gate: strokes \u8805 12spm seen
+  waitStrokeCount:0,    // gate: strokes ≥ 12spm seen
+  waitingForRowAt:0,    // timestamp when gate was activated (ms)
   fromRestCountdown:false, // true during rest end 3-2-1, clears on work entry
 };
 
@@ -2431,12 +2433,12 @@ function wktGetRemaining(){
 function wktStart(def){
   const seq=flattenWorkout(def);
   wkt={active:true,def,sequence:seq,seqIdx:0,startDist:distance,startElapsed:elapsed,
-       lapMetrics:[],countdownActive:false,waitingForRow:false,waitStrokeCount:0,fromRestCountdown:false};
+       lapMetrics:[],countdownActive:false,waitingForRow:false,waitStrokeCount:0,waitingForRowAt:0,fromRestCountdown:false};
   const bar=document.getElementById('wkt-bar');if(bar)bar.classList.add('wactive');
   toast('Workout: '+def.name);
   // Check if first step needs startWhenRowing
   const first=wktCurrentStep();
-  if(first?.startWhenRowing){wkt.waitingForRow=true;updateWorkoutBar();updateUI();updateIntervalsPanel();showCountdownOverlay('ready',null,first);return;}
+  if(first?.startWhenRowing){wkt.waitingForRow=true;wkt.waitingForRowAt=Date.now();updateWorkoutBar();updateUI();updateIntervalsPanel();showCountdownOverlay('ready',null,first);return;}
   updateWorkoutBar();updateUI();updateIntervalsPanel();
   wktMaybeShowCountdown();
 }
@@ -2481,7 +2483,7 @@ function wktAdvance(){
   if(wkt.seqIdx>=wkt.sequence.length){wktEnd();return;}
   const next=wktCurrentStep();
   if(next?.startWhenRowing){
-    wkt.waitingForRow=true;wkt.waitStrokeCount=0;
+    wkt.waitingForRow=true;wkt.waitStrokeCount=0;wkt.waitingForRowAt=Date.now();
     wkt.fromRestCountdown=false;
     updateWorkoutBar();updateUI();updateIntervalsPanel();
     showCountdownOverlay('ready',null,next);
