@@ -2194,9 +2194,9 @@ function toggleSessLock() {
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // CURVE TAB — tile cycling, value readout, sub-tab state
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
-const CURVE_TILE_OPTIONS = ['stroke-rate','catch-slope','dps','impulse','run-loss','char','pace'];
-const CURVE_TILE_LABELS  = { 'stroke-rate':'Stroke rate','catch-slope':'Catch slope','dps':'Dist/stroke','impulse':'Impulse','run-loss':'Run loss','char':'Char %','pace':'Pace' };
-const CURVE_TILE_SUBS    = { 'stroke-rate':'','catch-slope':'','dps':'','impulse':'','run-loss':'','char':'','pace':'' };
+const CURVE_TILE_OPTIONS = ['stroke-rate','catch-slope','dps','impulse','run-loss','char','pace','oar-angle','ratio'];
+const CURVE_TILE_LABELS  = { 'stroke-rate':'Stroke rate','catch-slope':'Catch slope','dps':'Dist/stroke','impulse':'Impulse','run-loss':'Run loss','char':'Char %','pace':'Pace','oar-angle':'Oar angle','ratio':'Drive ratio' };
+const CURVE_TILE_SUBS    = { 'stroke-rate':'','catch-slope':'','dps':'','impulse':'','run-loss':'','char':'','pace':'','oar-angle':'','ratio':'' };
 let curveTileKeys = (() => {
     try {
         const s = JSON.parse(_LS.getItem('scull_ctiles') || 'null');
@@ -2246,6 +2246,18 @@ function curveTileValue(key) {
             const ok = on && pace > 0;
             return { val: ok ? fmt(pace) : '--:--', dim: !ok, sub: '',
                 qlabel: ok ? 'GPS' : 'WAIT', qcls: ok ? 'g' : '' };
+        }
+        case 'oar-angle': {
+            const ok = oarAngle != null && on;
+            return { val: ok ? oarAngle + '°' : '--', dim: !ok, sub: '',
+                qlabel: ok ? (oarAngleRawArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
+                qcls: ok ? (oarAngleRawArr.length >= 3 ? 'g' : 'w') : '' };
+        }
+        case 'ratio': {
+            const ok = strokeRatio != null && on;
+            return { val: ok ? strokeRatio.toFixed(2) : '--', dim: !ok, sub: '',
+                qlabel: ok ? (strokeRatioValsArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
+                qcls: ok ? (strokeRatioValsArr.length >= 3 ? 'w' : 'b') : '' };
         }
         default: return { val: '--', dim: true, sub: '', qlabel: '', qcls: '' };
     }
