@@ -2566,11 +2566,18 @@ function showRestEndCountdown(n,nextStep){
 }
 function updateWorkoutBar(){
   const bar=document.getElementById('wkt-bar');if(!bar)return;
-  if(!wkt.active){bar.classList.remove('wactive');return;}
+  if(!wkt.active&&!lapPending){bar.classList.remove('wactive');return;}
   bar.classList.add('wactive');
   const phEl=document.getElementById('wkt-phase-lbl');
   const cdEl=document.getElementById('wkt-countdown');
   const infoEl=document.getElementById('wkt-info-lbl');
+  // Lap-pending state (no workout)
+  if(lapPending&&!wkt.active){
+    if(phEl){phEl.textContent='READY';phEl.className='wkt-phase ready';}
+    if(cdEl)cdEl.textContent='ROW!';
+    if(infoEl)infoEl.textContent='Row to start next lap — 2 strokes  (press LAP to cancel)';
+    return;
+  }
   if(wkt.waitingForRow){
     if(wkt.waitGateReady){
       if(phEl){phEl.textContent='READY';phEl.className='wkt-phase ready';}
@@ -2715,7 +2722,7 @@ function startSess() {
     saveInProgress(); autosaveInt = setInterval(saveInProgress, CONFIG.ui.autosaveMs);
     requestAnimationFrame(renderCtrl);
 }
-function pauseSess(){paused=true;running=false;clearInterval(timerInt);requestAnimationFrame(renderCtrl);}
+function pauseSess(){paused=true;running=false;clearInterval(timerInt);if(lapPending)cancelLapPending();requestAnimationFrame(renderCtrl);}
 function resumeSess() {
     if (running) return; // already running
     clearInterval(timerInt); // clean up any orphaned interval
@@ -2728,6 +2735,7 @@ function stopSess() {
     if (!running && !paused) return;
     running = false; paused = false;
     clearInterval(timerInt); clearInterval(autosaveInt);
+    if(lapPending)cancelLapPending();
     if (wkt.active) wktEnd();
     if (elapsed > 10 && sessStrokes.length > 0 && !sessSaved) {
         try {
@@ -3160,15 +3168,11 @@ function buildPreviewGrid(profile,pi,orient){
   const ld=layouts.find(l=>l.id===cfg.layout)||layouts[0];
   const n=ld.cols*ld.rows;const cells=[...cfg.cells];while(cells.length<n)cells.push('empty');const cl=cells.slice(0,n);
   const isPortrait = orient === 'portrait';
-  // Portrait: narrow and tall like a phone in portrait (9:19.5 ratio)
-  // Landscape: wide and short like a phone in landscape (19.5:9 ratio)
-  const wrapStyle = isPortrait
-    ? 'width:120px;aspect-ratio:9/19.5;margin:0 auto 8px;'
-    : 'width:100%;max-width:340px;aspect-ratio:19.5/9;margin-bottom:8px;';
-  const gs='display:grid;height:100%;grid-template-columns:repeat('+ld.cols+',1fr);grid-template-rows:repeat('+ld.rows+',1fr);gap:2px;background:#000;padding:2px;border-radius:2px;';
+  const wrapStyle = isPortrait ? 'max-width:200px;margin:0 auto;' : '';
+  const gs='display:grid;grid-template-columns:repeat('+ld.cols+',1fr);gap:2px;background:#000;padding:2px;border-radius:2px;margin-bottom:8px;';
   return '<div style="'+wrapStyle+'"><div style="'+gs+'">'+cl.map((key,ci)=>{
     const def=METRIC_DEFS[key]||METRIC_DEFS.empty;
-    return '<div class="preview-cell" style="min-height:0;" onclick="openMetricPicker('+pi+',\''+orient+'\','+ci+')" title="Tap to assign"><span class="preview-cell-val">'+def.short+'</span></div>';
+    return '<div class="preview-cell" onclick="openMetricPicker('+pi+',\''+orient+'\','+ci+')" title="Tap to assign"><span class="preview-cell-val">'+def.short+'</span></div>';
   }).join('')+'</div></div>';
 }
 function toggleProfileCard(pi){
