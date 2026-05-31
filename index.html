@@ -2690,19 +2690,21 @@ function stopSess() {
     if (elapsed > 10 && sessStrokes.length > 0 && !sessSaved) {
         try {
             const ap = sessPaceTrace.length > 0 ? Math.round(sessPaceTrace.reduce((a, b) => a + b, 0) / sessPaceTrace.length) : 0;
+            const movingPaceVals = sessPaceTrace.filter(v => v != null && v > 0);
+            const amp = movingPaceVals.length ? Math.round(movingPaceVals.reduce((a, b) => a + b, 0) / movingPaceVals.length) : 0;
             const rateVals = sessStrokes.map(x => x.rate).filter(v => v != null && v > 0);
             const ar = rateVals.length ? Math.round(rateVals.reduce((a, b) => a + b, 0) / rateVals.length) : 0;
             const maxRate = rateVals.length ? rateVals.reduce((m, v) => v > m ? v : m, 0) : 0;
-            const avg = (arr, k) => { const v = arr.map(x => x[k]).filter(v => v != null && !isNaN(v)); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
-            const ac = (() => { const v = sessStrokes.map(x => x.catchConsistency).filter(v => v != null && !isNaN(v)); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; })();
+            const avg = (arr, k) => { const v = arr.map(x => x[k]).filter(v => v != null && !isNaN(v) && v !== 0); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+            const ac = (() => { const v = sessStrokes.map(x => x.catchConsistency).filter(v => v != null && !isNaN(v) && v !== 0); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; })();
             const sessObj = {
                 id: Date.now().toString(), startTime: sessStart, endTime: Date.now(), duration: elapsed,
-                distance: Math.round(distance), avgPace: ap, avgRate: ar, maxRate,
+                distance: Math.round(distance), avgPace: ap, avgMovingPace: amp, avgRate: ar, maxRate,
                 catchPeakSess, catchAvg8, strokeCount,
                 avgRunLossM: avg(sessStrokes, 'runLossM'), avgDPS: avg(sessStrokes, 'dps'),
                 avgCatch: avg(sessStrokes, 'catchPeak'), avgChar: avg(sessStrokes, 'char'),
                 avgConsistency: ac, avgImpulse: avg(sessStrokes, 'driveImpulse'), avgRdi: avg(sessStrokes, 'rdi'),
-                avgRatio: avg(sessStrokes, 'strokeRatio'),
+                avgRatio: avg(sessStrokes, 'strokeRatio'), avgOarAngle: avg(sessStrokes, 'oarAngle'),
                 strokes: sessStrokes.map(({ _prlStroke, ...r }) => r),
                 paceTrace: sessPaceTrace.slice(), gpsTrace: sessGpsTrace.slice(),
                 gpsRawTrace: sessGpsRawTrace.slice(), rlDebug: rlDebug.slice(),
@@ -3027,6 +3029,7 @@ function showDetail(id){
   dw.querySelector('#detail-content').innerHTML='<button class="dback" id="dback-btn">Back to Log</button>'
     +'<div style="font-size:10px;color:#aaa;margin-bottom:10px;">'+fmtDate(s.startTime)+(s.detectedAxis?' Axis: '+s.detectedAxis.toUpperCase():'')+(syncedNow?' synced':'')+'</div>'
     +'<div class="sgrid"><div class="sbox"><span class="sbox-v">'+((s.distance/1000).toFixed(2))+'</span><span class="sbox-l">Distance</span><span class="sbox-u">KM</span></div><div class="sbox g"><span class="sbox-v">'+(s.avgPace>0?fmt(s.avgPace):'--')+'</span><span class="sbox-l">Avg Pace</span><span class="sbox-u">/500M</span></div><div class="sbox a"><span class="sbox-v">'+fmtH(s.duration)+'</span><span class="sbox-l">Duration</span><span class="sbox-u">H:MM:SS</span></div></div>'
+    +'<div class="sgrid" style="grid-template-columns:1fr 1fr"><div class="sbox g"><span class="sbox-v">'+(s.avgMovingPace>0?fmt(s.avgMovingPace):'--')+'</span><span class="sbox-l">Moving Pace</span><span class="sbox-u">/500M</span></div><div class="sbox" style="border-color:#2de0d4"><span class="sbox-v">'+(s.avgOarAngle!=null?s.avgOarAngle.toFixed(1)+'°':'--')+'</span><span class="sbox-l">Oar Angle</span><span class="sbox-u">DEG</span></div></div>'
     +'<div class="sgrid"><div class="sbox a"><span class="sbox-v">'+(s.avgRate||'--')+'</span><span class="sbox-l">Avg Rate</span><span class="sbox-u">S/MIN</span></div><div class="sbox a"><span class="sbox-v">'+(s.maxRate||'--')+'</span><span class="sbox-l">Max Rate</span><span class="sbox-u">S/MIN</span></div><div class="sbox"><span class="sbox-v">'+(s.strokeCount||0)+'</span><span class="sbox-l">Strokes</span></div></div>'
     +'<div class="sgrid"><div class="sbox"><span class="sbox-v">'+(s.catchPeakSess!=null?'+'+Math.round(s.catchPeakSess):'--')+'</span><span class="sbox-l">Catch Peak</span></div><div class="sbox"><span class="sbox-v">'+(avgCatch!=='--'?'+'+avgCatch:avgCatch)+'</span><span class="sbox-l">Catch Avg</span></div><div class="sbox"><span class="sbox-v">'+(s.avgConsistency?s.avgConsistency.toFixed(1):'--')+'</span><span class="sbox-l">Consistency</span></div></div>'
     +'<div class="sgrid"><div class="sbox"><span class="sbox-v">'+(s.avgDPS?s.avgDPS.toFixed(1):'--')+'</span><span class="sbox-l">DPS</span><span class="sbox-u">m</span></div><div class="sbox"><span class="sbox-v">'+(s.avgImpulse!=null?s.avgImpulse.toFixed(2):'--')+'</span><span class="sbox-l">Impulse</span></div><div class="sbox"><span class="sbox-v">'+(s.avgChar!=null?Math.round(s.avgChar)+'%':'--')+'</span><span class="sbox-l">Stroke Char</span></div></div>'
