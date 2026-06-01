@@ -2804,7 +2804,29 @@ function saveInProgress(){
   try{const snap={id:sessStart.toString(),startTime:sessStart,duration:elapsed,distance:Math.round(distance),strokeCount,catchPeakSess,catchAvg8,laps,strokes:sessStrokes,paceTrace:sessPaceTrace,gpsTrace:sessGpsTrace,_autosave:true,_savedAt:Date.now()};_LS.setItem(AUTOSAVE_DB,JSON.stringify(snap));}catch{}
 }
 function checkAutosave(){
-  try{const raw=_LS.getItem(AUTOSAVE_DB);if(!raw)return;const snap=JSON.parse(raw);if(!snap||!snap._autosave||!snap.strokeCount)return;const age=Date.now()-snap._savedAt;if(age>12*3600*1000){_LS.removeItem(AUTOSAVE_DB);return;}const mins=Math.round(snap.duration/60),km=(snap.distance/1000).toFixed(2);if(confirm('Recover autosaved session?\n'+km+' km  '+mins+' min  '+snap.strokeCount+' strokes\n('+Math.round(age/60000)+' min ago)')){snap._autosave=false;const a=loadSess();a.unshift(snap);saveSess(a);_LS.removeItem(AUTOSAVE_DB);alert('Session recovered. View in HOME > LOG.');}else _LS.removeItem(AUTOSAVE_DB);}catch{_LS.removeItem(AUTOSAVE_DB);}
+  try{
+    const raw=_LS.getItem(AUTOSAVE_DB);
+    if(!raw)return;
+    const snap=JSON.parse(raw);
+    if(!snap||!snap._autosave||!snap.strokeCount)return;
+    const age=Date.now()-snap._savedAt;
+    if(age>12*3600*1000){_LS.removeItem(AUTOSAVE_DB);return;}
+    const mins=Math.round(snap.duration/60),km=(snap.distance/1000).toFixed(2);
+    if(confirm('Recover autosaved session?\n'+km+' km  '+mins+' min  '+snap.strokeCount+' strokes\n('+Math.round(age/60000)+' min ago)')){
+      snap._autosave=false;
+      const ok=addSess(snap);
+      if(ok){
+        _LS.removeItem(AUTOSAVE_DB);
+        renderSessionList();
+        alert('Session recovered and saved to LOG.');
+      } else {
+        alert('⚠️ Recovery save failed — session still in autosave. Try again or free up storage.');
+        // Leave autosave intact so next open can retry
+      }
+    } else {
+      _LS.removeItem(AUTOSAVE_DB);
+    }
+  }catch{_LS.removeItem(AUTOSAVE_DB);}
 }
 function wireButtons(){
   const s=id=>document.getElementById('cc-'+id);
