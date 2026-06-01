@@ -3427,18 +3427,28 @@ function stepRowHTML(s,i,arr,sel,isFirst,isLast,gi,si){
 }
 
 /* Step size: 10s below 2min, 30s up to 10min, 60s above */
-function timeStep(val){if(val<120)return 10;if(val<600)return 30;return 60;}
+function prevTime(val){
+  if(val<=10)return 10;
+  if(val<=120)return Math.max(10,Math.floor((val-1)/10)*10);
+  if(val<=600)return Math.max(120,Math.floor((val-1)/30)*30);
+  return Math.max(600,Math.floor((val-1)/60)*60);
+}
+function nextTime(val){
+  if(val<120)return Math.min(120,Math.ceil((val+1)/10)*10);
+  if(val<600)return Math.min(600,Math.ceil((val+1)/30)*30);
+  return Math.ceil((val+1)/60)*60;
+}
 
 /* Step value adjustment helpers */
 function adjustStep(i,dir){
   const s=_wktSteps[i];if(!s)return;
-  if(s.mode==='time'){const val=s.value||10;const step=dir>0?timeStep(val):timeStep(val-1);s.value=Math.max(10,val+dir*step);}
+  if(s.mode==='time')s.value=dir>0?nextTime(s.value||10):prevTime(s.value||10);
   else if(s.mode==='distance')s.value=Math.max(50,(s.value||500)+dir*50);
   renderBuilderSteps();
 }
 function adjustInnerStep(gi,si,dir){
   const s=_wktSteps[gi]&&_wktSteps[gi].steps&&_wktSteps[gi].steps[si];if(!s)return;
-  if(s.mode==='time'){const val=s.value||10;const step=dir>0?timeStep(val):timeStep(val-1);s.value=Math.max(10,val+dir*step);}
+  if(s.mode==='time')s.value=dir>0?nextTime(s.value||10):prevTime(s.value||10);
   else if(s.mode==='distance')s.value=Math.max(50,(s.value||500)+dir*50);
   renderBuilderSteps();
 }
