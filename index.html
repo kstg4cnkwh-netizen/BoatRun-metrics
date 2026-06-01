@@ -3369,7 +3369,7 @@ function renderInnerStep(s,gi,si){
 /* Shared row renderer for top-level and inner steps */
 function stepRowHTML(s,i,arr,sel,isFirst,isLast,gi,si){
   const isOpen=s.mode==='open';
-  const displayVal=s.mode==='time'?Math.round(s.value/60):s.mode==='distance'?s.value:0;
+  const displayVal=s.mode==='time'?(()=>{const m=Math.floor(s.value/60),sc=s.value%60;return m>0?(m+':'+(sc<10?'0':'')+sc):s.value+'s';})():s.mode==='distance'?s.value:0;
   const adjustFn=gi!=null
     ?'adjustInnerStep('+gi+','+si+',$DIR)'
     :'adjustStep('+i+',$DIR)';
@@ -3403,7 +3403,7 @@ function stepRowHTML(s,i,arr,sel,isFirst,isLast,gi,si){
       ? '<span style="font-size:9px;color:#aaa;padding:0 4px;">open</span>'
       : '<div class="mode-toggle">'+
         '<button class="mode-toggle-btn'+(s.mode==='time'?' sel':'')+'"'+
-          ' onclick="'+modeFn.replace('$MODE',"'time'")+'" style="padding:4px 6px;">MIN</button>'+
+          ' onclick="'+modeFn.replace('$MODE',"'time'")+'" style="padding:4px 6px;">TIME</button>'+
         '<button class="mode-toggle-btn'+(s.mode==='distance'?' sel':'')+'"'+
           ' onclick="'+modeFn.replace('$MODE',"'distance'")+'" style="padding:4px 6px;">m</button>'+
         '</div>'
@@ -3426,30 +3426,33 @@ function stepRowHTML(s,i,arr,sel,isFirst,isLast,gi,si){
     '</div>';
 }
 
+/* Step size: 10s below 2min, 30s up to 10min, 60s above */
+function timeStep(val){if(val<120)return 10;if(val<600)return 30;return 60;}
+
 /* Step value adjustment helpers */
 function adjustStep(i,dir){
   const s=_wktSteps[i];if(!s)return;
-  if(s.mode==='time')s.value=Math.max(60,(s.value||60)+dir*60);
+  if(s.mode==='time'){const step=timeStep(s.value||10);s.value=Math.max(10,(s.value||10)+dir*step);}
   else if(s.mode==='distance')s.value=Math.max(50,(s.value||500)+dir*50);
   renderBuilderSteps();
 }
 function adjustInnerStep(gi,si,dir){
   const s=_wktSteps[gi]&&_wktSteps[gi].steps&&_wktSteps[gi].steps[si];if(!s)return;
-  if(s.mode==='time')s.value=Math.max(60,(s.value||60)+dir*60);
+  if(s.mode==='time'){const step=timeStep(s.value||10);s.value=Math.max(10,(s.value||10)+dir*step);}
   else if(s.mode==='distance')s.value=Math.max(50,(s.value||500)+dir*50);
   renderBuilderSteps();
 }
 function setStepMode(i,mode){
   const s=_wktSteps[i];if(!s||mode===s.mode)return;
   s.mode=mode;
-  if(mode==='time'&&!(s.value>=60))s.value=s.type==='work'?300:120;
+  if(mode==='time'&&!(s.value>=60))s.value=s.type==='work'?240:240;
   if(mode==='distance'&&!(s.value>=50))s.value=s.type==='work'?1000:500;
   renderBuilderSteps();
 }
 function setInnerStepMode(gi,si,mode){
   const s=_wktSteps[gi]&&_wktSteps[gi].steps&&_wktSteps[gi].steps[si];if(!s||mode===s.mode)return;
   s.mode=mode;
-  if(mode==='time'&&!(s.value>=60))s.value=s.type==='work'?300:120;
+  if(mode==='time'&&!(s.value>=60))s.value=s.type==='work'?240:240;
   if(mode==='distance'&&!(s.value>=50))s.value=s.type==='work'?1000:500;
   renderBuilderSteps();
 }
