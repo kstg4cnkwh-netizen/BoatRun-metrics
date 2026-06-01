@@ -3432,13 +3432,13 @@ function timeStep(val){if(val<120)return 10;if(val<600)return 30;return 60;}
 /* Step value adjustment helpers */
 function adjustStep(i,dir){
   const s=_wktSteps[i];if(!s)return;
-  if(s.mode==='time'){const step=timeStep(s.value||10);s.value=Math.max(10,(s.value||10)+dir*step);}
+  if(s.mode==='time'){const val=s.value||10;const step=dir>0?timeStep(val):timeStep(val-1);s.value=Math.max(10,val+dir*step);}
   else if(s.mode==='distance')s.value=Math.max(50,(s.value||500)+dir*50);
   renderBuilderSteps();
 }
 function adjustInnerStep(gi,si,dir){
   const s=_wktSteps[gi]&&_wktSteps[gi].steps&&_wktSteps[gi].steps[si];if(!s)return;
-  if(s.mode==='time'){const step=timeStep(s.value||10);s.value=Math.max(10,(s.value||10)+dir*step);}
+  if(s.mode==='time'){const val=s.value||10;const step=dir>0?timeStep(val):timeStep(val-1);s.value=Math.max(10,val+dir*step);}
   else if(s.mode==='distance')s.value=Math.max(50,(s.value||500)+dir*50);
   renderBuilderSteps();
 }
