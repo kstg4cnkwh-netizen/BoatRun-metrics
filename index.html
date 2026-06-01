@@ -1139,7 +1139,7 @@ function handleMotion(e) {
     const acCut = now - CONFIG.motion.acBufMs;
     while (acBuf.length > 1 && acBuf[0].t < acCut) acBuf.shift();
     if (running && !paused) {
-        catchToCatchSamples.push({ t: now, v: axSmooth[selAxis] });
+        catchToCatchSamples.push({ t: now, v: axFast[selAxis] });
         computeAutocorrelationRate(now);
     }
     runFSM(now, fast, jerk);
@@ -1411,7 +1411,7 @@ function computeDriveImpulse(samples) {
     return imp > 0 ? +imp.toFixed(4) : null;
 }
 // \u9472 \u9472  Oar arc angle — full catch-to-catch IMU integration \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 
-// Uses catchToCatchSamples (axSmooth, full stroke) + GPS stroke distance as
+// Uses catchToCatchSamples (axFast, full stroke) + GPS stroke distance as
 // an exact anchor, eliminating GPS-speed-lag bias.
 //
 // The velocity profile is:  v(t) = vCatch + \u916 V(t)
