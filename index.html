@@ -2461,6 +2461,8 @@ function wktStart(def){
   const seq=flattenWorkout(def);
   wkt={active:true,def,sequence:seq,seqIdx:0,startDist:distance,startElapsed:elapsed,
        lapMetrics:[],countdownActive:false,waitingForRow:false,waitStrokeCount:0,waitingForRowAt:0,fromRestCountdown:false};
+  // Sync lap markers to the workout start so interval laps measure from this point
+  lapStartDist=distance;lapStartTime=elapsed;
   const bar=document.getElementById('wkt-bar');if(bar)bar.classList.add('wactive');
   toast('Workout: '+def.name);
   // Check if first step needs startWhenRowing
@@ -3286,7 +3288,9 @@ function toggleWktCard(wi){
 function loadWorkoutNow(wi){
   const workouts=loadWorkouts();const def=workouts[wi];if(!def)return;
   if(!enterLive._done){alert('Start the app first.');return;}
-  wktStart(def);showTab('live');toast('Workout: '+def.name);
+  if((running||paused||elapsed>0)&&!confirm('Load "'+def.name+'" now?\n\nExisting laps are kept. Lap timing resets to this point.')){return;}
+  if(wkt.active)wktEnd();
+  wktStart(def);showTab('live');
 }
 function editWorkout(wi){
   const workouts=loadWorkouts();const w=workouts[wi];if(!w)return;
