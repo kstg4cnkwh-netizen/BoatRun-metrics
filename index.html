@@ -3313,8 +3313,8 @@ function wireWorkoutBuilder(){
     _wktEditId=null;_wktSteps=[];_wktSelectedSteps=new Set();
   };
   document.getElementById('btn-add-warmup').onclick=()=>addBuilderStep({type:'warmup',mode:'open'});
-  document.getElementById('btn-add-work').onclick=()=>addBuilderStep({type:'work',mode:'time',value:300});
-  document.getElementById('btn-add-rest').onclick=()=>addBuilderStep({type:'rest',mode:'time',value:120});
+  document.getElementById('btn-add-work').onclick=()=>addBuilderStep({type:'work',mode:'time',value:240,timeValue:240,distValue:1000});
+  document.getElementById('btn-add-rest').onclick=()=>addBuilderStep({type:'rest',mode:'time',value:240,timeValue:240,distValue:500});
   document.getElementById('btn-add-cooldown').onclick=()=>addBuilderStep({type:'cooldown',mode:'open'});
   document.getElementById('btn-add-repeats').onclick=()=>groupSelectedAsRepeats();
   document.getElementById('save-wkt-btn').onclick=saveWorkoutFromBuilder;
@@ -3444,16 +3444,20 @@ function adjustInnerStep(gi,si,dir){
 }
 function setStepMode(i,mode){
   const s=_wktSteps[i];if(!s||mode===s.mode)return;
+  if(s.mode==='time')s.timeValue=s.value;
+  else if(s.mode==='distance')s.distValue=s.value;
   s.mode=mode;
-  if(mode==='time'&&!(s.value>=60))s.value=s.type==='work'?240:240;
-  if(mode==='distance'&&!(s.value>=50))s.value=s.type==='work'?1000:500;
+  if(mode==='time')s.value=s.timeValue||(s.type==='work'?240:240);
+  if(mode==='distance')s.value=s.distValue||(s.type==='work'?1000:500);
   renderBuilderSteps();
 }
 function setInnerStepMode(gi,si,mode){
   const s=_wktSteps[gi]&&_wktSteps[gi].steps&&_wktSteps[gi].steps[si];if(!s||mode===s.mode)return;
+  if(s.mode==='time')s.timeValue=s.value;
+  else if(s.mode==='distance')s.distValue=s.value;
   s.mode=mode;
-  if(mode==='time'&&!(s.value>=60))s.value=s.type==='work'?240:240;
-  if(mode==='distance'&&!(s.value>=50))s.value=s.type==='work'?1000:500;
+  if(mode==='time')s.value=s.timeValue||(s.type==='work'?240:240);
+  if(mode==='distance')s.value=s.distValue||(s.type==='work'?1000:500);
   renderBuilderSteps();
 }
 function moveStep(i,dir){
