@@ -3026,7 +3026,7 @@ SESSION LOG (in HOME > LOG)
 ¨T¨T
 */
 function renderSessionList(){
-  const sessions=loadSess().slice().sort((a,b)=>new Date(b.startTime)-new Date(a.startTime));
+  const sessions=loadSess().slice().sort((a,b)=>+b.id - +a.id);
   const list=document.getElementById('slist');if(!list)return;
   Array.from(list.children).forEach(el=>{if(el.id!=='no-sess')el.remove()});
   document.getElementById('no-sess').style.display=sessions.length?'none':'block';
