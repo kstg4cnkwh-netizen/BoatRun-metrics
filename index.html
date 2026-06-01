@@ -232,6 +232,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .drive-btn.drive-linked{border-color:#27ae60;color:#27ae60;}
 .scnt{font-size:10px;color:#888;letter-spacing:.08em;white-space:nowrap}
 .sync-badge{font-size:9px;color:#27ae60;font-weight:700;letter-spacing:.04em;}
+.fit-badge{font-size:9px;color:#8e44ad;font-weight:700;letter-spacing:.04em;}
 /* Home tab bar */
 .home-tabs{display:flex;background:#f0f0f0;flex-shrink:0;border-bottom:1px solid #ccc;}
 .htab{flex:1;padding:9px 4px;border:none;background:none;color:#888;font-family:"Roboto",sans-serif;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;touch-action:manipulation;}
@@ -3031,10 +3032,12 @@ function renderSessionList(){
   document.getElementById('no-sess').style.display=sessions.length?'none':'block';
   sessions.forEach(s=>{
     const synced=isSynced(s.id),el=document.createElement('div');el.className='scard';
-    el.innerHTML='<div class="scard-date"><span>'+fmtDate(s.startTime)+'</span>'+(s.hrTrace?'<span>HR</span>':'')+(s.detectedAxis?'<span>AX:'+s.detectedAxis.toUpperCase()+'</span>':'')+(s.workoutName?'<span>'+s.workoutName+'</span>':'')+(synced?'<span class="sync-badge">synced</span>':'')+'</div><div class="scard-stats"><div><span class="scs-v">'+((s.distance/1000).toFixed(2))+'</span><span class="scs-l">km</span></div><div><span class="scs-v">'+fmtH(s.duration)+'</span><span class="scs-l">time</span></div><div><span class="scs-v">'+(s.avgPace>0?fmt(s.avgPace):'--')+'</span><span class="scs-l">avg pace</span></div><div><span class="scs-v">'+(s.strokeCount||0)+'</span><span class="scs-l">strokes</span></div></div>';
+    const hasFit=!!(s.garminLaps&&s.garminLaps.length)||(s.garminSpeedTrace&&s.garminSpeedTrace.length);
+    el.innerHTML='<div class="scard-date"><span>'+fmtDate(s.startTime)+'</span>'+(s.hrTrace?'<span>HR</span>':'')+(hasFit?'<span class="fit-badge">FIT</span>':'')+(s.detectedAxis?'<span>AX:'+s.detectedAxis.toUpperCase()+'</span>':'')+(s.workoutName?'<span>'+s.workoutName+'</span>':'')+(synced?'<span class="sync-badge">synced</span>':'')+'</div><div class="scard-stats"><div><span class="scs-v">'+((s.distance/1000).toFixed(2))+'</span><span class="scs-l">km</span></div><div><span class="scs-v">'+fmtH(s.duration)+'</span><span class="scs-l">time</span></div><div><span class="scs-v">'+(s.avgPace>0?fmt(s.avgPace):'--')+'</span><span class="scs-l">avg pace</span></div><div><span class="scs-v">'+(s.strokeCount||0)+'</span><span class="scs-l">strokes</span></div></div>';
     el.addEventListener('click',()=>showDetail(s.id));
-        list.appendChild(el);attachSwipeDelete(el,s.id);
+    list.appendChild(el);attachSwipeDelete(el,s.id);
   });
+  requestAnimationFrame(()=>{const hb=document.querySelector('.home-body');if(hb)hb.scrollTop=0;});
 }
 function attachSwipeDelete(cardEl,sessionId){
   const wrapper=document.createElement('div');
