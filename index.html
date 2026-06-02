@@ -2221,7 +2221,7 @@ let curveTileKeys = (() => {
         const s = JSON.parse(_LS.getItem('scull_ctiles') || 'null');
         if (s && s.length === 4 && s.every(k => CURVE_TILE_OPTIONS.includes(k))) return s;
     } catch {}
-    return ['stroke-rate','catch-slope','dps','impulse'];
+    return ['pace','stroke-rate','dps','oar-angle'];
 })();
 function curveTileValue(key) {
     const on = running && !paused;
