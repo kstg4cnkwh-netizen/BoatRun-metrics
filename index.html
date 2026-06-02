@@ -179,6 +179,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .btn-lap{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3)}
 .btn-reset{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
 .btn-finish{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
+.sbar-finish{background:rgba(192,57,43,.15);color:#c0392b;border:1px solid rgba(192,57,43,.3);font-family:"Roboto",sans-serif;font-size:9px;font-weight:700;letter-spacing:.1em;padding:3px 9px;border-radius:2px;cursor:pointer;text-transform:uppercase;touch-action:manipulation;flex-shrink:0;}
 
 /* \u9472 \u9472  CURVE PANEL \u9472 \u9472  */
 .curve-panel{flex:1;min-height:0;min-width:0;display:none;flex-direction:column;background:#f0f0f0;gap:2px;padding:2px;}
@@ -410,6 +411,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div id="screen-live" class="screen">
 <div class="sbar">
 <div class="sbar-l"><span class="sbar-title">SCULL</span><span class="pill pill-off" id="p-gps">GPS</span><span class="pill pill-off" id="p-acc">ACC</span><span class="pill pill-off" id="p-cal">CAL</span><span class="pill pill-off" id="p-axis">AX:?</span></div>
+<button class="sbar-finish" id="sbar-finish" style="display:none">Finish</button>
 <div class="rec" id="rec-ind" style="display:none"><div class="recdot"></div>REC</div>
 </div>
 <!-- Workout bar -->
@@ -469,13 +471,11 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 </div>
 <!-- Control column -->
 <div class="ctrl-col">
-<button class="btn btn-start" id="cc-start" style="display:none">Start</button>
+<button class="btn btn-start"  id="cc-start"  style="display:none">Start</button>
+<button class="btn btn-lap"    id="cc-lap"    style="display:none">Lap</button>
+<button class="btn btn-pause"  id="cc-pause"  style="display:none">Pause</button>
 <button class="btn btn-resume" id="cc-resume" style="display:none">Resume</button>
-<button class="btn btn-pause" id="cc-pause" style="display:none">Pause</button>
-<button class="btn btn-lap" id="cc-lap" style="display:none">Lap</button>
-<button class="btn btn-stop" id="cc-stop" style="display:none">Stop</button>
-<button class="btn btn-finish" id="cc-finish" style="display:none">Finish</button>
-<button class="btn btn-lap" id="cc-lock" style="display:none;font-size:clamp(8px,.9vw,10px)">&#x1F513; Lock</button>
+<button class="btn btn-lap"    id="cc-lock"   style="display:none;font-size:clamp(8px,.9vw,10px)">&#x1F513; Lock</button>
 </div>
 <!-- Tabs: bottom in portrait, right column in landscape -->
 <div class="tab-bar" id="live-tabs">
@@ -1414,7 +1414,7 @@ function computeDriveImpulse(samples) {
 function computeOarAngleFullStroke(samples, driveCount, gpsStrokeDist) {
     const OUTBOARD      = 2.0;
     const R2D           = 180 / Math.PI;
-    const SLIP_FRACTION = 0.10;  // catch + finish slip, ~10% typical sculling
+    const SLIP_FRACTION = 0.10;
     const n             = samples.length;
     if (n < 8 || driveCount < 2 || driveCount >= n) return null;
     if (gpsStrokeDist < 4.0 || gpsStrokeDist > 30)  return null;
@@ -1427,11 +1427,10 @@ function computeOarAngleFullStroke(samples, driveCount, gpsStrokeDist) {
         cumulDV[i] = cumulDV[i - 1] + samples[i].v * dt;
     }
 
-    // Stroke period
     const T = (samples[n - 1].t - samples[0].t) / 1000;
     if (T < 0.8 || T > 8) return null;
 
-    // ∫ ΔV dt over full stroke — the "shape" contribution to distance
+    // ∫ ΔV dt over full stroke
     let intDVFull = 0;
     for (let i = 1; i < n; i++) {
         const dt = (samples[i].t - samples[i - 1].t) / 1000;
@@ -1442,24 +1441,37 @@ function computeOarAngleFullStroke(samples, driveCount, gpsStrokeDist) {
     // Solve for catch speed using GPS as anchor
     const vCatch = (gpsStrokeDist - intDVFull) / T;
     if (vCatch < 0.5 || vCatch > 8) return null;
-    // Reject if vCatch is far below GPS speed — indicates stale/frozen GPS distance
     if (gpsSpeedEma > 0.5 && vCatch < gpsSpeedEma * 0.45) return null;
 
-    // Find the true drive end using the peak of cumulDV within the first 45%
-    // of the stroke. The FSM ends the drive on first fast<0, which fires well
-    // before blade extraction. The velocity peak (peak of cumulDV) is a much
-    // better proxy for blade-out. We search only the first 45% to avoid the
-    // recovery-phase acceleration (rower pulling body toward catch) which also
-    // produces a cumulDV peak but later in the stroke.
-    let peakDV = -Infinity, peakIdx = driveCount;
-    const driveSearchEnd = Math.round(n * 0.45);
-    for (let i = 0; i < driveSearchEnd; i++) {
-        if (cumulDV[i] > peakDV) { peakDV = cumulDV[i]; peakIdx = i; }
+    // Detect blade-out as the LAST positive→negative zero-crossing of acceleration
+    // within the plausible drive window (15%–65% of stroke).
+    //
+    // IMU profile across the stroke:
+    //   catch    → large positive jerk (blade engages)
+    //   drive    → sustained positive acceleration, reducing toward finish
+    //   finish   → acceleration crosses zero as propulsive force collapses
+    //   recovery → low/flat, with slight positive from body-swing toward next catch
+    //   pre-catch→ largest negative jerk of the stroke (NOT the finish)
+    //
+    // We take the LAST crossing so noise dips during the drive are overridden by
+    // subsequent positive samples. Jerk-based detection is not used because the
+    // largest negative jerk occurs just before the catch, not at the finish.
+    // The FSM driveCount (which fires on first fast<0, too early) is kept as
+    // a lower bound only.
+    const searchStart = Math.round(n * 0.15);
+    const searchEnd   = Math.round(n * 0.65);
+    let finishIdx = -1;
+    for (let i = searchStart; i < searchEnd - 1; i++) {
+        if (samples[i].v > 0 && samples[i + 1].v <= 0) finishIdx = i;
     }
-    const dc = Math.max(driveCount, peakIdx);
+
+    const dc = Math.min(
+        Math.max(driveCount, finishIdx > 0 ? finishIdx : driveCount),
+        Math.round(n * 0.58)
+    );
     if (dc < 2) return null;
 
-    // Pass 2 — integrate velocity over drive phase (catch → velocity peak)
+    // Pass 2 — integrate velocity over drive phase (catch → blade-out)
     let driveDist = 0;
     for (let i = 1; i < dc; i++) {
         const dt = (samples[i].t - samples[i - 1].t) / 1000;
@@ -1469,8 +1481,6 @@ function computeOarAngleFullStroke(samples, driveCount, gpsStrokeDist) {
 
     if (driveDist <= 0.3 || driveDist > 15) return null;
 
-    // Geometry: boat_dist = 2L sin(half_arc), solve for arc.
-    // Slip correction removes ~10% for catch spear-in and finish slide-out.
     const effectiveDist = driveDist * (1 - SLIP_FRACTION);
     const sinArg        = Math.min(effectiveDist / (2 * OUTBOARD), 0.9999);
     return +(2 * Math.asin(sinArg) * R2D).toFixed(1);
@@ -2474,15 +2484,15 @@ function wktStart(def){
 function wktMaybeShowCountdown(){
   const s=wktCurrentStep();if(!s)return;
   if(s.type==='warmup'){
-    // Only show warmup overlay after session has started
     if(running) showCountdownOverlay('warmup',null,s);
   }else if(s.type==='work'){
     if(wkt.fromRestCountdown){
-      // 3-2-1 already happened at end of rest — show brief GO instead of full 5s countdown
       wkt.fromRestCountdown=false;
       showCountdownOverlay('go-brief',null,s);
     }else{
-      showCountdownOverlay('go',5,s);
+      // Pause session for the 5-4-3-2-1 countdown; auto-resume on GO
+      pauseSess();
+      showCountdownOverlay('go',5,s,null,true);
     }
   }else if(s.type==='rest'){
     const rem=wktGetRemaining();
@@ -2630,7 +2640,7 @@ COUNTDOWN OVERLAY (P2)
 ¨T¨T
 */
 let _cdownTimer=null;
-function showCountdownOverlay(mode,seconds,step,restSecs){
+function showCountdownOverlay(mode,seconds,step,restSecs,autoResume){
   const ov=document.getElementById('countdown-overlay');
   const numEl=document.getElementById('cdown-num');
   const subEl=document.getElementById('cdown-sub');
@@ -2642,8 +2652,12 @@ function showCountdownOverlay(mode,seconds,step,restSecs){
     _cdownTimer=setInterval(()=>{
       n--;
       if(n>0){numEl.textContent=n;numEl.className='cdown-num';}
-      else if(n===0){numEl.textContent='GO!';numEl.className='cdown-num go';subEl.textContent=step.value?fmt(step.value)+' min':'ROW!';}
-      else{clearInterval(_cdownTimer);hideCountdownOverlay();}
+      else{
+        clearInterval(_cdownTimer);
+        numEl.textContent='GO!';numEl.className='cdown-num go';
+        subEl.textContent=step?.mode==='distance'?step.value+'m':step?.mode==='time'?fmt(step.value):'ROW!';
+        setTimeout(()=>{hideCountdownOverlay();if(autoResume)resumeSess();},800);
+      }
     },1000);
   }else if(mode==='rest'){
     numEl.textContent='REST';numEl.className='cdown-rest';
@@ -2676,25 +2690,22 @@ function hideCountdownOverlay(){
 /*
 ══════════════════════════════════════════════════════════════════
 SESSION CONTROLS
-State machine:
-  Fresh   (!running && !paused && elapsed=0)  → Start
-  Running (running && !paused)                → Pause · Lap · Stop · Lock
-  Paused  (!running && paused && elapsed>0)   → Resume · Stop · Lock
-  Stopped (!running && !paused && elapsed>0)  → Finish · Lock
+  Fresh   (elapsed=0, !running, !paused) → Start
+  Running (running)                      → Lap · Pause · Lock
+  Paused  (!running, paused)             → Resume · Lock
+  Header Finish button visible when elapsed>0 — confirm → save + clear
 ══════════════════════════════════════════════════════════════════
 */
 function renderCtrl() {
     const show = (id, vis) => { const el = document.getElementById('cc-' + id); if (el) el.style.display = vis ? 'flex' : 'none'; };
-    const active  = running && !paused;
-    const onPause = !running && paused && elapsed > 0;
-    const stopped = !running && !paused && elapsed > 0;
+    const active = running && !paused;
     show('start',  !running && !paused && elapsed === 0);
-    show('resume', onPause);
-    show('pause',  active && !sessLocked);
     show('lap',    active);
-    show('stop',   (active || onPause) && !sessLocked);
-    show('finish', stopped && !sessLocked);
+    show('pause',  active && !sessLocked);
+    show('resume', !running && paused && elapsed > 0);
     show('lock',   running || elapsed > 0);
+    const sf = document.getElementById('sbar-finish');
+    if (sf) sf.style.display = elapsed > 0 && !sessLocked ? 'block' : 'none';
     document.getElementById('rec-ind').style.display = active ? 'flex' : 'none';
 }
 function startSess() {
@@ -2725,6 +2736,14 @@ function resumeSess() {
     timerInt = setInterval(() => { elapsed++; wktCheckAuto(); checkGpsAlive(); updateUI(); updateWorkoutBar(); }, 1000);
     saveInProgress(); autosaveInt = setInterval(saveInProgress, CONFIG.ui.autosaveMs);
     requestAnimationFrame(renderCtrl);
+}
+function finishSess() {
+    const msg = sessStrokes.length > 0
+        ? 'Finish session?\n' + sessStrokes.length + ' strokes · ' + Math.round(distance) + 'm · ' + fmt(elapsed)
+        : 'Finish session?';
+    if (!confirm(msg)) return;
+    if (running || paused) stopSess();
+    resetSess();
 }
 function stopSess() {
     if (!running && !paused) return;
@@ -2765,30 +2784,19 @@ function stopSess() {
                 _LS.removeItem(AUTOSAVE_DB);
                 toast('Session saved ✓ (' + sessStrokes.length + ' strokes)');
             } else {
-                toast('⚠️ Save failed — do NOT reset. Try stopping again.');
+                toast('⚠️ Save failed');
                 try {
                     const snap = { id: sessStart.toString(), startTime: sessStart, duration: elapsed, distance: Math.round(distance), strokeCount, catchPeakSess, catchAvg8, laps, strokes: sessStrokes, paceTrace: sessPaceTrace, gpsTrace: sessGpsTrace, _autosave: true, _savedAt: Date.now() };
                     _LS.setItem(AUTOSAVE_DB, JSON.stringify(snap));
                 } catch {}
             }
         } catch (e) {
-            toast('⚠️ Save error — do NOT reset. Try stopping again.');
+            toast('⚠️ Save error');
         }
     } else if (elapsed <= 10 || sessStrokes.length === 0) {
         _LS.removeItem(AUTOSAVE_DB);
     }
     requestAnimationFrame(renderCtrl);
-}
-function finishSess() {
-    // Shown after Stop — session should already be saved.
-    // If Stop somehow failed and session is unsaved, prompt before discarding.
-    if (elapsed > 10 && sessStrokes.length > 0 && !sessSaved) {
-        if (!confirm('Session not yet saved. Discard and finish?')) {
-            stopSess(); // retry save
-            return;
-        }
-    }
-    resetSess();
 }
 function resetSess() {
     sessLocked = false;
@@ -2899,12 +2907,11 @@ function checkAutosave() {
 function wireButtons() {
     const s = id => document.getElementById('cc-' + id);
     s('start').addEventListener('click', startSess);
-    s('resume').addEventListener('click', resumeSess);
-    s('pause').addEventListener('click', pauseSess);
     s('lap').addEventListener('click', handleLapBtn);
-    s('stop').addEventListener('click', stopSess);
-    s('finish').addEventListener('click', finishSess);
+    s('pause').addEventListener('click', pauseSess);
+    s('resume').addEventListener('click', resumeSess);
     document.getElementById('cc-lock').addEventListener('click', toggleSessLock);
+    document.getElementById('sbar-finish').addEventListener('click', finishSess);
 }
 
 /* 
