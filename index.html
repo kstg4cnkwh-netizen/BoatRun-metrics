@@ -711,9 +711,9 @@ const loadSynced = () => { try { return new Set(JSON.parse(_LS.getItem(SYNCED_DB
 const markSynced = id => {
     try { const s = loadSynced(); s.add(id); _LS.setItem(SYNCED_DB, JSON.stringify([...s])); } catch {}
 };
+const isSynced   = id => loadSynced().has(id);
 const loadDeleted = () => { try { return new Set(JSON.parse(_LS.getItem(DELETED_KEY) || '[]')); } catch { return new Set(); } };
 const markDeleted = id => { try { const d = loadDeleted(); d.add(id); _LS.setItem(DELETED_KEY, JSON.stringify([...d])); } catch {} };
-const isSynced = id => loadSynced().has(id);
 const delSess = async id => {
     saveSess(loadSess().filter(s => s.id !== id));
     try { const s = loadSynced(); s.delete(id); _LS.setItem(SYNCED_DB, JSON.stringify([...s])); } catch {}
@@ -745,7 +745,6 @@ function addSess(s) {
         const a = loadSess();
         a.unshift(s);
         saveSess(a);
-        // Verify the write actually landed
         const check = loadSess();
         if (check.length && check[0].id === s.id) saved = true;
     } catch (e) {
@@ -779,9 +778,7 @@ async function flushQueue() {
     } catch (e) { toast('Sync failed'); }
 }
 
-// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
-// DRIVE SYNC — Google Drive appDataFolder upload / download
-// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
+// ── DRIVE SYNC ──────────────────────────────────────────────────────────────
 function formatSessionFilename(sessionId) {
     const d = new Date(parseInt(sessionId));
     return `RowSess_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}_${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}.json`;
@@ -896,7 +893,7 @@ const DriveSync = (() => {
                 }
                 if (n) {
                     toast(`${n} sessions from Drive`);
-                    if(typeof renderHomeScreen==='function') renderHomeScreen();
+                    if (typeof renderHomeScreen === 'function') renderHomeScreen();
                 }
             } catch (e) { toast('Sync failed: ' + e.message); }
         },
