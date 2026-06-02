@@ -1,4 +1,4 @@
-const C = 'scull-v1.19';
+const C = 'scull-v1.20';
 const URLS = [
   './',
 ];
