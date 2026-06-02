@@ -16,10 +16,12 @@ A real-time rowing performance tracking system using device motion + GPS fusion 
 - Stroke rate (SPM) via hybrid autocorrelation + interval detection
 - Distance per stroke (DPS)
 - Catch slope (jerk peak detection)
+- Catch consistency (stroke-to-stroke repeatability)
 - Stroke character (drive timing distribution)
+- Stroke ratio (recovery vs drive time)
+- Oar angle (effective arc via GPS + geometry)
 - Run loss (% speed decay per stroke cycle)
 - Drive impulse estimation
-- Effective oar arc
 
 ### 🧠 Intelligent Stroke Detection
 
