@@ -3175,8 +3175,8 @@ function showDetail(id){
     :'<div class="fit-zone" id="fit-zone"><div class="fit-txt">Import Garmin FIT / TCX / GPX<br/><span style="color:#aaa;font-size:11px">Tap to select file</span></div></div><div class="fit-st" id="fit-st"></div>';
   const syncedNow=isSynced(s.id);
   const wktHTML=s.workoutLapMetrics&&s.workoutLapMetrics.length
-    ?'<div class="chart-card" style="border-color:#f39c12"><div class="chart-lbl"><span>Workout Intervals: '+(s.workoutName||'')+'</span></div><table class="lap-tbl"><tr><th>Type</th><th>Dist</th><th>Time</th><th>Pace</th><th>Rate</th><th>DPS</th><th>Imp</th><th>RL</th><th>Arc°</th></tr>'
-      +s.workoutLapMetrics.map(l=>'<tr'+(l.type==='work'?' style="background:rgba(39,174,96,.12)"':'')+'>'+  '<td>'+l.type.toUpperCase().slice(0,4)+'</td><td>'+l.dist+'m</td><td>'+fmt(l.time)+'</td><td>'+(l.lapPace>0?fmt(l.lapPace):'--')+'</td><td>'+(l.rate||'--')+'</td><td>'+(l.dps?l.dps.toFixed(1):'--')+'</td><td>'+(l.impulse?l.impulse.toFixed(2):'--')+'</td><td>'+(l.runLoss?l.runLoss.toFixed(2):'--')+'</td><td>'+(l.avgOarAngle?Math.round(l.avgOarAngle)+'°':'--')+'</td></tr>').join('')
+    ?'<div class="chart-card" style="border-color:#f39c12"><div class="chart-lbl"><span>Workout Intervals: '+(s.workoutName||'')+'</span></div><table class="lap-tbl"><tr><th>#</th><th>Type</th><th>Dist</th><th>Time</th><th>Pace</th><th>Rate</th><th>DPS</th><th>Imp</th><th>RL</th><th>Arc°</th></tr>'
+      +s.workoutLapMetrics.map(l=>'<tr'+(l.type==='work'?' style="background:rgba(39,174,96,.12)"':'')+'>'+  '<td>'+l.n+'</td><td>'+l.type.toUpperCase().slice(0,4)+'</td><td>'+l.dist+'m</td><td>'+fmt(l.time)+'</td><td>'+(l.lapPace>0?fmt(l.lapPace):'--')+'</td><td>'+(l.rate||'--')+'</td><td>'+(l.dps?l.dps.toFixed(1):'--')+'</td><td>'+(l.impulse?l.impulse.toFixed(2):'--')+'</td><td>'+(l.runLoss?l.runLoss.toFixed(2):'--')+'</td><td>'+(l.avgOarAngle?Math.round(l.avgOarAngle)+'°':'--')+'</td></tr>').join('')
       +'</table></div>'
     :'';
   dw.querySelector('#detail-content').innerHTML='<button class="dback" id="dback-btn">Back to Log</button>'
