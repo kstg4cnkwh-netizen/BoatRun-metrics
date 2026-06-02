@@ -704,17 +704,22 @@ function toast(m) {
 // SESSION PERSISTENCE — localStorage CRUD for session records
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 const DB = 'scull_v3', AUTOSAVE_DB = 'scull_autosave',
-      SYNCED_DB = 'scull_drive_synced', PENDING_KEY = 'scull_drive_pending';
+      SYNCED_DB = 'scull_drive_synced', PENDING_KEY = 'scull_drive_pending',
+      DELETED_KEY = 'scull_drive_deleted';
 const loadSess   = () => { try { return JSON.parse(_LS.getItem(DB) || '[]'); } catch { return []; } };
 const loadSynced = () => { try { return new Set(JSON.parse(_LS.getItem(SYNCED_DB) || '[]')); } catch { return new Set(); } };
 const markSynced = id => {
     try { const s = loadSynced(); s.add(id); _LS.setItem(SYNCED_DB, JSON.stringify([...s])); } catch {}
 };
+const loadDeleted = () => { try { return new Set(JSON.parse(_LS.getItem(DELETED_KEY) || '[]')); } catch { return new Set(); } };
+const markDeleted = id => { try { const d = loadDeleted(); d.add(id); _LS.setItem(DELETED_KEY, JSON.stringify([...d])); } catch {} };
 const isSynced = id => loadSynced().has(id);
 const delSess = async id => {
     saveSess(loadSess().filter(s => s.id !== id));
-    if (isSynced(id)) {
-        try { if (DriveSync.isSignedIn()) await DriveSync.delete(id); } catch {}
+    try { const s = loadSynced(); s.delete(id); _LS.setItem(SYNCED_DB, JSON.stringify([...s])); } catch {}
+    markDeleted(id);
+    if (DriveSync.isSignedIn()) {
+        try { await DriveSync.delete(id); } catch {}
     }
 };
 function saveSess(a) {
@@ -865,15 +870,20 @@ const DriveSync = (() => {
             if (!r.ok) throw new Error(`Download failed ${r.status}`);
             return r.json();
         },
-                async syncFromDrive() {
+        async syncFromDrive() {
             if (!this.isSignedIn()) return;
             try {
                 const files = await this.listSessions();
                 const synced = loadSynced();
+                const deleted = loadDeleted();
                 let n = 0;
                 for (const f of files) {
                     try {
                         const s = await this.downloadSession(f.id);
+                        if (deleted.has(s.id)) {
+                            try { await this.delete(s.id); } catch {}
+                            continue;
+                        }
                         const local = loadSess();
                         if (!local.find(x => x.id === s.id)) {
                             local.unshift(s);
@@ -2761,7 +2771,7 @@ function stopSess() {
             const avg = (arr, k) => { const v = arr.map(x => x[k]).filter(v => v != null && !isNaN(v) && v !== 0); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
             const ac  = (() => { const v = sessStrokes.map(x => x.catchConsistency).filter(v => v != null && !isNaN(v) && v !== 0); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; })();
             const sessObj = {
-                id: Date.now().toString(), startTime: sessStart, endTime: Date.now(), duration: elapsed,
+                id: sessStart.toString(), startTime: sessStart, endTime: Date.now(), duration: elapsed,
                 distance: Math.round(distance), avgPace: ap, avgMovingPace: amp, avgRate: ar, maxRate,
                 catchPeakSess, catchAvg8, strokeCount,
                 avgRunLossM:    avg(sessStrokes, 'runLossM'),    avgDPS:     avg(sessStrokes, 'dps'),
