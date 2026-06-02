@@ -34,7 +34,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 #screen-live{flex-direction:column}
 .sbar{background:#f0f0f0;border-bottom:1px solid #ddd;display:flex;align-items:center;justify-content:space-between;padding:3px 10px;flex-shrink:0;min-height:28px;position:relative;}
 .sbar-l{display:flex;align-items:center;gap:5px;flex:1;min-width:0;}
-.sbar-c{position:absolute;inset:0;display:flex;justify-content:center;align-items:center;pointer-events:none;}
+.sbar-r{display:flex;align-items:center;gap:6px;flex-shrink:0;}
 .sbar-title{color:#000;font-size:10px;font-weight:700;letter-spacing:.1em}
 .pill{font-size:8px;font-weight:700;letter-spacing:.1em;padding:2px 6px;border-radius:2px}
 .pill-on{background:#27ae60;color:#fff}.pill-off{background:rgba(255,255,255,.18);color:rgba(255,255,255,.4)}
@@ -180,7 +180,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .btn-lap{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3)}
 .btn-reset{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
 .btn-finish{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
-.sbar-finish{background:rgba(192,57,43,.15);color:#c0392b;border:1px solid rgba(192,57,43,.3);font-family:"Roboto",sans-serif;font-size:9px;font-weight:700;letter-spacing:.1em;padding:3px 9px;border-radius:2px;cursor:pointer;text-transform:uppercase;touch-action:manipulation;flex-shrink:0;pointer-events:auto;}
+.sbar-finish{background:rgba(192,57,43,.15);color:#c0392b;border:1px solid rgba(192,57,43,.3);font-family:"Roboto",sans-serif;font-size:9px;font-weight:700;letter-spacing:.1em;padding:3px 9px;border-radius:2px;cursor:pointer;text-transform:uppercase;touch-action:manipulation;flex-shrink:0;}
 
 /* \u9472 \u9472  CURVE PANEL \u9472 \u9472  */
 .curve-panel{flex:1;min-height:0;min-width:0;display:none;flex-direction:column;background:#f0f0f0;gap:2px;padding:2px;}
@@ -412,8 +412,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div id="screen-live" class="screen">
 <div class="sbar">
 <div class="sbar-l"><span class="sbar-title">SCULL</span><span class="pill pill-off" id="p-gps">GPS</span><span class="pill pill-off" id="p-acc">ACC</span><span class="pill pill-off" id="p-cal">CAL</span><span class="pill pill-off" id="p-axis">AX:?</span></div>
-<div class="sbar-c"><button class="sbar-finish" id="sbar-finish" style="display:none">Finish Session</button></div>
-<div class="rec" id="rec-ind" style="display:none"><div class="recdot"></div>REC</div>
+<div class="sbar-r"><button class="sbar-finish" id="sbar-finish" style="display:none">Finish Session</button><div class="rec" id="rec-ind" style="display:none"><div class="recdot"></div>REC</div></div>
 </div>
 <!-- Workout bar -->
 <div class="wkt-bar" id="wkt-bar">
@@ -2725,8 +2724,8 @@ function renderCtrl() {
     show('start',  !running && !paused && elapsed === 0);
     show('lap',    active);
     show('pause',  active && !sessLocked);
-    show('resume', !running && paused && elapsed > 0);
-    show('lock',   running || elapsed > 0);
+    show('resume', !running && paused);
+    show('lock',   running || paused || elapsed > 0);
     const sf = document.getElementById('sbar-finish');
     if (sf) sf.style.display = paused && !sessLocked ? 'block' : 'none';
     document.getElementById('rec-ind').style.display = active ? 'flex' : 'none';
