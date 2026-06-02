@@ -179,7 +179,8 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .btn-stop{background:#c0392b;color:#fff}.btn-pause{background:#f39c12;color:#fff}
 .btn-lap{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3)}
 .btn-reset{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
-.btn-finish{background:rgba(192,57,43,.25);color:#e74c3c;border:1px solid rgba(192,57,43,.4);font-size:clamp(10px,1.6dvh,16px)!important;}
+.btn-finish{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
+.sbar-finish{background:rgba(192,57,43,.15);color:#c0392b;border:1px solid rgba(192,57,43,.3);font-family:"Roboto",sans-serif;font-size:9px;font-weight:700;letter-spacing:.1em;padding:3px 9px;border-radius:2px;cursor:pointer;text-transform:uppercase;touch-action:manipulation;flex-shrink:0;}
 
 /* \u9472 \u9472  CURVE PANEL \u9472 \u9472  */
 .curve-panel{flex:1;min-height:0;min-width:0;display:none;flex-direction:column;background:#f0f0f0;gap:2px;padding:2px;}
@@ -411,7 +412,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div id="screen-live" class="screen">
 <div class="sbar">
 <div class="sbar-l"><span class="sbar-title">SCULL</span><span class="pill pill-off" id="p-gps">GPS</span><span class="pill pill-off" id="p-acc">ACC</span><span class="pill pill-off" id="p-cal">CAL</span><span class="pill pill-off" id="p-axis">AX:?</span></div>
-<div class="sbar-r"><div class="rec" id="rec-ind" style="display:none"><div class="recdot"></div>REC</div></div>
+<div class="sbar-r"><button class="sbar-finish" id="sbar-finish" style="display:none">Finish Session</button><div class="rec" id="rec-ind" style="display:none"><div class="recdot"></div>REC</div></div>
 </div>
 <!-- Workout bar -->
 <div class="wkt-bar" id="wkt-bar">
@@ -475,7 +476,6 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <button class="btn btn-pause"  id="cc-pause"  style="display:none">Pause</button>
 <button class="btn btn-resume" id="cc-resume" style="display:none">Resume</button>
 <button class="btn btn-lap"    id="cc-lock"   style="display:none;font-size:clamp(8px,.9vw,10px)">&#x1F513; Lock</button>
-<button class="btn btn-finish" id="cc-finish" style="display:none">Finish Session</button>
 </div>
 <!-- Tabs: bottom in portrait, right column in landscape -->
 <div class="tab-bar" id="live-tabs">
@@ -2727,7 +2727,8 @@ function renderCtrl() {
     show('pause',  active && !sessLocked);
     show('resume', !running && paused);
     show('lock',   running || paused || elapsed > 0);
-    show('finish', paused && !sessLocked);
+    const sf = document.getElementById('sbar-finish');
+    if (sf) sf.style.display = paused && !sessLocked ? 'block' : 'none';
     document.getElementById('rec-ind').style.display = active ? 'flex' : 'none';
 }
 function startSess() {
@@ -2894,7 +2895,7 @@ function recordLap() {
     const d = Math.round(distance - lapStartDist), t = elapsed - lapStartTime, p = d > 5 && t > 0 ? (t / d) * 500 : 0;
     const avgC = catchValsArr.length ? Math.round(catchValsArr.reduce((a, b) => a + b, 0) / catchValsArr.length) : null;
     const avgI = sessStrokes.length > 0 ? sessStrokes[sessStrokes.length - 1].driveImpulse : null;
-    laps.push({ n: laps.length + 1, dist: d, time: t, pace: p, rate: strokeRate, avgCatch: avgC, avgDPS: distPerStroke || null, avgImpulse: avgI, avgRunLoss: runLossM, avgRdi: rdi });
+    laps.push({ n: laps.length + 1, dist: d, time: t, pace: p, rate: strokeRate, avgCatch: avgC, avgDPS: distPerStroke || null, avgImpulse: avgI, avgRunLoss: runLossM, avgRdi: rdi, avgOarAngle: oarAngle || null });
     lapStartDist = distance; lapStartTime = elapsed;
     const curStep = wkt.active ? wktCurrentStep() : null;
     if (!curStep || curStep.type === 'work') showLapSplit(laps[laps.length - 1]);
@@ -2946,7 +2947,7 @@ function wireButtons() {
     s('pause').addEventListener('click', pauseSess);
     s('resume').addEventListener('click', resumeSess);
     document.getElementById('cc-lock').addEventListener('click', toggleSessLock);
-    document.getElementById('cc-finish').addEventListener('click', finishSess);
+    document.getElementById('sbar-finish').addEventListener('click', finishSess);
 }
 
 /* 
@@ -3193,13 +3194,13 @@ function showDetail(id){
     +'<div class="sgrid"><div class="sbox" style="border-color:#2980b9"><span class="sbox-v">'+(s.avgImpulse!=null?s.avgImpulse.toFixed(2):'--')+'</span><span class="sbox-l">Impulse</span></div><div class="sbox" style="border-color:#e74c3c"><span class="sbox-v">'+(s.avgRunLossM!=null?s.avgRunLossM.toFixed(2):'--')+'</span><span class="sbox-l">Run Loss</span><span class="sbox-u">M/STROKE</span></div><div class="sbox"><span class="sbox-v">'+(s.laps?s.laps.length:0)+'</span><span class="sbox-l">Laps</span></div></div>'
     +'<div class="sgrid"><div class="sbox" style="grid-column:1/4"><span class="sbox-v" style="font-size:11px">'+(s.workoutName||'--')+'</span><span class="sbox-l">Workout</span></div></div>'
     +(s.calNoiseFloor!=null?'<div style="font-size:9px;color:#aaa;text-align:center;margin-bottom:6px;">CAL noise '+s.calNoiseFloor+' jerk '+s.calThresh+'</div>':'')
+    +(s.laps&&s.laps.length?'<div class="chart-card" style="border-color:#ddd"><div class="chart-lbl"><span>Laps</span></div><table class="lap-tbl"><tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>Rate</th><th>DPS</th><th>Imp</th><th>RL</th><th>Arc°</th></tr>'+(()=>{const best=s.laps.length>1?s.laps.reduce((b,l)=>l.pace>0&&l.pace<b.pace?l:b,s.laps[0]):null;return s.laps.map(l=>'<tr class="'+(best&&l.n===best.n?'best':'')+'"><td>'+l.n+'</td><td>'+l.dist+'m</td><td>'+fmt(l.time)+'</td><td>'+(l.pace>0?fmt(l.pace):'--')+'</td><td>'+(l.rate||'--')+'</td><td>'+(l.avgDPS?l.avgDPS.toFixed(1):'--')+'</td><td>'+(l.avgImpulse?l.avgImpulse.toFixed(2):'--')+'</td><td>'+(l.avgRunLoss?l.avgRunLoss.toFixed(2):'--')+'</td><td>'+(l.avgOarAngle?Math.round(l.avgOarAngle)+'°':'--')+'</td></tr>').join('');})()+'</table></div>':'')
     +wktHTML
     +(s.garminLaps&&s.garminLaps.length?'<div class="chart-card" style="border-color:#8e44ad"><div class="chart-lbl"><span>Garmin Laps</span></div><table class="lap-tbl"><tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>HR</th><th>SPM</th><th>DPS</th></tr>'+s.garminLaps.map(l=>'<tr><td>'+l.n+'</td><td>'+l.dist+'m</td><td>'+fmt(l.time)+'</td><td>'+(l.pace>0?fmt(l.pace):'--')+'</td><td>'+(l.avgHr||'--')+'</td><td>'+(l.garminAvgSpm||'--')+'</td><td>'+(l.avgStrokeDist?l.avgStrokeDist+'m':'--')+'</td></tr>').join('')+'</table></div>':'')
     +hrHTML
     +(s.garminSpeedTrace&&s.garminSpeedTrace.length>2?'<div class="chart-card" style="border-color:#8e44ad"><div class="chart-lbl"><span>Garmin Pace</span><span>min/500m</span></div><canvas id="a-gspeed" class="acanvas"></canvas></div>':'')
     +(s.paceTrace&&s.paceTrace.length>2?'<div class="chart-card g"><div class="chart-lbl"><span>GPS Pace</span><span>min/500m faster=up</span></div><canvas id="a-pace" class="acanvas"></canvas></div>':'')
     +(s.strokes&&s.strokes.length>2?'<div class="chart-card b"><div class="chart-lbl"><span>Catch Slope</span></div><canvas id="a-catch" class="acanvas"></canvas></div><div class="chart-card a"><div class="chart-lbl"><span>Stroke Rate</span></div><canvas id="a-rate" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Run Loss</span><span>m</span></div><canvas id="a-runloss" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Impulse</span></div><canvas id="a-eff" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>DPS</span></div><canvas id="a-dps" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Stroke Char</span><span>% · 50% ref</span></div><canvas id="a-char" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Stroke Ratio</span><span>rec÷drive</span></div><canvas id="a-ratio" class="acanvas"></canvas></div><div class="chart-card" style="border-color:#2de0d4"><div class="chart-lbl"><span>Oar Arc</span><span>degrees</span></div><canvas id="a-oarangle" class="acanvas"></canvas></div>':'')
-    +(s.laps&&s.laps.length?'<div class="chart-card" style="border-color:#ddd"><div class="chart-lbl"><span>Laps</span></div><table class="lap-tbl"><tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>Rate</th><th>Catch</th><th>DPS</th><th>Imp</th><th>RL</th><th>RDI</th><th>Ratio</th></tr>'+(()=>{const best=s.laps.length>1?s.laps.reduce((b,l)=>l.pace>0&&l.pace<b.pace?l:b,s.laps[0]):null;return s.laps.map(l=>'<tr class="'+(best&&l.n===best.n?'best':'')+'"><td>'+l.n+'</td><td>'+l.dist+'m</td><td>'+fmt(l.time)+'</td><td>'+(l.pace>0?fmt(l.pace):'--')+'</td><td>'+(l.rate||'--')+'</td><td>'+(l.avgCatch||'--')+'</td><td>'+(l.avgDPS?l.avgDPS.toFixed(1):'--')+'</td><td>'+(l.avgImpulse?l.avgImpulse.toFixed(2):'--')+'</td><td>'+(l.avgRunLoss?l.avgRunLoss.toFixed(2):'--')+'</td><td>'+(l.avgRdi?l.avgRdi.toFixed(2):'--')+'</td><td>'+(l.avgRatio?'1:'+l.avgRatio.toFixed(2):'--')+'</td></tr>').join('');})()+'</table></div>':'')
     +'<div style="display:flex;gap:6px;margin-top:8px;">'
     +'<button class="exp-btn" id="dbg-btn" style="flex:1;font-size:10px;padding:10px 4px;">Debug CSV</button>'
     +'<button class="exp-btn" id="sync-btn" style="flex:1;font-size:10px;padding:10px 4px;background:'+(syncedNow?'#27ae60':'#1a5276')+'">'+(syncedNow?'Re-sync':'Sync to Drive')+'</button>'
