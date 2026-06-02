@@ -34,7 +34,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 #screen-live{flex-direction:column}
 .sbar{background:#f0f0f0;border-bottom:1px solid #ddd;display:flex;align-items:center;justify-content:space-between;padding:3px 10px;flex-shrink:0;min-height:28px;position:relative;}
 .sbar-l{display:flex;align-items:center;gap:5px;flex:1;min-width:0;}
-.sbar-c{display:flex;align-items:center;pointer-events:auto;flex:1;}
+.sbar-c{position:absolute;inset:0;display:flex;justify-content:center;align-items:center;pointer-events:none;}
 .sbar-title{color:#000;font-size:10px;font-weight:700;letter-spacing:.1em}
 .pill{font-size:8px;font-weight:700;letter-spacing:.1em;padding:2px 6px;border-radius:2px}
 .pill-on{background:#27ae60;color:#fff}.pill-off{background:rgba(255,255,255,.18);color:rgba(255,255,255,.4)}
@@ -180,7 +180,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .btn-lap{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3)}
 .btn-reset{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
 .btn-finish{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
-.sbar-finish{background:rgba(192,57,43,.15);color:#c0392b;border:1px solid rgba(192,57,43,.3);font-family:"Roboto",sans-serif;font-size:9px;font-weight:700;letter-spacing:.1em;padding:3px 9px;border-radius:2px;cursor:pointer;text-transform:uppercase;touch-action:manipulation;flex-shrink:0;}
+.sbar-finish{background:rgba(192,57,43,.15);color:#c0392b;border:1px solid rgba(192,57,43,.3);font-family:"Roboto",sans-serif;font-size:9px;font-weight:700;letter-spacing:.1em;padding:3px 9px;border-radius:2px;cursor:pointer;text-transform:uppercase;touch-action:manipulation;flex-shrink:0;pointer-events:auto;}
 
 /* \u9472 \u9472  CURVE PANEL \u9472 \u9472  */
 .curve-panel{flex:1;min-height:0;min-width:0;display:none;flex-direction:column;background:#f0f0f0;gap:2px;padding:2px;}
@@ -412,7 +412,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div id="screen-live" class="screen">
 <div class="sbar">
 <div class="sbar-l"><span class="sbar-title">SCULL</span><span class="pill pill-off" id="p-gps">GPS</span><span class="pill pill-off" id="p-acc">ACC</span><span class="pill pill-off" id="p-cal">CAL</span><span class="pill pill-off" id="p-axis">AX:?</span></div>
-<div class="sbar-c"><button class="sbar-finish" id="sbar-finish" style="display:none">Finish</button></div>
+<div class="sbar-c"><button class="sbar-finish" id="sbar-finish" style="display:none">Finish Session</button></div>
 <div class="rec" id="rec-ind" style="display:none"><div class="recdot"></div>REC</div>
 </div>
 <!-- Workout bar -->
@@ -2214,8 +2214,8 @@ function toggleSessLock() {
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // CURVE TAB — tile cycling, value readout, sub-tab state
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
-const CURVE_TILE_OPTIONS = ['stroke-rate','catch-slope','dps','impulse','run-loss','char','pace'];
-const CURVE_TILE_LABELS  = { 'stroke-rate':'Stroke rate','catch-slope':'Catch slope','dps':'Dist/stroke','impulse':'Impulse','run-loss':'Run loss','char':'Char %','pace':'Pace' };
+const CURVE_TILE_OPTIONS = ['stroke-rate','catch-slope','dps','impulse','run-loss','char','pace','stroke-ratio','oar-angle'];
+const CURVE_TILE_LABELS  = { 'stroke-rate':'Stroke rate','catch-slope':'Catch slope','dps':'Dist/stroke','impulse':'Impulse','run-loss':'Run loss','char':'Char %','pace':'Pace','stroke-ratio':'Stroke ratio','oar-angle':'Oar angle' };
 const CURVE_TILE_SUBS    = { 'stroke-rate':'','catch-slope':'','dps':'','impulse':'','run-loss':'','char':'','pace':'' };
 let curveTileKeys = (() => {
     try {
@@ -2266,6 +2266,19 @@ function curveTileValue(key) {
             const ok = on && pace > 0;
             return { val: ok ? fmt(pace) : '--:--', dim: !ok, sub: '',
                 qlabel: ok ? 'GPS' : 'WAIT', qcls: ok ? 'g' : '' };
+        }
+        case 'stroke-ratio': {
+            const ok = strokeRatio != null && on;
+            const v = ok ? `<span style="color:#bbb;font-weight:400;font-size:.52em">1 : </span>${strokeRatio.toFixed(2)}` : '--';
+            return { val: v, dim: !ok, sub: '',
+                qlabel: ok ? (strokeRatioValsArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
+                qcls: ok ? (strokeRatioValsArr.length >= 3 ? 'w' : 'b') : '' };
+        }
+        case 'oar-angle': {
+            const ok = oarAngle != null && on;
+            return { val: ok ? oarAngle + '°' : '--', dim: !ok, sub: '',
+                qlabel: ok ? (oarAngleRawArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
+                qcls: ok ? (oarAngleRawArr.length >= 3 ? 'g' : 'w') : '' };
         }
         default: return { val: '--', dim: true, sub: '', qlabel: '', qcls: '' };
     }
