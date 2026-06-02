@@ -32,8 +32,9 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 
 /* \u9472 \u9472  LIVE SCREEN \u9472 \u9472  */
 #screen-live{flex-direction:column}
-.sbar{background:#f0f0f0;border-bottom:1px solid #ddd;display:flex;align-items:center;justify-content:space-between;padding:3px 10px;flex-shrink:0;min-height:28px;}
+.sbar{background:#f0f0f0;border-bottom:1px solid #ddd;display:flex;align-items:center;justify-content:space-between;padding:3px 10px;flex-shrink:0;min-height:28px;position:relative;}
 .sbar-l{display:flex;align-items:center;gap:5px;flex:1;min-width:0;}
+.sbar-c{position:absolute;left:50%;transform:translateX(-50%);display:flex;align-items:center;pointer-events:auto;}
 .sbar-title{color:#000;font-size:10px;font-weight:700;letter-spacing:.1em}
 .pill{font-size:8px;font-weight:700;letter-spacing:.1em;padding:2px 6px;border-radius:2px}
 .pill-on{background:#27ae60;color:#fff}.pill-off{background:rgba(255,255,255,.18);color:rgba(255,255,255,.4)}
@@ -411,7 +412,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div id="screen-live" class="screen">
 <div class="sbar">
 <div class="sbar-l"><span class="sbar-title">SCULL</span><span class="pill pill-off" id="p-gps">GPS</span><span class="pill pill-off" id="p-acc">ACC</span><span class="pill pill-off" id="p-cal">CAL</span><span class="pill pill-off" id="p-axis">AX:?</span></div>
-<button class="sbar-finish" id="sbar-finish" style="display:none">Finish</button>
+<div class="sbar-c"><button class="sbar-finish" id="sbar-finish" style="display:none">Finish</button></div>
 <div class="rec" id="rec-ind" style="display:none"><div class="recdot"></div>REC</div>
 </div>
 <!-- Workout bar -->
@@ -2712,7 +2713,7 @@ function renderCtrl() {
     show('resume', !running && paused && elapsed > 0);
     show('lock',   running || elapsed > 0);
     const sf = document.getElementById('sbar-finish');
-    if (sf) sf.style.display = elapsed > 0 && !sessLocked ? 'block' : 'none';
+    if (sf) sf.style.display = paused && !sessLocked ? 'block' : 'none';
     document.getElementById('rec-ind').style.display = active ? 'flex' : 'none';
 }
 function startSess() {
