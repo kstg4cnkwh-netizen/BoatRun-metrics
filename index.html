@@ -391,7 +391,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div class="perm-title">METRICS</div>
 <div class="perm-body">Real-time GPS pace &amp; distance &middot; Stroke rate &middot; Catch slope<br/>DPS &middot; Impulse &middot; Run loss &middot; Recovery Index<br/>Custom layouts &middot; Workout intervals<br/><strong style="color:#fff">Landscape &amp; Portrait</strong></div>
 <button class="perm-btn" id="perm-btn">ENABLE SENSORS</button>
-<div class="perm-note">iOS: Settings &rarr; Safari &rarr; Motion &amp; Orientation Access<br/>Add to Home Screen for full-screen &middot; Works offline<br/><span style="color:rgba(255,255,255,.18)">v5.1 &middot; flexible layouts &middot; workout intervals</span></div>
+<div class="perm-note">iOS: Settings &rarr; Safari &rarr; Motion &amp; Orientation Access<br/>Add to Home Screen for full-screen &middot; Works offline<br/><span style="color:rgba(255,255,255,.18)">v5.1 &middot; flexible layouts &middot; workout intervals</span><br/><span id="splash-version" style="color:rgba(255,255,255,.28);font-size:10px;letter-spacing:.06em"></span></div>
 </div>
 </div>
 
@@ -3820,6 +3820,8 @@ DriveSync.init().then(async()=>{
 }).catch(()=>{});
 checkAutosave();
 window.addEventListener('online',()=>{if(DriveSync.isSignedIn())flushQueue().catch(()=>{});});
+
+fetch('./sw.js?'+Date.now()).then(r=>r.text()).then(txt=>{const m=txt.match(/const C\s*=\s*['"]([^'"]+)['"]/);if(m){const el=document.getElementById('splash-version');if(el)el.textContent=m[1];}}).catch(()=>{});
 
 </script>
 </body>
