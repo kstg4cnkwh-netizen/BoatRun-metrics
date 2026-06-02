@@ -179,8 +179,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .btn-stop{background:#c0392b;color:#fff}.btn-pause{background:#f39c12;color:#fff}
 .btn-lap{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3)}
 .btn-reset{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
-.btn-finish{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
-.sbar-finish{background:rgba(192,57,43,.15);color:#c0392b;border:1px solid rgba(192,57,43,.3);font-family:"Roboto",sans-serif;font-size:9px;font-weight:700;letter-spacing:.1em;padding:3px 9px;border-radius:2px;cursor:pointer;text-transform:uppercase;touch-action:manipulation;flex-shrink:0;}
+.btn-finish{background:rgba(192,57,43,.25);color:#e74c3c;border:1px solid rgba(192,57,43,.4);font-size:clamp(10px,1.6dvh,16px)!important;}
 
 /* \u9472 \u9472  CURVE PANEL \u9472 \u9472  */
 .curve-panel{flex:1;min-height:0;min-width:0;display:none;flex-direction:column;background:#f0f0f0;gap:2px;padding:2px;}
@@ -412,7 +411,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div id="screen-live" class="screen">
 <div class="sbar">
 <div class="sbar-l"><span class="sbar-title">SCULL</span><span class="pill pill-off" id="p-gps">GPS</span><span class="pill pill-off" id="p-acc">ACC</span><span class="pill pill-off" id="p-cal">CAL</span><span class="pill pill-off" id="p-axis">AX:?</span></div>
-<div class="sbar-r"><button class="sbar-finish" id="sbar-finish" style="display:none">Finish Session</button><div class="rec" id="rec-ind" style="display:none"><div class="recdot"></div>REC</div></div>
+<div class="sbar-r"><div class="rec" id="rec-ind" style="display:none"><div class="recdot"></div>REC</div></div>
 </div>
 <!-- Workout bar -->
 <div class="wkt-bar" id="wkt-bar">
@@ -476,6 +475,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <button class="btn btn-pause"  id="cc-pause"  style="display:none">Pause</button>
 <button class="btn btn-resume" id="cc-resume" style="display:none">Resume</button>
 <button class="btn btn-lap"    id="cc-lock"   style="display:none;font-size:clamp(8px,.9vw,10px)">&#x1F513; Lock</button>
+<button class="btn btn-finish" id="cc-finish" style="display:none">Finish Session</button>
 </div>
 <!-- Tabs: bottom in portrait, right column in landscape -->
 <div class="tab-bar" id="live-tabs">
@@ -2726,8 +2726,7 @@ function renderCtrl() {
     show('pause',  active && !sessLocked);
     show('resume', !running && paused);
     show('lock',   running || paused || elapsed > 0);
-    const sf = document.getElementById('sbar-finish');
-    if (sf) sf.style.display = paused && !sessLocked ? 'block' : 'none';
+    show('finish', paused && !sessLocked);
     document.getElementById('rec-ind').style.display = active ? 'flex' : 'none';
 }
 function startSess() {
@@ -2933,7 +2932,7 @@ function wireButtons() {
     s('pause').addEventListener('click', pauseSess);
     s('resume').addEventListener('click', resumeSess);
     document.getElementById('cc-lock').addEventListener('click', toggleSessLock);
-    document.getElementById('sbar-finish').addEventListener('click', finishSess);
+    document.getElementById('cc-finish').addEventListener('click', finishSess);
 }
 
 /* 
