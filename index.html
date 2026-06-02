@@ -1311,8 +1311,19 @@ function onNewCatch(now) {
         if (rawLoss >= 0 && rawLoss <= CONFIG.runLoss.maxLossM) {
             pushLimit(runLosses, rawLoss, CONFIG.runLoss.medianN);
             runLossM = median(runLosses);
+            pushLimit(runLossMpsArr, dv, CONFIG.runLoss.medianN);
+            runLossMps = median(runLossMpsArr);
+            if (imuRL.v0 > 0) {
+                const pct = (dv / imuRL.v0) * 100;
+                pushLimit(runLossPcts, pct, CONFIG.runLoss.medianN);
+                runLossPct = median(runLossPcts);
+            }
             const idx = sessStrokes.findIndex(x => x._prlStroke === imuRL.strokeN);
-            if (idx >= 0) sessStrokes[idx].runLossM = runLossM;
+            if (idx >= 0) {
+                sessStrokes[idx].runLossM   = runLossM;
+                sessStrokes[idx].runLossPct = runLossPct;
+                sessStrokes[idx].runLossMps = runLossMps;
+            }
         }
     }
     imuRL = null;
@@ -1669,7 +1680,11 @@ const sessGpsTrace = [], sessGpsRawTrace = [];
 let pendingRun = null;
 let imuRL = null;  // IMU-based run loss state for current recovery
 const runLosses = [];
+const runLossPcts = [];
+const runLossMpsArr = [];
 let runLossM = null;
+let runLossPct = null;
+let runLossMps = null;
 const rlDebug = [];
 let driveImpulseEma = null;
 const IMP_EMA_ALPHA = 0.35;   // effective ~3-stroke window for drive impulse smoothing
@@ -2056,8 +2071,9 @@ function renderMetricSlot(i, key) {
             break;
         }
         case 'runloss': {
-            const ok = runLossM != null && on;
-            setVal(i, ok ? runLossM.toFixed(2) + 'm' : '--', '', !ok,
+            const ok = runLossPct != null && on;
+            const sub = ok && runLossMps != null ? runLossMps.toFixed(2) + 'm/s' : '';
+            setVal(i, ok ? runLossPct.toFixed(1) + '%' : '--', sub, !ok,
                 ok ? (runLosses.length >= 4 ? 'TREND' : 'NOISY') : 'WAIT',
                 ok ? (runLosses.length >= 4 ? 'w' : 'b') : '');
             break;
@@ -2251,8 +2267,9 @@ function curveTileValue(key) {
                 qlabel: ok ? 'GOOD' : 'WAIT', qcls: ok ? 'g' : '' };
         }
         case 'run-loss': {
-            const ok = runLossM != null && on;
-            return { val: ok ? runLossM.toFixed(2) : '--', dim: !ok, sub: '',
+            const ok = runLossPct != null && on;
+            const sub = ok && runLossMps != null ? runLossMps.toFixed(2) + 'm/s' : '';
+            return { val: ok ? runLossPct.toFixed(1) + '%' : '--', dim: !ok, sub,
                 qlabel: ok ? (runLosses.length >= 4 ? 'TREND' : 'NOISY') : 'WAIT',
                 qcls: ok ? (runLosses.length >= 4 ? 'w' : 'b') : '' };
         }
@@ -2799,7 +2816,8 @@ function stopSess() {
                 id: sessStart.toString(), startTime: sessStart, endTime: Date.now(), duration: elapsed,
                 distance: Math.round(distance), avgPace: ap, avgMovingPace: amp, avgRate: ar, maxRate,
                 catchPeakSess, catchAvg8, strokeCount,
-                avgRunLossM:    avg(sessStrokes, 'runLossM'),    avgDPS:     avg(sessStrokes, 'dps'),
+                avgRunLossM:    avg(sessStrokes, 'runLossM'),    avgRunLossPct: avg(sessStrokes, 'runLossPct'),
+                avgRunLossMps:  avg(sessStrokes, 'runLossMps'),  avgDPS:     avg(sessStrokes, 'dps'),
                 avgCatch:       avg(sessStrokes, 'catchPeak'),   avgChar:    avg(sessStrokes, 'char'),
                 avgConsistency: ac,                              avgImpulse: avg(sessStrokes, 'driveImpulse'),
                 avgRdi:         avg(sessStrokes, 'rdi'),         avgRatio:   avg(sessStrokes, 'strokeRatio'),
@@ -2843,7 +2861,7 @@ function resetSess() {
     lapStartDist = 0; lapStartTime = 0; catchLast = null; catchPeakSess = null; catchAvg8 = null;
     catchValsArr.length = 0; catchConsistency = null; strokeChar = 50; charValsArr.length = 0;
     rdi = null; rdiValsArr.length = 0; strokeRatio = null; strokeRatioValsArr.length = 0;
-    pendingRun = null; runLosses.length = 0; runLossM = null; rlDebug.length = 0;
+    pendingRun = null; runLosses.length = 0; runLossM = null; runLossPcts.length = 0; runLossPct = null; runLossMpsArr.length = 0; runLossMps = null; rlDebug.length = 0;
     laps = []; sessStrokes.length = 0; sessPaceTrace.length = 0;
     sessGpsTrace.length = 0; sessGpsRawTrace.length = 0;
     strokeTs.length = 0; paceDistWindow.length = 0; velocityWindow.length = 0;
@@ -3190,7 +3208,7 @@ function showDetail(id){
     +'<div class="sgrid"><div class="sbox" style="border-color:#27ae60"><span class="sbox-v">'+(s.avgRate||'--')+'</span><span class="sbox-l">Avg Rate</span><span class="sbox-u">S/MIN</span></div><div class="sbox" style="border-color:#27ae60"><span class="sbox-v">'+(s.maxRate||'--')+'</span><span class="sbox-l">Max Rate</span><span class="sbox-u">S/MIN</span></div><div class="sbox"><span class="sbox-v">'+(s.strokeCount||0)+'</span><span class="sbox-l">Strokes</span></div></div>'
     +'<div class="sgrid"><div class="sbox" style="border-color:#27ae60"><span class="sbox-v">'+(s.avgOarAngle!=null?s.avgOarAngle.toFixed(1)+'°':'--')+'</span><span class="sbox-l">Oar Angle</span><span class="sbox-u">DEG</span></div><div class="sbox" style="border-color:#27ae60"><span class="sbox-v">'+(s.avgRatio!=null?'1 : '+s.avgRatio.toFixed(2):'--')+'</span><span class="sbox-l">Stroke Ratio</span><span class="sbox-u">REC÷DRIVE</span></div><div class="sbox" style="border-color:#27ae60"><span class="sbox-v">'+(s.avgChar!=null?Math.round(s.avgChar)+'%':'--')+'</span><span class="sbox-l">Stroke Char</span></div></div>'
     +'<div class="sgrid"><div class="sbox" style="border-color:#2980b9"><span class="sbox-v">'+(avgCatch!=='--'?'+'+avgCatch:avgCatch)+'</span><span class="sbox-l">Catch Avg</span></div><div class="sbox" style="border-color:#2980b9"><span class="sbox-v">'+(s.catchPeakSess!=null?'+'+Math.round(s.catchPeakSess):'--')+'</span><span class="sbox-l">Catch Peak</span></div><div class="sbox" style="border-color:#2980b9"><span class="sbox-v">'+(s.avgConsistency?s.avgConsistency.toFixed(1):'--')+'</span><span class="sbox-l">Consistency</span></div></div>'
-    +'<div class="sgrid"><div class="sbox" style="border-color:#2980b9"><span class="sbox-v">'+(s.avgImpulse!=null?s.avgImpulse.toFixed(2):'--')+'</span><span class="sbox-l">Impulse</span></div><div class="sbox" style="border-color:#e74c3c"><span class="sbox-v">'+(s.avgRunLossM!=null?s.avgRunLossM.toFixed(2):'--')+'</span><span class="sbox-l">Run Loss</span><span class="sbox-u">M/STROKE</span></div><div class="sbox"><span class="sbox-v">'+(s.laps?s.laps.length:0)+'</span><span class="sbox-l">Laps</span></div></div>'
+    +'<div class="sgrid"><div class="sbox" style="border-color:#2980b9"><span class="sbox-v">'+(s.avgImpulse!=null?s.avgImpulse.toFixed(2):'--')+'</span><span class="sbox-l">Impulse</span></div><div class="sbox" style="border-color:#e74c3c"><span class="sbox-v">'+(s.avgRunLossPct!=null?s.avgRunLossPct.toFixed(1)+'%':(s.avgRunLossM!=null?s.avgRunLossM.toFixed(2)+'m':'--'))+'</span><span class="sbox-l">Run Loss</span><span class="sbox-u">'+(s.avgRunLossMps!=null?s.avgRunLossMps.toFixed(2)+'m/s':'')+'</span></div><div class="sbox"><span class="sbox-v">'+(s.laps?s.laps.length:0)+'</span><span class="sbox-l">Laps</span></div></div>'
     +'<div class="sgrid"><div class="sbox" style="grid-column:1/4"><span class="sbox-v" style="font-size:11px">'+(s.workoutName||'--')+'</span><span class="sbox-l">Workout</span></div></div>'
     +(s.calNoiseFloor!=null?'<div style="font-size:9px;color:#aaa;text-align:center;margin-bottom:6px;">CAL noise '+s.calNoiseFloor+' jerk '+s.calThresh+'</div>':'')
     +(s.laps&&s.laps.length&&!(s.workoutLapMetrics&&s.workoutLapMetrics.length)?'<div class="chart-card" style="border-color:#ddd"><div class="chart-lbl"><span>Laps</span></div><table class="lap-tbl"><tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>Rate</th><th>DPS</th><th>Imp</th><th>RL</th><th>Arc°</th></tr>'+(()=>{const best=s.laps.length>1?s.laps.reduce((b,l)=>l.pace>0&&l.pace<b.pace?l:b,s.laps[0]):null;return s.laps.map(l=>'<tr class="'+(best&&l.n===best.n?'best':'')+'"><td>'+l.n+'</td><td>'+l.dist+'m</td><td>'+fmt(l.time)+'</td><td>'+(l.pace>0?fmt(l.pace):'--')+'</td><td>'+(l.rate||'--')+'</td><td>'+(l.avgDPS?l.avgDPS.toFixed(1):'--')+'</td><td>'+(l.avgImpulse?l.avgImpulse.toFixed(2):'--')+'</td><td>'+(l.avgRunLoss?l.avgRunLoss.toFixed(2):'--')+'</td><td>'+(l.avgOarAngle?Math.round(l.avgOarAngle)+'°':'--')+'</td></tr>').join('');})()+'</table></div>':'')
