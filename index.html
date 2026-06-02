@@ -1136,10 +1136,12 @@ function handleMotion(e) {
     const acCut = now - CONFIG.motion.acBufMs;
     while (acBuf.length > 1 && acBuf[0].t < acCut) acBuf.shift();
     if (running && !paused) {
-        catchToCatchSamples.push({ t: now, v: axFast[selAxis] });
         computeAutocorrelationRate(now);
     }
     runFSM(now, fast, jerk);
+    if (running && !paused) {
+        catchToCatchSamples.push({ t: now, v: axFast[selAxis] });
+    }
 }
 
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
@@ -1286,7 +1288,7 @@ function normalizeStrokeSamples(samples, dc) {
     for (let i = 0; i < CURVE_POINTS; i++) {
         const t = i / (CURVE_POINTS - 1) * (n - 1);
         const lo = Math.floor(t), hi = Math.min(lo + 1, n - 1), f = t - lo;
-        data[i] = samples[lo].v * (1 - f) + samples[hi].v * f;
+        data[i] = -(samples[lo].v * (1 - f) + samples[hi].v * f);
     }
     return { data, driveFrac: clamp(dc / n, 0, 1) };
 }
