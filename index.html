@@ -2771,7 +2771,19 @@ function stopSess() {
     if (!running && !paused) return;
     running = false; paused = false;
     clearInterval(timerInt); clearInterval(autosaveInt);
-    if (wkt.active) wktEnd();
+    if (wkt.active) {
+        const curStep = wktCurrentStep();
+        if (curStep && (elapsed - wkt.startElapsed) > 0) {
+            const snap = { n: wkt.lapMetrics.length + 1, type: curStep.type,
+                dist: Math.round(distance - wkt.startDist), time: elapsed - wkt.startElapsed,
+                rate: strokeRate, catchAvg: catchAvg8, dps: distPerStroke || null, runLoss: runLossM,
+                impulse: sessStrokes.length > 0 ? sessStrokes[sessStrokes.length - 1].driveImpulse : null,
+                groupLabel: curStep.groupLabel || null };
+            snap.lapPace = snap.dist > 5 && snap.time > 0 ? (snap.time / snap.dist) * 500 : 0;
+            wkt.lapMetrics.push(snap);
+        }
+        wktEnd();
+    }
     if (elapsed > 10 && sessStrokes.length > 0 && !sessSaved) {
         try {
             const ap  = sessPaceTrace.length > 0 ? Math.round(sessPaceTrace.reduce((a, b) => a + b, 0) / sessPaceTrace.length) : 0;
@@ -3162,7 +3174,7 @@ function showDetail(id){
   const syncedNow=isSynced(s.id);
   const wktHTML=s.workoutLapMetrics&&s.workoutLapMetrics.length
     ?'<div class="chart-card" style="border-color:#f39c12"><div class="chart-lbl"><span>Workout Intervals: '+(s.workoutName||'')+'</span></div><table class="lap-tbl"><tr><th>#</th><th>Type</th><th>Dist</th><th>Time</th><th>Pace</th><th>Rate</th><th>Catch</th><th>DPS</th><th>Imp</th><th>RL</th></tr>'
-      +s.workoutLapMetrics.map(l=>'<tr><td>'+l.n+'</td><td>'+l.type.toUpperCase().slice(0,4)+'</td><td>'+l.dist+'m</td><td>'+fmt(l.time)+'</td><td>'+(l.lapPace>0?fmt(l.lapPace):'--')+'</td><td>'+(l.rate||'--')+'</td><td>'+(l.catchAvg||'--')+'</td><td>'+(l.dps?l.dps.toFixed(1):'--')+'</td><td>'+(l.impulse?l.impulse.toFixed(2):'--')+'</td><td>'+(l.runLoss?l.runLoss.toFixed(2):'--')+'</td></tr>').join('')
+      +s.workoutLapMetrics.map(l=>'<tr'+(l.type==='work'?' style="background:rgba(39,174,96,.12)"':'')+'>'+  '<td>'+l.n+'</td><td>'+l.type.toUpperCase().slice(0,4)+'</td><td>'+l.dist+'m</td><td>'+fmt(l.time)+'</td><td>'+(l.lapPace>0?fmt(l.lapPace):'--')+'</td><td>'+(l.rate||'--')+'</td><td>'+(l.catchAvg||'--')+'</td><td>'+(l.dps?l.dps.toFixed(1):'--')+'</td><td>'+(l.impulse?l.impulse.toFixed(2):'--')+'</td><td>'+(l.runLoss?l.runLoss.toFixed(2):'--')+'</td></tr>').join('')
       +'</table></div>'
     :'';
   dw.querySelector('#detail-content').innerHTML='<button class="dback" id="dback-btn">Back to Log</button>'
