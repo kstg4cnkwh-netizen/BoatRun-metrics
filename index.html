@@ -178,6 +178,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .btn-stop{background:#c0392b;color:#fff}.btn-pause{background:#f39c12;color:#fff}
 .btn-lap{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3)}
 .btn-reset{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
+.btn-finish{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
 
 /* \u9472 \u9472  CURVE PANEL \u9472 \u9472  */
 .curve-panel{flex:1;min-height:0;min-width:0;display:none;flex-direction:column;background:#f0f0f0;gap:2px;padding:2px;}
@@ -473,7 +474,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <button class="btn btn-pause" id="cc-pause" style="display:none">Pause</button>
 <button class="btn btn-lap" id="cc-lap" style="display:none">Lap</button>
 <button class="btn btn-stop" id="cc-stop" style="display:none">Stop</button>
-<button class="btn btn-reset" id="cc-reset" style="display:none">Reset</button>
+<button class="btn btn-finish" id="cc-finish" style="display:none">Finish</button>
 <button class="btn btn-lap" id="cc-lock" style="display:none;font-size:clamp(8px,.9vw,10px)">&#x1F513; Lock</button>
 </div>
 <!-- Tabs: bottom in portrait, right column in landscape -->
@@ -1411,14 +1412,14 @@ function computeDriveImpulse(samples) {
 //
 // Drive distance = ∫ v dt over drive portion only → angle = dist / outboard
 function computeOarAngleFullStroke(samples, driveCount, gpsStrokeDist) {
-    const OUTBOARD     = 2.0;
-    const R2D          = 180 / Math.PI;
-    const SLIP_FRACTION = 0.10;  // catch + finish + mid-drive slip, ~10% typical sculling
-    const n            = samples.length;
+    const OUTBOARD      = 2.0;
+    const R2D           = 180 / Math.PI;
+    const SLIP_FRACTION = 0.10;  // catch + finish slip, ~10% typical sculling
+    const n             = samples.length;
     if (n < 8 || driveCount < 2 || driveCount >= n) return null;
     if (gpsStrokeDist < 4.0 || gpsStrokeDist > 30)  return null;
 
-    // Pass 1 — cumulative \u916 V from catch (sample 0)
+    // Pass 1 — cumulative ΔV from catch (sample 0)
     const cumulDV = new Array(n).fill(0);
     for (let i = 1; i < n; i++) {
         const dt = (samples[i].t - samples[i - 1].t) / 1000;
@@ -1430,7 +1431,7 @@ function computeOarAngleFullStroke(samples, driveCount, gpsStrokeDist) {
     const T = (samples[n - 1].t - samples[0].t) / 1000;
     if (T < 0.8 || T > 8) return null;
 
-    // \u8747 \u916 V dt over full stroke — the "shape" contribution to distance
+    // ∫ ΔV dt over full stroke — the "shape" contribution to distance
     let intDVFull = 0;
     for (let i = 1; i < n; i++) {
         const dt = (samples[i].t - samples[i - 1].t) / 1000;
@@ -1444,9 +1445,23 @@ function computeOarAngleFullStroke(samples, driveCount, gpsStrokeDist) {
     // Reject if vCatch is far below GPS speed — indicates stale/frozen GPS distance
     if (gpsSpeedEma > 0.5 && vCatch < gpsSpeedEma * 0.45) return null;
 
-    // Pass 2 — integrate velocity over drive phase only
+    // Find the true drive end using the peak of cumulDV within the first 45%
+    // of the stroke. The FSM ends the drive on first fast<0, which fires well
+    // before blade extraction. The velocity peak (peak of cumulDV) is a much
+    // better proxy for blade-out. We search only the first 45% to avoid the
+    // recovery-phase acceleration (rower pulling body toward catch) which also
+    // produces a cumulDV peak but later in the stroke.
+    let peakDV = -Infinity, peakIdx = driveCount;
+    const driveSearchEnd = Math.round(n * 0.45);
+    for (let i = 0; i < driveSearchEnd; i++) {
+        if (cumulDV[i] > peakDV) { peakDV = cumulDV[i]; peakIdx = i; }
+    }
+    const dc = Math.max(driveCount, peakIdx);
+    if (dc < 2) return null;
+
+    // Pass 2 — integrate velocity over drive phase (catch → velocity peak)
     let driveDist = 0;
-    for (let i = 1; i < driveCount; i++) {
+    for (let i = 1; i < dc; i++) {
         const dt = (samples[i].t - samples[i - 1].t) / 1000;
         if (dt <= 0 || dt > 0.15) continue;
         driveDist += ((vCatch + cumulDV[i - 1]) + (vCatch + cumulDV[i])) / 2 * dt;
@@ -1454,12 +1469,8 @@ function computeOarAngleFullStroke(samples, driveCount, gpsStrokeDist) {
 
     if (driveDist <= 0.3 || driveDist > 15) return null;
 
-    // Correct geometry: oar sweeps an arc, not a straight line.
-    // No-slip: boat_dist = L(sin \u952 _catch + sin \u952 _finish) = 2L sin(half_arc)
-    // → half_arc = arcsin(boat_dist / 2L), total arc = 2 × half_arc
-    // Slip correction: subtract ~10% of drive distance that represents
-    // catch spear-in (~80-150ms) and finish slide-out (~100-200ms) phases
-    // where the blade slips forward through the water without anchoring.
+    // Geometry: boat_dist = 2L sin(half_arc), solve for arc.
+    // Slip correction removes ~10% for catch spear-in and finish slide-out.
     const effectiveDist = driveDist * (1 - SLIP_FRACTION);
     const sinArg        = Math.min(effectiveDist / (2 * OUTBOARD), 0.9999);
     return +(2 * Math.asin(sinArg) * R2D).toFixed(1);
@@ -2662,41 +2673,57 @@ function hideCountdownOverlay(){
   const ov=document.getElementById('countdown-overlay');if(ov)ov.classList.remove('show');
 }
 
-/* 
-¨T¨T
-SESSION CONTROLS 
-¨T¨T
+/*
+══════════════════════════════════════════════════════════════════
+SESSION CONTROLS
+State machine:
+  Fresh   (!running && !paused && elapsed=0)  → Start
+  Running (running && !paused)                → Pause · Lap · Stop · Lock
+  Paused  (!running && paused && elapsed>0)   → Resume · Stop · Lock
+  Stopped (!running && !paused && elapsed>0)  → Finish · Lock
+══════════════════════════════════════════════════════════════════
 */
-function renderCtrl(){
-  const show=(id,vis)=>{const el=document.getElementById('cc-'+id);if(el)el.style.display=vis?'flex':'none';};
-  const sr=!running&&!paused,rv=!running&&paused&&elapsed>0;
-  show('start',sr&&!rv);show('resume',rv);show('pause',running&&!paused&&!sessLocked);
-  show('lap',running&&!paused);show('stop',running&&!paused&&!sessLocked);
-  show('reset',!running&&elapsed>0&&!sessLocked);show('lock',running||(!running&&elapsed>0));
-  document.getElementById('rec-ind').style.display=(running&&!paused)?'flex':'none';
+function renderCtrl() {
+    const show = (id, vis) => { const el = document.getElementById('cc-' + id); if (el) el.style.display = vis ? 'flex' : 'none'; };
+    const active  = running && !paused;
+    const onPause = !running && paused && elapsed > 0;
+    const stopped = !running && !paused && elapsed > 0;
+    show('start',  !running && !paused && elapsed === 0);
+    show('resume', onPause);
+    show('pause',  active && !sessLocked);
+    show('lap',    active);
+    show('stop',   (active || onPause) && !sessLocked);
+    show('finish', stopped && !sessLocked);
+    show('lock',   running || elapsed > 0);
+    document.getElementById('rec-ind').style.display = active ? 'flex' : 'none';
 }
 function startSess() {
-    if (running) return; // already running, don't stack intervals
-    // Warn if GPS is not active at session start
+    if (running) return;
     const gpsPill = document.getElementById('p-gps');
     if (gpsPill && (gpsPill.classList.contains('pill-err') || gpsPill.classList.contains('pill-warn'))) {
         toast('⚠️ GPS not ready — pace data may be missing');
     }
-    clearInterval(timerInt); clearInterval(autosaveInt); // clean up any orphaned intervals
-    if (!sessStart) sessStart = Date.now();
+    clearInterval(timerInt); clearInterval(autosaveInt);
+    sessStart = Date.now();
     lapStartDist = distance; lapStartTime = elapsed;
     running = true; paused = false;
     timerInt = setInterval(() => { elapsed++; wktCheckAuto(); checkGpsAlive(); updateUI(); updateWorkoutBar(); }, 1000);
     saveInProgress(); autosaveInt = setInterval(saveInProgress, CONFIG.ui.autosaveMs);
     requestAnimationFrame(renderCtrl);
 }
-function pauseSess(){paused=true;running=false;clearInterval(timerInt);requestAnimationFrame(renderCtrl);}
+function pauseSess() {
+    if (!running) return;
+    paused = true; running = false;
+    clearInterval(timerInt);
+    requestAnimationFrame(renderCtrl);
+}
 function resumeSess() {
-    if (running) return; // already running
-    clearInterval(timerInt); // clean up any orphaned interval
+    if (running) return;
+    clearInterval(timerInt); clearInterval(autosaveInt);
     paused = false; running = true;
     paceDistWindow.length = 0; velocityWindow.length = 0; gpsSpeedEma = -1; speedSamples.length = 0;
     timerInt = setInterval(() => { elapsed++; wktCheckAuto(); checkGpsAlive(); updateUI(); updateWorkoutBar(); }, 1000);
+    saveInProgress(); autosaveInt = setInterval(saveInProgress, CONFIG.ui.autosaveMs);
     requestAnimationFrame(renderCtrl);
 }
 function stopSess() {
@@ -2706,29 +2733,30 @@ function stopSess() {
     if (wkt.active) wktEnd();
     if (elapsed > 10 && sessStrokes.length > 0 && !sessSaved) {
         try {
-            const ap = sessPaceTrace.length > 0 ? Math.round(sessPaceTrace.reduce((a, b) => a + b, 0) / sessPaceTrace.length) : 0;
+            const ap  = sessPaceTrace.length > 0 ? Math.round(sessPaceTrace.reduce((a, b) => a + b, 0) / sessPaceTrace.length) : 0;
             const movingPaceVals = sessPaceTrace.filter(v => v != null && v > 0);
             const amp = movingPaceVals.length ? Math.round(movingPaceVals.reduce((a, b) => a + b, 0) / movingPaceVals.length) : 0;
             const rateVals = sessStrokes.map(x => x.rate).filter(v => v != null && v > 0);
-            const ar = rateVals.length ? Math.round(rateVals.reduce((a, b) => a + b, 0) / rateVals.length) : 0;
+            const ar      = rateVals.length ? Math.round(rateVals.reduce((a, b) => a + b, 0) / rateVals.length) : 0;
             const maxRate = rateVals.length ? rateVals.reduce((m, v) => v > m ? v : m, 0) : 0;
             const avg = (arr, k) => { const v = arr.map(x => x[k]).filter(v => v != null && !isNaN(v) && v !== 0); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
-            const ac = (() => { const v = sessStrokes.map(x => x.catchConsistency).filter(v => v != null && !isNaN(v) && v !== 0); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; })();
+            const ac  = (() => { const v = sessStrokes.map(x => x.catchConsistency).filter(v => v != null && !isNaN(v) && v !== 0); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; })();
             const sessObj = {
                 id: Date.now().toString(), startTime: sessStart, endTime: Date.now(), duration: elapsed,
                 distance: Math.round(distance), avgPace: ap, avgMovingPace: amp, avgRate: ar, maxRate,
                 catchPeakSess, catchAvg8, strokeCount,
-                avgRunLossM: avg(sessStrokes, 'runLossM'), avgDPS: avg(sessStrokes, 'dps'),
-                avgCatch: avg(sessStrokes, 'catchPeak'), avgChar: avg(sessStrokes, 'char'),
-                avgConsistency: ac, avgImpulse: avg(sessStrokes, 'driveImpulse'), avgRdi: avg(sessStrokes, 'rdi'),
-                avgRatio: avg(sessStrokes, 'strokeRatio'), avgOarAngle: avg(sessStrokes, 'oarAngle'),
-                strokes: sessStrokes.map(({ _prlStroke, ...r }) => r),
-                paceTrace: sessPaceTrace.slice(), gpsTrace: sessGpsTrace.slice(),
-                gpsRawTrace: sessGpsRawTrace.slice(), rlDebug: rlDebug.slice(),
-                hrTrace: null, laps: laps.slice(),
+                avgRunLossM:    avg(sessStrokes, 'runLossM'),    avgDPS:     avg(sessStrokes, 'dps'),
+                avgCatch:       avg(sessStrokes, 'catchPeak'),   avgChar:    avg(sessStrokes, 'char'),
+                avgConsistency: ac,                              avgImpulse: avg(sessStrokes, 'driveImpulse'),
+                avgRdi:         avg(sessStrokes, 'rdi'),         avgRatio:   avg(sessStrokes, 'strokeRatio'),
+                avgOarAngle:    avg(sessStrokes, 'oarAngle'),
+                strokes:        sessStrokes.map(({ _prlStroke, ...r }) => r),
+                paceTrace:      sessPaceTrace.slice(),   gpsTrace:    sessGpsTrace.slice(),
+                gpsRawTrace:    sessGpsRawTrace.slice(), rlDebug:     rlDebug.slice(),
+                hrTrace: null,  laps: laps.slice(),
                 workoutLapMetrics: wkt.lapMetrics.length ? wkt.lapMetrics.slice() : null,
-                workoutName: wkt.def?.name || null,
-                calNoiseFloor: cal.noiseFloor, calThresh: cal.jerkThresh, detectedAxis: selAxis,
+                workoutName:    wkt.def?.name || null,
+                calNoiseFloor:  cal.noiseFloor, calThresh: cal.jerkThresh, detectedAxis: selAxis,
                 config: { rl: CONFIG.runLoss, gps: { alpha: CONFIG.gps.speedEmaAlpha, medN: CONFIG.gps.speedMedianN, spike: CONFIG.gps.spikeMarginMps } },
             };
             const ok = addSess(sessObj);
@@ -2737,9 +2765,7 @@ function stopSess() {
                 _LS.removeItem(AUTOSAVE_DB);
                 toast('Session saved ✓ (' + sessStrokes.length + ' strokes)');
             } else {
-                // Save failed — keep autosave in place so recovery is possible
                 toast('⚠️ Save failed — do NOT reset. Try stopping again.');
-                // Put the session back into autosave so checkAutosave can recover it on next open
                 try {
                     const snap = { id: sessStart.toString(), startTime: sessStart, duration: elapsed, distance: Math.round(distance), strokeCount, catchPeakSess, catchAvg8, laps, strokes: sessStrokes, paceTrace: sessPaceTrace, gpsTrace: sessGpsTrace, _autosave: true, _savedAt: Date.now() };
                     _LS.setItem(AUTOSAVE_DB, JSON.stringify(snap));
@@ -2753,103 +2779,132 @@ function stopSess() {
     }
     requestAnimationFrame(renderCtrl);
 }
-function resetSess(){
-  sessLocked=false;
-  if(elapsed>10&&sessStrokes.length>0&&!sessSaved){if(confirm('Save before reset?'))stopSess();else{clearInterval(timerInt);clearInterval(autosaveInt);}}
-  else{clearInterval(timerInt);clearInterval(autosaveInt);}
-  running=false;paused=false;sessSaved=false;_LS.removeItem(AUTOSAVE_DB);
-  elapsed=0;distance=0;pace=0;strokeRate=0;strokeCount=0;acRate=0;acConf=0;distPerStroke=0;dpsValsArr.length=0;maxDPS=0;lapStartDist=0;lapStartTime=0;catchLast=null;catchPeakSess=null;catchAvg8=null;catchValsArr.length=0;catchConsistency=null;strokeChar=50;charValsArr.length=0;rdi=null;rdiValsArr.length=0;strokeRatio=null;strokeRatioValsArr.length=0;pendingRun=null;runLosses.length=0;runLossM=null;rlDebug.length=0;laps=[];sessStrokes.length=0;sessPaceTrace.length=0;sessGpsTrace.length=0;sessGpsRawTrace.length=0;strokeTs.length=0;paceDistWindow.length=0;velocityWindow.length=0;speedSamples.length=0;prevStrokeDist=0;prevStrokeDistT=0;gpsLastValidT=0;gpsSpeedEma=-1;gpsWasStopped=false;gpsAccuracyM=null;fsmState=FS.IDLE;catchPeakJerk=0;catchStartT=0;lastCatchAbsT=0;lastDriveEndT=0;strokesDetected=0;jerkThreshActive=jerkThreshBase;adaptReady=false;acBuf.length=0;acLastUpdate=0;jerkBuf.length=0;catchTsBuf.length=0;axisLocked=false;axisAutoDetected=false;lastAxisCheck=0;sessStart=null;lastStrokeCurve=null;strokeCurveHistory.length=0;catchToCatchSamples=[];pendingCurveDriveCount=0;motionSamples=0;motionStartedAt=0;lastMotionT=0;imuRL = null;driveImpulseEma = null;oarAngle=null;oarAngleRawArr.length=0;catchGpsDist=0;pendingOarStrokeIdx=-1;
-  for(const k of AXES){gravity[k]=0;axFast[k]=0;axSmooth[k]=0;}
-  wkt={active:false,def:null,sequence:[],seqIdx:0,startDist:0,startElapsed:0,lapMetrics:[],countdownActive:false,waitingForRow:false,waitStrokeCount:0,fromRestCountdown:false};
-  const bar=document.getElementById('wkt-bar');if(bar)bar.classList.remove('wactive');
-  hideCountdownOverlay();
-  if(curveTabActive())renderCurveCanvas();
-  updateUI();updateIntervalsPanel();requestAnimationFrame(renderCtrl);
-  const pill=document.getElementById('p-axis');if(pill){pill.textContent='AX:?';pill.className='pill pill-off';}
+function finishSess() {
+    // Shown after Stop — session should already be saved.
+    // If Stop somehow failed and session is unsaved, prompt before discarding.
+    if (elapsed > 10 && sessStrokes.length > 0 && !sessSaved) {
+        if (!confirm('Session not yet saved. Discard and finish?')) {
+            stopSess(); // retry save
+            return;
+        }
+    }
+    resetSess();
+}
+function resetSess() {
+    sessLocked = false;
+    clearInterval(timerInt); clearInterval(autosaveInt);
+    running = false; paused = false; sessSaved = false;
+    _LS.removeItem(AUTOSAVE_DB);
+    elapsed = 0; distance = 0; pace = 0; strokeRate = 0; strokeCount = 0;
+    acRate = 0; acConf = 0; distPerStroke = 0; dpsValsArr.length = 0; maxDPS = 0;
+    lapStartDist = 0; lapStartTime = 0; catchLast = null; catchPeakSess = null; catchAvg8 = null;
+    catchValsArr.length = 0; catchConsistency = null; strokeChar = 50; charValsArr.length = 0;
+    rdi = null; rdiValsArr.length = 0; strokeRatio = null; strokeRatioValsArr.length = 0;
+    pendingRun = null; runLosses.length = 0; runLossM = null; rlDebug.length = 0;
+    laps = []; sessStrokes.length = 0; sessPaceTrace.length = 0;
+    sessGpsTrace.length = 0; sessGpsRawTrace.length = 0;
+    strokeTs.length = 0; paceDistWindow.length = 0; velocityWindow.length = 0;
+    speedSamples.length = 0; prevStrokeDist = 0; prevStrokeDistT = 0;
+    gpsLastValidT = 0; gpsSpeedEma = -1; gpsWasStopped = false; gpsAccuracyM = null;
+    fsmState = FS.IDLE; catchPeakJerk = 0; catchStartT = 0; lastCatchAbsT = 0; lastDriveEndT = 0;
+    strokesDetected = 0; jerkThreshActive = jerkThreshBase; adaptReady = false;
+    acBuf.length = 0; acLastUpdate = 0; jerkBuf.length = 0; catchTsBuf.length = 0;
+    axisLocked = false; axisAutoDetected = false; lastAxisCheck = 0;
+    sessStart = null; lastStrokeCurve = null; strokeCurveHistory.length = 0;
+    catchToCatchSamples = []; pendingCurveDriveCount = 0;
+    motionSamples = 0; motionStartedAt = 0; lastMotionT = 0;
+    imuRL = null; driveImpulseEma = null; oarAngle = null; oarAngleRawArr.length = 0;
+    catchGpsDist = 0; pendingOarStrokeIdx = -1;
+    for (const k of AXES) { gravity[k] = 0; axFast[k] = 0; axSmooth[k] = 0; }
+    wkt = { active: false, def: null, sequence: [], seqIdx: 0, startDist: 0, startElapsed: 0, lapMetrics: [], countdownActive: false, waitingForRow: false, waitStrokeCount: 0, fromRestCountdown: false };
+    const bar = document.getElementById('wkt-bar'); if (bar) bar.classList.remove('wactive');
+    hideCountdownOverlay();
+    if (curveTabActive()) renderCurveCanvas();
+    updateUI(); updateIntervalsPanel(); requestAnimationFrame(renderCtrl);
+    const pill = document.getElementById('p-axis'); if (pill) { pill.textContent = 'AX:?'; pill.className = 'pill pill-off'; }
 }
 const LAP_SPLIT_MS = 6000;
 let _lapSplitTimer = null;
 function showLapSplit(lap) {
-  const ov = document.getElementById('lap-split-overlay'); if (!ov) return;
-  document.getElementById('ls-lapnum').textContent = 'LAP ' + lap.n;
-  document.getElementById('ls-time').textContent  = fmt(lap.time);
-  document.getElementById('ls-dist').textContent  = lap.dist + 'm';
-  document.getElementById('ls-pace').textContent  = lap.pace > 0 ? fmt(lap.pace) : '--:--';
-  document.getElementById('ls-rate').textContent  = lap.rate > 0 ? Math.round(lap.rate) : '--';
-  const fill = document.getElementById('ls-bar-fill');
-  if (fill) { fill.style.transition = 'none'; fill.style.transform = 'scaleX(1)'; }
-  ov.classList.add('show');
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    if (fill) { fill.style.transition = `transform ${LAP_SPLIT_MS}ms linear`; fill.style.transform = 'scaleX(0)'; }
-  }));
-  clearTimeout(_lapSplitTimer);
-  _lapSplitTimer = setTimeout(hideLapSplit, LAP_SPLIT_MS);
+    const ov = document.getElementById('lap-split-overlay'); if (!ov) return;
+    document.getElementById('ls-lapnum').textContent = 'LAP ' + lap.n;
+    document.getElementById('ls-time').textContent   = fmt(lap.time);
+    document.getElementById('ls-dist').textContent   = lap.dist + 'm';
+    document.getElementById('ls-pace').textContent   = lap.pace > 0 ? fmt(lap.pace) : '--:--';
+    document.getElementById('ls-rate').textContent   = lap.rate > 0 ? Math.round(lap.rate) : '--';
+    const fill = document.getElementById('ls-bar-fill');
+    if (fill) { fill.style.transition = 'none'; fill.style.transform = 'scaleX(1)'; }
+    ov.classList.add('show');
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (fill) { fill.style.transition = `transform ${LAP_SPLIT_MS}ms linear`; fill.style.transform = 'scaleX(0)'; }
+    }));
+    clearTimeout(_lapSplitTimer);
+    _lapSplitTimer = setTimeout(hideLapSplit, LAP_SPLIT_MS);
 }
 function hideLapSplit() {
-  clearTimeout(_lapSplitTimer);
-  document.getElementById('lap-split-overlay')?.classList.remove('show');
+    clearTimeout(_lapSplitTimer);
+    document.getElementById('lap-split-overlay')?.classList.remove('show');
 }
-function recordLap(){
-  if(!running||paused)return;
-  // While waiting for rowing to start a work step, ignore the lap button
-  if(wkt.active && wkt.waitingForRow) return;
-  const d=Math.round(distance-lapStartDist),t=elapsed-lapStartTime,p=d>5&&t>0?(t/d)*500:0;
-  const avgC=catchValsArr.length?Math.round(catchValsArr.reduce((a,b)=>a+b,0)/catchValsArr.length):null;
-  const avgI=sessStrokes.length>0?sessStrokes[sessStrokes.length-1].driveImpulse:null;
-  laps.push({n:laps.length+1,dist:d,time:t,pace:p,rate:strokeRate,avgCatch:avgC,avgDPS:distPerStroke||null,avgImpulse:avgI,avgRunLoss:runLossM,avgRdi:rdi});
-  lapStartDist=distance;lapStartTime=elapsed;
-  // Only show lap split overlay for work steps (not warmup, rest, or cooldown)
-  const curStep=wkt.active?wktCurrentStep():null;
-  if(!curStep||curStep.type==='work') showLapSplit(laps[laps.length-1]);
-  updateIntervalsPanel();
+function recordLap() {
+    if (!running || paused) return;
+    if (wkt.active && wkt.waitingForRow) return;
+    const d = Math.round(distance - lapStartDist), t = elapsed - lapStartTime, p = d > 5 && t > 0 ? (t / d) * 500 : 0;
+    const avgC = catchValsArr.length ? Math.round(catchValsArr.reduce((a, b) => a + b, 0) / catchValsArr.length) : null;
+    const avgI = sessStrokes.length > 0 ? sessStrokes[sessStrokes.length - 1].driveImpulse : null;
+    laps.push({ n: laps.length + 1, dist: d, time: t, pace: p, rate: strokeRate, avgCatch: avgC, avgDPS: distPerStroke || null, avgImpulse: avgI, avgRunLoss: runLossM, avgRdi: rdi });
+    lapStartDist = distance; lapStartTime = elapsed;
+    const curStep = wkt.active ? wktCurrentStep() : null;
+    if (!curStep || curStep.type === 'work') showLapSplit(laps[laps.length - 1]);
+    updateIntervalsPanel();
 }
-function handleLapBtn(){
-  if(!running||paused)return;
-  if(wkt.active&&wkt.waitingForRow)return;
-  if(wkt.active) wktAdvance();
-  else recordLap();
+function handleLapBtn() {
+    if (!running || paused) return;
+    if (wkt.active && wkt.waitingForRow) return;
+    if (wkt.active) wktAdvance(); else recordLap();
 }
-function toggleSessLock(){
-  sessLocked=!sessLocked;
-  const btn=document.getElementById('cc-lock');
-  if(btn){btn.textContent=sessLocked?'Unlock':'Lock';btn.style.background=sessLocked?'#f39c12':'rgba(255,255,255,.18)';btn.style.color=sessLocked?'#000':'#fff';}
-  renderCtrl();
+function toggleSessLock() {
+    sessLocked = !sessLocked;
+    const btn = document.getElementById('cc-lock');
+    if (btn) { btn.textContent = sessLocked ? 'Unlock' : 'Lock'; btn.style.background = sessLocked ? '#f39c12' : 'rgba(255,255,255,.18)'; btn.style.color = sessLocked ? '#000' : '#fff'; }
+    renderCtrl();
 }
-function saveInProgress(){
-  if(!running||!sessStart||sessStrokes.length===0)return;
-  try{const snap={id:sessStart.toString(),startTime:sessStart,duration:elapsed,distance:Math.round(distance),strokeCount,catchPeakSess,catchAvg8,laps,strokes:sessStrokes,paceTrace:sessPaceTrace,gpsTrace:sessGpsTrace,_autosave:true,_savedAt:Date.now()};_LS.setItem(AUTOSAVE_DB,JSON.stringify(snap));}catch{}
+function saveInProgress() {
+    if (!running || !sessStart || sessStrokes.length === 0) return;
+    try { const snap = { id: sessStart.toString(), startTime: sessStart, duration: elapsed, distance: Math.round(distance), strokeCount, catchPeakSess, catchAvg8, laps, strokes: sessStrokes, paceTrace: sessPaceTrace, gpsTrace: sessGpsTrace, _autosave: true, _savedAt: Date.now() }; _LS.setItem(AUTOSAVE_DB, JSON.stringify(snap)); } catch {}
 }
-function checkAutosave(){
-  try{
-    const raw=_LS.getItem(AUTOSAVE_DB);
-    if(!raw)return;
-    const snap=JSON.parse(raw);
-    if(!snap||!snap._autosave||!snap.strokeCount)return;
-    const age=Date.now()-snap._savedAt;
-    if(age>12*3600*1000){_LS.removeItem(AUTOSAVE_DB);return;}
-    const mins=Math.round(snap.duration/60),km=(snap.distance/1000).toFixed(2);
-    if(confirm('Recover autosaved session?\n'+km+' km  '+mins+' min  '+snap.strokeCount+' strokes\n('+Math.round(age/60000)+' min ago)')){
-      snap._autosave=false;
-      const ok=addSess(snap);
-      if(ok){
-        _LS.removeItem(AUTOSAVE_DB);
-        renderSessionList();
-        alert('Session recovered and saved to LOG.');
-      } else {
-        alert('⚠️ Recovery save failed — session still in autosave. Try again or free up storage.');
-        // Leave autosave intact so next open can retry
-      }
-    } else {
-      _LS.removeItem(AUTOSAVE_DB);
-    }
-  }catch{_LS.removeItem(AUTOSAVE_DB);}
+function checkAutosave() {
+    try {
+        const raw = _LS.getItem(AUTOSAVE_DB);
+        if (!raw) return;
+        const snap = JSON.parse(raw);
+        if (!snap || !snap._autosave || !snap.strokeCount) return;
+        const age = Date.now() - snap._savedAt;
+        if (age > 12 * 3600 * 1000) { _LS.removeItem(AUTOSAVE_DB); return; }
+        const mins = Math.round(snap.duration / 60), km = (snap.distance / 1000).toFixed(2);
+        if (confirm('Recover autosaved session?\n' + km + ' km  ' + mins + ' min  ' + snap.strokeCount + ' strokes\n(' + Math.round(age / 60000) + ' min ago)')) {
+            snap._autosave = false;
+            const ok = addSess(snap);
+            if (ok) {
+                _LS.removeItem(AUTOSAVE_DB);
+                renderSessionList();
+                alert('Session recovered and saved to LOG.');
+            } else {
+                alert('⚠️ Recovery save failed — session still in autosave. Try again or free up storage.');
+            }
+        } else {
+            _LS.removeItem(AUTOSAVE_DB);
+        }
+    } catch { _LS.removeItem(AUTOSAVE_DB); }
 }
-function wireButtons(){
-  const s=id=>document.getElementById('cc-'+id);
-  s('start').addEventListener('click',startSess);s('resume').addEventListener('click',resumeSess);
-  s('pause').addEventListener('click',pauseSess);s('lap').addEventListener('click',handleLapBtn);
-  s('stop').addEventListener('click',stopSess);s('reset').addEventListener('click',resetSess);
-  document.getElementById('cc-lock').addEventListener('click',toggleSessLock);
+function wireButtons() {
+    const s = id => document.getElementById('cc-' + id);
+    s('start').addEventListener('click', startSess);
+    s('resume').addEventListener('click', resumeSess);
+    s('pause').addEventListener('click', pauseSess);
+    s('lap').addEventListener('click', handleLapBtn);
+    s('stop').addEventListener('click', stopSess);
+    s('finish').addEventListener('click', finishSess);
+    document.getElementById('cc-lock').addEventListener('click', toggleSessLock);
 }
 
 /* 
