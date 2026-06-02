@@ -19,7 +19,7 @@ A real-time rowing performance tracking system using device motion + GPS fusion 
 - Stroke character (drive timing distribution)
 - Run loss (% speed decay per stroke cycle)
 - Drive impulse estimation
-- RDI (Recovery vs Drive balance)
+- Effective oar arc
 
 ### 🧠 Intelligent Stroke Detection
 
