@@ -179,7 +179,8 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .btn-stop{background:#c0392b;color:#fff}.btn-pause{background:#f39c12;color:#fff}
 .btn-lap{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3)}
 .btn-reset{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
-.btn-finish{background:rgba(192,57,43,.25);color:#e74c3c;border:1px solid rgba(192,57,43,.4);font-size:clamp(10px,1.6dvh,16px)!important;}
+.btn-finish{background:rgba(255,255,255,.08);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.15)}
+.sbar-finish{background:rgba(192,57,43,.15);color:#c0392b;border:1px solid rgba(192,57,43,.3);font-family:"Roboto",sans-serif;font-size:9px;font-weight:700;letter-spacing:.1em;padding:3px 9px;border-radius:2px;cursor:pointer;text-transform:uppercase;touch-action:manipulation;flex-shrink:0;}
 
 /* \u9472 \u9472  CURVE PANEL \u9472 \u9472  */
 .curve-panel{flex:1;min-height:0;min-width:0;display:none;flex-direction:column;background:#f0f0f0;gap:2px;padding:2px;}
@@ -411,7 +412,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div id="screen-live" class="screen">
 <div class="sbar">
 <div class="sbar-l"><span class="sbar-title">SCULL</span><span class="pill pill-off" id="p-gps">GPS</span><span class="pill pill-off" id="p-acc">ACC</span><span class="pill pill-off" id="p-cal">CAL</span><span class="pill pill-off" id="p-axis">AX:?</span></div>
-<div class="sbar-r"><div class="rec" id="rec-ind" style="display:none"><div class="recdot"></div>REC</div></div>
+<div class="sbar-r"><button class="sbar-finish" id="sbar-finish" style="display:none">Finish Session</button><div class="rec" id="rec-ind" style="display:none"><div class="recdot"></div>REC</div></div>
 </div>
 <!-- Workout bar -->
 <div class="wkt-bar" id="wkt-bar">
@@ -475,7 +476,6 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <button class="btn btn-pause"  id="cc-pause"  style="display:none">Pause</button>
 <button class="btn btn-resume" id="cc-resume" style="display:none">Resume</button>
 <button class="btn btn-lap"    id="cc-lock"   style="display:none;font-size:clamp(8px,.9vw,10px)">&#x1F513; Lock</button>
-<button class="btn btn-finish" id="cc-finish" style="display:none">Finish Session</button>
 </div>
 <!-- Tabs: bottom in portrait, right column in landscape -->
 <div class="tab-bar" id="live-tabs">
@@ -2726,7 +2726,8 @@ function renderCtrl() {
     show('pause',  active && !sessLocked);
     show('resume', !running && paused);
     show('lock',   running || paused || elapsed > 0);
-    show('finish', paused && !sessLocked);
+    const sf = document.getElementById('sbar-finish');
+    if (sf) sf.style.display = paused && !sessLocked ? 'block' : 'none';
     document.getElementById('rec-ind').style.display = active ? 'flex' : 'none';
 }
 function startSess() {
@@ -2932,7 +2933,7 @@ function wireButtons() {
     s('pause').addEventListener('click', pauseSess);
     s('resume').addEventListener('click', resumeSess);
     document.getElementById('cc-lock').addEventListener('click', toggleSessLock);
-    document.getElementById('cc-finish').addEventListener('click', finishSess);
+    document.getElementById('sbar-finish').addEventListener('click', finishSess);
 }
 
 /* 
@@ -3184,7 +3185,7 @@ function showDetail(id){
     +hrHTML
     +(s.garminSpeedTrace&&s.garminSpeedTrace.length>2?'<div class="chart-card" style="border-color:#8e44ad"><div class="chart-lbl"><span>Garmin Pace</span><span>min/500m</span></div><canvas id="a-gspeed" class="acanvas"></canvas></div>':'')
     +(s.paceTrace&&s.paceTrace.length>2?'<div class="chart-card g"><div class="chart-lbl"><span>GPS Pace</span><span>min/500m faster=up</span></div><canvas id="a-pace" class="acanvas"></canvas></div>':'')
-    +(s.strokes&&s.strokes.length>2?'<div class="chart-card b"><div class="chart-lbl"><span>Catch Slope</span></div><canvas id="a-catch" class="acanvas"></canvas></div><div class="chart-card a"><div class="chart-lbl"><span>Stroke Rate</span></div><canvas id="a-rate" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Run Loss</span><span>m</span></div><canvas id="a-runloss" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Impulse</span></div><canvas id="a-eff" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>DPS</span></div><canvas id="a-dps" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Stroke Char</span><span>% · 50% ref</span></div><canvas id="a-char" class="acanvas"></canvas></div><div class="chart-card g"><div class="chart-lbl"><span>Stroke Ratio</span><span>rec÷drive · 1.5–2.5 green</span></div><canvas id="a-ratio" class="acanvas"></canvas></div><div class="chart-card" style="border-color:#2de0d4"><div class="chart-lbl"><span>Oar Arc</span><span>degrees</span></div><canvas id="a-oarangle" class="acanvas"></canvas></div>':'')
+    +(s.strokes&&s.strokes.length>2?'<div class="chart-card b"><div class="chart-lbl"><span>Catch Slope</span></div><canvas id="a-catch" class="acanvas"></canvas></div><div class="chart-card a"><div class="chart-lbl"><span>Stroke Rate</span></div><canvas id="a-rate" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Run Loss</span><span>m</span></div><canvas id="a-runloss" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Impulse</span></div><canvas id="a-eff" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>DPS</span></div><canvas id="a-dps" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Stroke Char</span><span>% · 50% ref</span></div><canvas id="a-char" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Stroke Ratio</span><span>rec÷drive</span></div><canvas id="a-ratio" class="acanvas"></canvas></div><div class="chart-card" style="border-color:#2de0d4"><div class="chart-lbl"><span>Oar Arc</span><span>degrees</span></div><canvas id="a-oarangle" class="acanvas"></canvas></div>':'')
     +(s.laps&&s.laps.length?'<div class="chart-card" style="border-color:#ddd"><div class="chart-lbl"><span>Laps</span></div><table class="lap-tbl"><tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>Rate</th><th>Catch</th><th>DPS</th><th>Imp</th><th>RL</th><th>RDI</th><th>Ratio</th></tr>'+(()=>{const best=s.laps.length>1?s.laps.reduce((b,l)=>l.pace>0&&l.pace<b.pace?l:b,s.laps[0]):null;return s.laps.map(l=>'<tr class="'+(best&&l.n===best.n?'best':'')+'"><td>'+l.n+'</td><td>'+l.dist+'m</td><td>'+fmt(l.time)+'</td><td>'+(l.pace>0?fmt(l.pace):'--')+'</td><td>'+(l.rate||'--')+'</td><td>'+(l.avgCatch||'--')+'</td><td>'+(l.avgDPS?l.avgDPS.toFixed(1):'--')+'</td><td>'+(l.avgImpulse?l.avgImpulse.toFixed(2):'--')+'</td><td>'+(l.avgRunLoss?l.avgRunLoss.toFixed(2):'--')+'</td><td>'+(l.avgRdi?l.avgRdi.toFixed(2):'--')+'</td><td>'+(l.avgRatio?'1:'+l.avgRatio.toFixed(2):'--')+'</td></tr>').join('');})()+'</table></div>':'')
     +'<div style="display:flex;gap:6px;margin-top:8px;">'
     +'<button class="exp-btn" id="dbg-btn" style="flex:1;font-size:10px;padding:10px 4px;">Debug CSV</button>'
@@ -3205,7 +3206,7 @@ function showDetail(id){
       const gspd=s.garminSpeedTrace.filter(x=>x.spd>0.3).map(x=>500/x.spd);
       if(gspd.length>2)drawChart('a-gspeed',gspd,'#8e44ad',true);
     }
-    if(s.strokes&&s.strokes.length>2){drawChart('a-catch',s.strokes.map(x=>x.catchPeak),'#1a5276',false,100,true);drawChart('a-rate',s.strokes.map(x=>x.rate),'#f39c12',false);drawChart('a-runloss',s.strokes.map(x=>x.runLossM||0),'#c0392b',false,null,true);drawChart('a-eff',s.strokes.map(x=>x.driveImpulse||0),'#27ae60',false,null,true);drawChart('a-dps',s.strokes.map(x=>x.dps||0),'#1a5276',false,20);drawChart('a-char',s.strokes.map(x=>x.char||0),'#8e44ad',false,100,true,0,50);const ratioData=s.strokes.map(x=>x.strokeRatio||0).filter(v=>v>0);if(ratioData.length>1)drawChart('a-ratio',s.strokes.map(x=>x.strokeRatio||0),'#27ae60',false,4,true,0);const oarData=s.strokes.map(x=>x.oarAngle||0);if(oarData.some(v=>v>0))drawChart('a-oarangle',oarData,'#2de0d4',false,null,true,0);}
+    if(s.strokes&&s.strokes.length>2){drawChart('a-catch',s.strokes.map(x=>x.catchPeak),'#1a5276',false,null,true);drawChart('a-rate',s.strokes.map(x=>x.rate),'#f39c12',false);drawChart('a-runloss',s.strokes.map(x=>x.runLossM||0),'#c0392b',false,null,true);drawChart('a-eff',s.strokes.map(x=>x.driveImpulse||0),'#27ae60',false,null,true);drawChart('a-dps',s.strokes.map(x=>x.dps||0),'#1a5276',false,20);drawChart('a-char',s.strokes.map(x=>x.char||0),'#8e44ad',false,100,true,0,50);const ratioData=s.strokes.map(x=>x.strokeRatio||0).filter(v=>v>0);if(ratioData.length>1)drawChart('a-ratio',s.strokes.map(x=>x.strokeRatio||0),'#27ae60',false,5,true,1);const oarData=s.strokes.map(x=>x.oarAngle||0);if(oarData.some(v=>v>0))drawChart('a-oarangle',oarData,'#2de0d4',false,150,true,60,[60,90,120,150]);}
     if(s.hrTrace&&s.hrTrace.length>2)drawChart('a-hr',s.hrTrace.map(x=>x.hr),'#c0392b',false);
     const fz=document.getElementById('fit-zone');if(fz)fz.addEventListener('click',()=>{const inp=document.getElementById('fit-input');inp.onchange=ev=>handleGPX(ev,s.id);inp.click();});
     document.getElementById('dbg-btn').addEventListener('click',()=>exportDebugCSV(s));
@@ -3698,7 +3699,7 @@ function drawChart(id,data,color,invertY,yMax,points,yMin=null,refLine=null){
   const range=mx-mn||1,pad=4;
   const sy=v=>invertY?pad+(((v-mn)/range)*(H-pad*2)):(H-pad)-(((v-mn)/range)*(H-pad*2));
   ctx.strokeStyle='#f0f0f0';ctx.lineWidth=1;for(let i=0;i<=3;i++){const y=pad+i*(H-pad*2)/3;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
-  if(refLine!=null){const ry=sy(refLine);ctx.save();ctx.strokeStyle='rgba(0,0,0,0.35)';ctx.lineWidth=1*dpr;ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(0,ry);ctx.lineTo(W,ry);ctx.stroke();ctx.setLineDash([]);ctx.restore();}
+  if(refLine!=null){const refs=Array.isArray(refLine)?refLine:[refLine];refs.forEach(rl=>{const ry=sy(rl);ctx.save();ctx.strokeStyle='rgba(0,0,0,0.35)';ctx.lineWidth=1*dpr;ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(0,ry);ctx.lineTo(W,ry);ctx.stroke();ctx.setLineDash([]);ctx.restore();});}
   if(points){const r=Math.max(2,3*dpr);ctx.fillStyle=color;data.forEach((v,i)=>{const x=(i/(data.length-1))*W;ctx.beginPath();ctx.arc(x,sy(v),r,0,Math.PI*2);ctx.fill();});}
   else{const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,color+'33');g.addColorStop(1,color+'05');ctx.beginPath();data.forEach((v,i)=>i===0?ctx.moveTo(0,sy(v)):ctx.lineTo((i/(data.length-1))*W,sy(v)));ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fillStyle=g;ctx.fill();ctx.beginPath();data.forEach((v,i)=>i===0?ctx.moveTo(0,sy(v)):ctx.lineTo((i/(data.length-1))*W,sy(v)));ctx.strokeStyle=color;ctx.lineWidth=1.5*dpr;ctx.lineJoin='round';ctx.stroke();}
   ctx.fillStyle='#aaa';ctx.font=(8*dpr)+'px Roboto';ctx.textAlign='left';
