@@ -779,9 +779,13 @@ async function flushQueue() {
 }
 
 // ── DRIVE SYNC ──────────────────────────────────────────────────────────────
-function formatSessionFilename(sessionId) {
+function formatSessionFilename(sessionId, session) {
     const d = new Date(parseInt(sessionId));
-    return `RowSess_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}_${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}.json`;
+    const base = `RowSess_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}_${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
+    if (session && session.distance != null && session.duration != null) {
+        return `${base}_${Math.round(session.distance)}m_${Math.round(session.duration)}s.json`;
+    }
+    return `${base}.json`;
 }
 async function migrateLocalSessionsToDrive() {
     const sessions = loadSess();
@@ -820,7 +824,7 @@ const DriveSync = (() => {
             let parents = [];
             try { parents = [await this._ensureFolder()]; } catch {}
             const meta = {
-                name: formatSessionFilename(session.id),
+                name: formatSessionFilename(session.id, session),
                 mimeType: 'application/json',
                 ...(parents.length ? { parents } : {})
             };
@@ -1370,12 +1374,6 @@ function onNewCatch(now) {
             strokeCurveHistory.push(norm);
             if (strokeCurveHistory.length > CURVE_HISTORY_N) strokeCurveHistory.shift();
             if (curveTabActive()) { renderCurveCanvas(); updateCurveTiles(); }
-            // Save curve to the stroke record that just finished
-            const _ci = sessStrokes.length - 1;
-            if (_ci >= 0 && sessStrokes[_ci]) {
-                sessStrokes[_ci].curve = Array.from(norm.data, v => Math.round(v * 100) / 100);
-                sessStrokes[_ci].curveDriveFrac = +norm.driveFrac.toFixed(3);
-            }
         }
     }
     catchToCatchSamples = [];
