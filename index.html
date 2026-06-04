@@ -724,6 +724,12 @@ function setSetting(key, value) {
     if (typeof renderSettingsPanel === 'function') renderSettingsPanel();
     updateUI();
 }
+function toggleBoatClass() {
+    appSettings.boatClass = appSettings.boatClass === 'sweep' ? 'scull' : 'sweep';
+    saveSettings();
+    toast(appSettings.boatClass === 'sweep' ? 'Sweep (outboard 2.6m)' : 'Scull (outboard 2.0m)');
+    updateUI();
+}
 
 // ── Unit format helpers ──────────────────────────────────────────────────────
 function outboardLength() { return appSettings.boatClass === 'sweep' ? 2.6 : 2.0; }
@@ -2117,7 +2123,10 @@ function buildTileHTML(i, key) {
     const metaRow = key !== 'empty'
         ? `<div class="tile-meta-row"><span class="tile-metric-name">${def.label}</span></div>`
         : '';
-    return `<div class="tile" id="slot-${i}" data-metric="${key}"><span class="tq" id="sq-${i}">WAIT</span><div class="tile-val-wrap">${inner}${metaRow}</div></div>`;
+    const tileExtras = key === 'oarangle'
+        ? ` onclick="toggleBoatClass()" style="cursor:pointer;"`
+        : '';
+    return `<div class="tile" id="slot-${i}" data-metric="${key}"${tileExtras}><span class="tq" id="sq-${i}">WAIT</span><div class="tile-val-wrap">${inner}${metaRow}</div></div>`;
 }
 function buildGrid() {
     const ld = getCurrentLayoutDef(), cells = getCurrentCells();
@@ -3286,10 +3295,6 @@ function renderSettingsPanel() {
         return `<div class="setup-section">${label}</div><div class="layout-size-row">${btns}</div>`;
     }
     el.innerHTML = `<div style="padding:10px 12px 20px;">
-        ${row('BOAT TYPE', 'boatClass', [['scull','SCULL'],['sweep','SWEEP']])}
-        <div style="font-size:10px;color:#888;padding:0 2px 12px;line-height:1.5;">
-            Outboard: ${s.boatClass==='sweep'?'2.6m (sweep)':'2.0m (scull)'}. Used in oar angle calculation.
-        </div>
         ${row('PACE UNIT', 'paceUnit', [['pace500','/500m'],['pace1000','/1km'],['kph','km/h'],['pacemile','/mile'],['mph','mph']])}
         <div style="height:10px;"></div>
         ${row('DISTANCE UNIT', 'distUnit', [['km','km'],['mi','miles']])}
