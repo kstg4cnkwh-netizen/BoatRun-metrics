@@ -20,6 +20,7 @@ A real-time rowing performance tracking system using device motion + GPS fusion 
 - Stroke character (drive timing distribution)
 - Stroke ratio (recovery vs drive time)
 - Oar angle (effective arc via GPS + geometry)
+- Check delta (stroke speed range via IMU integration)
 - Run loss (% speed decay per stroke cycle)
 - Drive impulse estimation
 
@@ -202,6 +203,35 @@ Practical use:
 - Low and variable oar angle together is a red flag: the rower is not committing to the full stroke
 - Use during technique drills to confirm the rower is getting the full arc — a drill that produces shorter arc than normal paddling is losing the finish
 - Oar angle is boat-mass and condition independent, so it can be compared across sessions and conditions
+
+-----
+
+### 🔵 Check Delta
+
+```
+checkDelta = max(ΔV(t)) − min(ΔV(t))   over one catch-to-catch cycle
+
+Where:
+* ΔV(t) = cumulative integral of IMU acceleration from catch
+* vCatch (absolute boat speed) cancels in the max − min, so GPS is not required
+* Units: m/s
+```
+
+What it measures: the peak-to-trough variation in boat speed within a single stroke cycle, derived entirely from the IMU.
+
+In plain terms:
+
+- A high value means the boat is surging strongly during the drive and decelerating significantly during recovery — large speed fluctuations per stroke
+- A low value means the boat speed is more even — typical of efficient, well-timed rowing with good run
+- At 27 spm, typical values are 0.8–1.5 m/s; values above 2.0 m/s suggest heavy checking or a very aggressive drive pattern
+- The metric reflects both the drive impulse (how hard the boat is accelerated) and the recovery check (how much it decelerates before the next catch)
+
+Practical use:
+
+- Reducing check delta is a proxy for improving boat run: less surge during the drive and less deceleration during recovery both reduce the number
+- Compare across rates: check delta normally rises with stroke rate — if it rises sharply while pace holds steady, the rower is working harder without proportional gain
+- A sudden spike in check delta mid-session signals a check at the catch, a lurched recovery, or a broken rhythm — useful for identifying rough patches in long rows
+- Unlike run loss (GPS-derived), check delta requires no GPS lock and is available from the first stroke
 
 -----
 
