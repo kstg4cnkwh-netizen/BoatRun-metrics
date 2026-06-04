@@ -783,7 +783,11 @@ function formatSessionFilename(sessionId, session) {
     const d = new Date(parseInt(sessionId));
     const base = `RowSess_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}_${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
     if (session && session.distance != null && session.duration != null) {
-        return `${base}_${Math.round(session.distance)}m_${Math.round(session.duration)}s.json`;
+        const dur = Math.round(session.duration);
+        const hh = String(Math.floor(dur / 3600)).padStart(2, '0');
+        const mm = String(Math.floor((dur % 3600) / 60)).padStart(2, '0');
+        const ss = String(dur % 60).padStart(2, '0');
+        return `${base}_${Math.round(session.distance)}m_${hh}h${mm}m${ss}s.json`;
     }
     return `${base}.json`;
 }
