@@ -498,6 +498,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <button class="htab" data-ht="layouts">LAYOUTS</button>
 <button class="htab" data-ht="workouts">WORKOUTS</button>
 <button class="htab" data-ht="hr">HR ZONES</button>
+<button class="htab" data-ht="settings">SETTINGS</button>
 </div>
 <div class="home-body">
 <!-- LOG panel (P3 — session list now lives here) -->
@@ -544,6 +545,10 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <!-- HR ZONES panel -->
 <div id="ht-hr" class="home-panel">
 <div id="hr-editor-root"></div>
+</div>
+<!-- SETTINGS panel -->
+<div id="ht-settings" class="home-panel">
+<div id="settings-root"></div>
 </div>
 </div>
 <!-- Home screen nav tabs -->
@@ -699,6 +704,75 @@ function toast(m) {
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 2200);
 }
+
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
+// APP SETTINGS — boat class, units
+// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
+const SETTINGS_KEY = 'scull_settings_v1';
+const _defaultSettings = { boatClass: 'scull', paceUnit: 'pace500', distUnit: 'km', dpsUnit: 'm' };
+let appSettings = (() => {
+    try {
+        const v = JSON.parse(_LS.getItem(SETTINGS_KEY));
+        if (v && typeof v === 'object') return { ..._defaultSettings, ...v };
+    } catch {}
+    return { ..._defaultSettings };
+})();
+function saveSettings() { try { _LS.setItem(SETTINGS_KEY, JSON.stringify(appSettings)); } catch {} }
+function setSetting(key, value) {
+    appSettings[key] = value;
+    saveSettings();
+    if (typeof renderSettingsPanel === 'function') renderSettingsPanel();
+    updateUI();
+}
+
+// ── Unit format helpers ──────────────────────────────────────────────────────
+function outboardLength() { return appSettings.boatClass === 'sweep' ? 2.6 : 2.0; }
+
+function fmtPace(paceS500) {
+    if (!paceS500 || paceS500 <= 0) {
+        return (appSettings.paceUnit === 'kph' || appSettings.paceUnit === 'mph') ? '--' : '--:--';
+    }
+    switch (appSettings.paceUnit) {
+        case 'pace500':  return fmt(paceS500);
+        case 'pace1000': return fmt(paceS500 * 2);
+        case 'pacemile': return fmt(paceS500 * 3.21868);
+        case 'kph':      return (1800 / paceS500).toFixed(1);
+        case 'mph':      return (1118.47 / paceS500).toFixed(1);
+        default:         return fmt(paceS500);
+    }
+}
+function paceNoVal() {
+    return (appSettings.paceUnit === 'kph' || appSettings.paceUnit === 'mph') ? '--' : '--:--';
+}
+function paceLabelFull() {
+    switch (appSettings.paceUnit) {
+        case 'pace500':  return 'Pace / 500m';
+        case 'pace1000': return 'Pace / 1km';
+        case 'pacemile': return 'Pace / mile';
+        case 'kph':      return 'Speed (km/h)';
+        case 'mph':      return 'Speed (mph)';
+        default:         return 'Pace';
+    }
+}
+function fmtDPS(m) {
+    switch (appSettings.dpsUnit) {
+        case 'in': return (m * 39.3701).toFixed(0);
+        case 'ft': return (m * 3.28084).toFixed(1);
+        default:   return m.toFixed(1);
+    }
+}
+function dpsUnitLabel() {
+    switch (appSettings.dpsUnit) {
+        case 'in': return 'in';
+        case 'ft': return 'ft';
+        default:   return 'm';
+    }
+}
+function fmtDistDisplay(m) {
+    if (appSettings.distUnit === 'mi') return (m / 1609.34).toFixed(2);
+    return (m / 1000).toFixed(2);
+}
+function distUnitLabel() { return appSettings.distUnit === 'mi' ? 'mi' : 'km'; }
 
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // SESSION PERSISTENCE — localStorage CRUD for session records
@@ -1446,7 +1520,7 @@ function computeDriveImpulse(samples) {
 //
 // Drive distance = ∫ v dt over drive portion only → angle = dist / outboard
 function computeOarAngleFullStroke(samples, driveCount, gpsStrokeDist) {
-    const OUTBOARD      = 2.0;
+    const OUTBOARD      = outboardLength();
     const R2D           = 180 / Math.PI;
     const SLIP_FRACTION = 0.10;
     const n             = samples.length;
@@ -2010,7 +2084,9 @@ function renderMetricSlot(i, key) {
         case 'pace': {
             const ok   = on && pace > 0 && gpsAccuracyM != null && gpsAccuracyM <= CONFIG.gps.maxAccuracyM;
             const poor = gpsAccuracyM != null && gpsAccuracyM > CONFIG.gps.maxAccuracyM;
-            setVal(i, ok ? fmt(pace) : '--:--', '', !ok, ok ? 'GPS' : poor ? 'POOR' : 'WAIT', ok ? 'g' : poor ? 'b' : '');
+            setVal(i, ok ? fmtPace(pace) : paceNoVal(), '', !ok, ok ? 'GPS' : poor ? 'POOR' : 'WAIT', ok ? 'g' : poor ? 'b' : '');
+            const lbl = document.querySelector(`#slot-${i} .tile-metric-name`);
+            if (lbl) lbl.textContent = paceLabelFull();
             break;
         }
         case 'rate': {
@@ -2037,9 +2113,11 @@ function renderMetricSlot(i, key) {
         }
         case 'dps': {
             const ok = on && distPerStroke > 0;
-            setVal(i, ok ? distPerStroke.toFixed(1) : '--', '', !ok,
+            setVal(i, ok ? fmtDPS(distPerStroke) : '--', '', !ok,
                 ok ? (dpsValsArr.length >= 3 ? 'MEDIAN' : 'LOW') : 'WAIT',
                 ok ? (dpsValsArr.length >= 3 ? 'g' : 'w') : '');
+            const dlbl = document.querySelector(`#slot-${i} .tile-metric-name`);
+            if (dlbl) dlbl.textContent = 'DPS (' + dpsUnitLabel() + ')';
             break;
         }
         case 'char': {
@@ -2100,7 +2178,8 @@ function renderMetricSlot(i, key) {
         }
         case 'oarangle': {
             const ok = oarAngle != null && on;
-            setVal(i, ok ? oarAngle + '°' : '--', '', !ok,
+            const boatSub = appSettings.boatClass === 'sweep' ? 'sweep' : 'scull';
+            setVal(i, ok ? oarAngle + '°' : '--', boatSub, !ok,
                 ok ? (oarAngleRawArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
                 ok ? (oarAngleRawArr.length >= 3 ? 'g' : 'w') : '');
             break;
@@ -2120,12 +2199,18 @@ function renderMetricSlot(i, key) {
             break;
         case 'totaldist': {
             const ok = running || elapsed > 0;
-            setVal(i, ok ? Math.round(distance) : '0', '', !ok, ok ? (on ? 'LIVE' : 'DONE') : 'OFF', ok ? (on ? 'g' : 'w') : '');
+            const dv = ok ? (appSettings.distUnit === 'km' ? (distance/1000).toFixed(2) : (distance/1609.34).toFixed(2)) : '0';
+            setVal(i, dv, '', !ok, ok ? (on ? 'LIVE' : 'DONE') : 'OFF', ok ? (on ? 'g' : 'w') : '');
+            const dlbl2 = document.querySelector(`#slot-${i} .tile-metric-name`);
+            if (dlbl2) dlbl2.textContent = 'Total Dist (' + distUnitLabel() + ')';
             break;
         }
         case 'lapdist': {
-            const ld2 = Math.round(distance - lapStartDist);
-            setVal(i, on && ld2 > 0 ? ld2 : '--', '', !on, on ? 'LIVE' : 'WAIT', on ? 'g' : '');
+            const ldm = distance - lapStartDist;
+            const ldv = on && ldm > 0 ? (appSettings.distUnit === 'km' ? (ldm/1000).toFixed(2) : (ldm/1609.34).toFixed(2)) : '--';
+            setVal(i, ldv, '', !on, on ? 'LIVE' : 'WAIT', on ? 'g' : '');
+            const llbl = document.querySelector(`#slot-${i} .tile-metric-name`);
+            if (llbl) llbl.textContent = 'Lap Dist (' + distUnitLabel() + ')';
             break;
         }
         case 'lastlaptime': {
@@ -2141,7 +2226,7 @@ function renderMetricSlot(i, key) {
         case 'lastlappace': {
             const ll = laps[laps.length - 1];
             const ok = ll && ll.pace > 0;
-            setVal(i, ok ? fmt(ll.pace) : '--:--', '', !ok, ok ? 'LAST' : 'WAIT', ok ? 'w' : '');
+            setVal(i, ok ? fmtPace(ll.pace) : paceNoVal(), '', !ok, ok ? 'LAST' : 'WAIT', ok ? 'w' : '');
             break;
         }
         case 'selectable': {
@@ -2156,10 +2241,10 @@ function renderMetricSlot(i, key) {
                 case 'tod': { const d=new Date(); setVal(i,`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`,'',false,'LIVE','g'); break; }
                 case 'totaltime': { const ok=on||elapsed>0; setVal(i,fmtH(elapsed),'',!on,ok?(on?'LIVE':'DONE'):'OFF',ok?(on?'g':'w'):''); break; }
                 case 'laptime': setVal(i,fmt(elapsed-lapStartTime),'',!on,on?'LIVE':'WAIT',on?'g':''); break;
-                case 'totaldist': { const ok2=running||elapsed>0; setVal(i,ok2?Math.round(distance):'0','',!ok2,ok2?(on?'LIVE':'DONE'):'OFF',ok2?(on?'g':'w'):''); break; }
-                case 'lapdist': { const ld2=Math.round(distance-lapStartDist); setVal(i,on&&ld2>0?ld2:'--','',!on,on?'LIVE':'WAIT',on?'g':''); break; }
-                case 'avgpace': { const avgP=distance>5&&elapsed>0?(elapsed/distance)*500:0; const okA=avgP>50&&avgP<500; setVal(i,okA?fmt(avgP):'--:--','',!okA,okA?'LIVE':'WAIT',okA?'g':''); break; }
-                case 'lappace': { const ld3=distance-lapStartDist,lt3=elapsed-lapStartTime; const lp=ld3>5&&lt3>0?(lt3/ld3)*500:0; const okL=on&&lp>50&&lp<500; setVal(i,okL?fmt(lp):'--:--','',!okL,okL?'LIVE':'WAIT',okL?'g':''); break; }
+                case 'totaldist': { const ok2=running||elapsed>0; const dv2=ok2?(appSettings.distUnit==='km'?(distance/1000).toFixed(2):(distance/1609.34).toFixed(2)):'0'; setVal(i,dv2,'',!ok2,ok2?(on?'LIVE':'DONE'):'OFF',ok2?(on?'g':'w'):''); break; }
+                case 'lapdist': { const ldm2=distance-lapStartDist; const ldv2=on&&ldm2>0?(appSettings.distUnit==='km'?(ldm2/1000).toFixed(2):(ldm2/1609.34).toFixed(2)):'--'; setVal(i,ldv2,'',!on,on?'LIVE':'WAIT',on?'g':''); break; }
+                case 'avgpace': { const avgP=distance>5&&elapsed>0?(elapsed/distance)*500:0; const okA=avgP>50&&avgP<500; setVal(i,okA?fmtPace(avgP):paceNoVal(),'',!okA,okA?'LIVE':'WAIT',okA?'g':''); break; }
+                case 'lappace': { const ld3=distance-lapStartDist,lt3=elapsed-lapStartTime; const lp=ld3>5&&lt3>0?(lt3/ld3)*500:0; const okL=on&&lp>50&&lp<500; setVal(i,okL?fmtPace(lp):paceNoVal(),'',!okL,okL?'LIVE':'WAIT',okL?'g':''); break; }
             }
             // Update tile label to show current sub-metric
             const lblTxt = document.querySelector(`#slot-${i} .tile-metric-name`);
@@ -2270,7 +2355,7 @@ function curveTileValue(key) {
         }
         case 'dps': {
             const ok = on && distPerStroke > 0;
-            return { val: ok ? distPerStroke.toFixed(1) : '--', dim: !ok, sub: '',
+            return { val: ok ? fmtDPS(distPerStroke) : '--', dim: !ok, sub: ok ? dpsUnitLabel() : '',
                 qlabel: ok ? (dpsValsArr.length >= 3 ? 'MEDIAN' : 'LOW') : 'WAIT',
                 qcls: ok ? (dpsValsArr.length >= 3 ? 'g' : 'w') : '' };
         }
@@ -2294,7 +2379,7 @@ function curveTileValue(key) {
         }
         case 'pace': {
             const ok = on && pace > 0;
-            return { val: ok ? fmt(pace) : '--:--', dim: !ok, sub: '',
+            return { val: ok ? fmtPace(pace) : paceNoVal(), dim: !ok, sub: '',
                 qlabel: ok ? 'GPS' : 'WAIT', qcls: ok ? 'g' : '' };
         }
         case 'stroke-ratio': {
@@ -2306,7 +2391,8 @@ function curveTileValue(key) {
         }
         case 'oar-angle': {
             const ok = oarAngle != null && on;
-            return { val: ok ? oarAngle + '°' : '--', dim: !ok, sub: '',
+            const boatSub2 = appSettings.boatClass === 'sweep' ? 'sweep' : 'scull';
+            return { val: ok ? oarAngle + '°' : '--', dim: !ok, sub: boatSub2,
                 qlabel: ok ? (oarAngleRawArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
                 qcls: ok ? (oarAngleRawArr.length >= 3 ? 'g' : 'w') : '' };
         }
@@ -2844,6 +2930,7 @@ function stopSess() {
                 workoutName:    wkt.def?.name || null,
                 calNoiseFloor:  cal.noiseFloor, calThresh: cal.jerkThresh, detectedAxis: selAxis,
                 config: { rl: CONFIG.runLoss, gps: { alpha: CONFIG.gps.speedEmaAlpha, medN: CONFIG.gps.speedMedianN, spike: CONFIG.gps.spikeMarginMps } },
+                settings: { ...appSettings },
             };
             const ok = addSess(sessObj);
             if (ok) {
@@ -3098,6 +3185,34 @@ function enterLive(){
 
 /* 
 ¨T¨T
+SETTINGS PANEL 
+¨T¨T
+*/
+function renderSettingsPanel() {
+    const el = document.getElementById('settings-root');
+    if (!el) return;
+    const s = appSettings;
+    function row(label, key, options) {
+        const btns = options.map(([v, l]) =>
+            `<button class="layout-size-btn${s[key]===v?' sel':''}" onclick="setSetting('${key}','${v}')">${l}</button>`
+        ).join('');
+        return `<div class="setup-section">${label}</div><div class="layout-size-row">${btns}</div>`;
+    }
+    el.innerHTML = `<div style="padding:10px 12px 20px;">
+        ${row('BOAT TYPE', 'boatClass', [['scull','SCULL'],['sweep','SWEEP']])}
+        <div style="font-size:10px;color:#888;padding:0 2px 12px;line-height:1.5;">
+            Outboard: ${s.boatClass==='sweep'?'2.6m (sweep)':'2.0m (scull)'}. Used in oar angle calculation.
+        </div>
+        ${row('PACE UNIT', 'paceUnit', [['pace500','/500m'],['pace1000','/1km'],['pacemile','/mile'],['kph','km/h'],['mph','mph']])}
+        <div style="height:10px;"></div>
+        ${row('DISTANCE UNIT', 'distUnit', [['km','km'],['mi','miles']])}
+        <div style="height:10px;"></div>
+        ${row('DIST/STROKE UNIT', 'dpsUnit', [['m','m'],['ft','ft'],['in','inches']])}
+    </div>`;
+}
+
+/* 
+¨T¨T
 HOME SCREEN (P3 — was SETUP) 
 ¨T¨T
 */
@@ -3106,6 +3221,7 @@ function renderHomeScreen(){
   renderProfileList();
   renderWorkoutList();
   renderHRZones();
+  renderSettingsPanel();
   // Wire home tabs
   document.querySelectorAll('.htab').forEach(btn=>{
     btn.onclick=()=>{
