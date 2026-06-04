@@ -773,6 +773,21 @@ function fmtDistDisplay(m) {
     return (m / 1000).toFixed(2);
 }
 function distUnitLabel() { return appSettings.distUnit === 'mi' ? 'mi' : 'km'; }
+// Workout step distance helpers — all internal values stored in metres
+function fmtStepDist(m) {
+    return appSettings.distUnit === 'mi' ? (m / 1609.34).toFixed(1) + 'mi' : m + 'm';
+}
+function distStepIncrement() { return appSettings.distUnit === 'mi' ? 161 : 50; }
+function distStepMin()       { return appSettings.distUnit === 'mi' ? 161 : 50; }
+function distStepDefault(type) {
+    if (appSettings.distUnit === 'mi') return 805; // ~0.5 mi
+    return type === 'work' ? 1000 : 500;
+}
+// Run loss sub — formatted in sub units (same as DPS)
+function fmtRunLossSub(m) {
+    if (m == null || !isFinite(m)) return '';
+    return fmtDPS(m) + dpsUnitLabel();
+}
 
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // SESSION PERSISTENCE — localStorage CRUD for session records
@@ -2113,7 +2128,7 @@ function renderMetricSlot(i, key) {
         }
         case 'dps': {
             const ok = on && distPerStroke > 0;
-            setVal(i, ok ? fmtDPS(distPerStroke) : '--', '', !ok,
+            setVal(i, ok ? fmtDPS(distPerStroke) : '--', ok ? dpsUnitLabel() : '', !ok,
                 ok ? (dpsValsArr.length >= 3 ? 'MEDIAN' : 'LOW') : 'WAIT',
                 ok ? (dpsValsArr.length >= 3 ? 'g' : 'w') : '');
             const dlbl = document.querySelector(`#slot-${i} .tile-metric-name`);
@@ -2164,7 +2179,7 @@ function renderMetricSlot(i, key) {
         }
         case 'runloss': {
             const ok = runLossPct != null && on;
-            const sub = ok && runLossMps != null ? runLossMps.toFixed(2) + 'm/s' : '';
+            const sub = ok ? fmtRunLossSub(runLossM) : '';
             setVal(i, ok ? runLossPct.toFixed(1) + '%' : '--', sub, !ok,
                 ok ? (runLosses.length >= 4 ? 'TREND' : 'NOISY') : 'WAIT',
                 ok ? (runLosses.length >= 4 ? 'w' : 'b') : '');
@@ -2288,7 +2303,9 @@ function renderWorkoutTile(i) {
             // Race timer — counts up from 0 from the moment rowing started
             display = fmt(elapsed - wkt.startElapsed);
         } else if (s && s.mode === 'distance') {
-            display = Math.max(0, Math.round(rem)) + 'm';
+            display = appSettings.distUnit === 'mi'
+                ? Math.max(0, rem / 1609.34).toFixed(1) + 'mi'
+                : Math.max(0, Math.round(rem)) + 'm';
         } else if (isFinite(rem)) {
             display = fmt(Math.max(0, rem));
         } else {
@@ -2298,8 +2315,12 @@ function renderWorkoutTile(i) {
         sv.className = 'metric-val' + (type === 'done' ? ' dim' : '');
     }
     if (ss) {
-        if (isRacePiece) ss.textContent = Math.max(0, Math.round(rem)) + 'm to go · ' + prog;
-        else ss.textContent = prog;
+        if (isRacePiece) {
+            const remDisp = appSettings.distUnit === 'mi'
+                ? Math.max(0, rem / 1609.34).toFixed(1) + 'mi'
+                : Math.max(0, Math.round(rem)) + 'm';
+            ss.textContent = remDisp + ' to go · ' + prog;
+        } else ss.textContent = prog;
     }
     if (sq) setQEl(sq,
         isRacePiece        ? 'RACE'  :
@@ -2367,7 +2388,7 @@ function curveTileValue(key) {
         }
         case 'run-loss': {
             const ok = runLossPct != null && on;
-            const sub = ok && runLossMps != null ? runLossMps.toFixed(2) + 'm/s' : '';
+            const sub = ok ? fmtRunLossSub(runLossM) : '';
             return { val: ok ? runLossPct.toFixed(1) + '%' : '--', dim: !ok, sub,
                 qlabel: ok ? (runLosses.length >= 4 ? 'TREND' : 'NOISY') : 'WAIT',
                 qcls: ok ? (runLosses.length >= 4 ? 'w' : 'b') : '' };
@@ -2702,7 +2723,7 @@ function showRestEndCountdown(n,nextStep){
   numEl.textContent=n;numEl.className='cdown-num';
   const hasGate=nextStep?.startWhenRowing;
   if(hasGate){subEl.textContent='Get ready to row';}
-  else if(nextStep?.mode==='distance'){subEl.textContent=nextStep.value+'m';}
+  else if(nextStep?.mode==='distance'){subEl.textContent=fmtStepDist(nextStep.value);}
   else if(nextStep?.mode==='time'){subEl.textContent=fmt(nextStep.value);}
   else{subEl.textContent='';}
 }
@@ -2723,7 +2744,10 @@ function updateWorkoutBar(){
   if(phEl&&s){phEl.textContent=s.type.toUpperCase();phEl.className='wkt-phase '+(s.type||'done');}
   if(cdEl&&s){
     if(s.mode==='open')cdEl.textContent='LAP';
-    else if(s.mode==='distance')cdEl.textContent=Math.max(0,Math.round(rem))+'m';
+    else if(s.mode==='distance'){
+      const remDisp=appSettings.distUnit==='mi'?Math.max(0,rem/1609.34).toFixed(1)+'mi':Math.max(0,Math.round(rem))+'m';
+      cdEl.textContent=remDisp;
+    }
     else cdEl.textContent=fmt(Math.max(0,rem));
   }
   if(infoEl&&s){
@@ -2761,7 +2785,7 @@ function updateIntervalsPanel(){
     return '<tr class="'+(active?'int-active':done?'int-done':'')+'">'+
       '<td><span class="int-badge-sm '+s.type+'">'+s.type.toUpperCase().slice(0,4)+'</span></td>'+
       '<td>'+(i+1)+'</td>'+
-      '<td>'+(m?fmt(m.time):(s.mode==='time'?fmt(s.value):s.mode==='open'?'LAP':s.value+'m'))+'</td>'+
+      '<td>'+(m?fmt(m.time):(s.mode==='time'?fmt(s.value):s.mode==='open'?'LAP':fmtStepDist(s.value)))+'</td>'+
       '<td>'+(m?m.dist+'m':'--')+'</td>'+
       '<td>'+(m&&m.lapPace>0?fmt(m.lapPace):'--')+'</td>'+
       '<td>'+(m&&m.rate?m.rate:'--')+'</td>'+
@@ -2795,7 +2819,7 @@ function showCountdownOverlay(mode,seconds,step,restSecs,autoResume){
       else{
         clearInterval(_cdownTimer);
         numEl.textContent='GO!';numEl.className='cdown-num go';
-        subEl.textContent=step?.mode==='distance'?step.value+'m':step?.mode==='time'?fmt(step.value):'ROW!';
+        subEl.textContent=step?.mode==='distance'?fmtStepDist(step.value):step?.mode==='time'?fmt(step.value):'ROW!';
         setTimeout(()=>{hideCountdownOverlay();if(autoResume)resumeSess();},800);
       }
     },1000);
@@ -2817,7 +2841,7 @@ function showCountdownOverlay(mode,seconds,step,restSecs,autoResume){
     _cdownTimer=setTimeout(()=>hideCountdownOverlay(),5000);
   }else if(mode==='go-brief'){
     numEl.textContent='GO!';numEl.className='cdown-num go';
-    const details=step?.mode==='distance'?step.value+'m':step?.mode==='time'?fmt(step.value):'';
+    const details=step?.mode==='distance'?fmtStepDist(step.value):step?.mode==='time'?fmt(step.value):'';
     subEl.textContent=details;
     _cdownTimer=setTimeout(()=>hideCountdownOverlay(),2000);
   }
@@ -3203,11 +3227,11 @@ function renderSettingsPanel() {
         <div style="font-size:10px;color:#888;padding:0 2px 12px;line-height:1.5;">
             Outboard: ${s.boatClass==='sweep'?'2.6m (sweep)':'2.0m (scull)'}. Used in oar angle calculation.
         </div>
-        ${row('PACE UNIT', 'paceUnit', [['pace500','/500m'],['pace1000','/1km'],['pacemile','/mile'],['kph','km/h'],['mph','mph']])}
+        ${row('PACE UNIT', 'paceUnit', [['pace500','/500m'],['pace1000','/1km'],['kph','km/h'],['pacemile','/mile'],['mph','mph']])}
         <div style="height:10px;"></div>
         ${row('DISTANCE UNIT', 'distUnit', [['km','km'],['mi','miles']])}
         <div style="height:10px;"></div>
-        ${row('DIST/STROKE UNIT', 'dpsUnit', [['m','m'],['ft','ft'],['in','inches']])}
+        ${row('SUB UNITS (DPS / RUN LOSS)', 'dpsUnit', [['m','m'],['ft','ft'],['in','in']])}
     </div>`;
 }
 
@@ -3631,7 +3655,7 @@ function renderInnerStep(s,gi,si){
 /* Shared row renderer for top-level and inner steps */
 function stepRowHTML(s,i,arr,sel,isFirst,isLast,gi,si){
   const isOpen=s.mode==='open';
-  const displayVal=s.mode==='time'?(()=>{const m=Math.floor(s.value/60),sc=s.value%60;return m>0?(m+':'+(sc<10?'0':'')+sc):s.value+'s';})():s.mode==='distance'?s.value:0;
+  const displayVal=s.mode==='time'?(()=>{const m=Math.floor(s.value/60),sc=s.value%60;return m>0?(m+':'+(sc<10?'0':'')+sc):s.value+'s';})():s.mode==='distance'?fmtStepDist(s.value):0;
   const adjustFn=gi!=null
     ?'adjustInnerStep('+gi+','+si+',$DIR)'
     :'adjustStep('+i+',$DIR)';
@@ -3667,7 +3691,7 @@ function stepRowHTML(s,i,arr,sel,isFirst,isLast,gi,si){
         '<button class="mode-toggle-btn'+(s.mode==='time'?' sel':'')+'"'+
           ' onclick="'+modeFn.replace('$MODE',"'time'")+'" style="padding:4px 6px;">TIME</button>'+
         '<button class="mode-toggle-btn'+(s.mode==='distance'?' sel':'')+'"'+
-          ' onclick="'+modeFn.replace('$MODE',"'distance'")+'" style="padding:4px 6px;">m</button>'+
+          ' onclick="'+modeFn.replace('$MODE',"'distance'")+'" style="padding:4px 6px;">DIST</button>'+
         '</div>'
     )+
     // Start-when-rowing toggle (work and rest only)
@@ -3705,13 +3729,13 @@ function nextTime(val){
 function adjustStep(i,dir){
   const s=_wktSteps[i];if(!s)return;
   if(s.mode==='time')s.value=dir>0?nextTime(s.value||10):prevTime(s.value||10);
-  else if(s.mode==='distance')s.value=Math.max(50,(s.value||500)+dir*50);
+  else if(s.mode==='distance')s.value=Math.max(distStepMin(),(s.value||distStepDefault(s.type))+dir*distStepIncrement());
   renderBuilderSteps();
 }
 function adjustInnerStep(gi,si,dir){
   const s=_wktSteps[gi]&&_wktSteps[gi].steps&&_wktSteps[gi].steps[si];if(!s)return;
   if(s.mode==='time')s.value=dir>0?nextTime(s.value||10):prevTime(s.value||10);
-  else if(s.mode==='distance')s.value=Math.max(50,(s.value||500)+dir*50);
+  else if(s.mode==='distance')s.value=Math.max(distStepMin(),(s.value||distStepDefault(s.type))+dir*distStepIncrement());
   renderBuilderSteps();
 }
 function setStepMode(i,mode){
@@ -3720,7 +3744,7 @@ function setStepMode(i,mode){
   else if(s.mode==='distance')s.distValue=s.value;
   s.mode=mode;
   if(mode==='time')s.value=s.timeValue||(s.type==='work'?240:240);
-  if(mode==='distance')s.value=s.distValue||(s.type==='work'?1000:500);
+  if(mode==='distance')s.value=s.distValue||distStepDefault(s.type);
   renderBuilderSteps();
 }
 function setInnerStepMode(gi,si,mode){
@@ -3729,7 +3753,7 @@ function setInnerStepMode(gi,si,mode){
   else if(s.mode==='distance')s.distValue=s.value;
   s.mode=mode;
   if(mode==='time')s.value=s.timeValue||(s.type==='work'?240:240);
-  if(mode==='distance')s.value=s.distValue||(s.type==='work'?1000:500);
+  if(mode==='distance')s.value=s.distValue||distStepDefault(s.type);
   renderBuilderSteps();
 }
 function moveStep(i,dir){
@@ -3753,7 +3777,12 @@ function editInnerStep(gi,si){
   editBuilderStep(-1); // won't do anything, need direct edit
   // Simple prompt for now
   if(s.mode==='time'){const v=prompt('Duration (seconds):',s.value);if(v&&!isNaN(+v))s.value=+v;}
-  else if(s.mode==='distance'){const v=prompt('Distance (metres):',s.value);if(v&&!isNaN(+v))s.value=+v;}
+  else if(s.mode==='distance'){
+    const isMi=appSettings.distUnit==='mi';
+    const cur=isMi?(s.value/1609.34).toFixed(1):s.value;
+    const v=prompt('Distance ('+(isMi?'miles':'metres')+'):',cur);
+    if(v&&!isNaN(+v))s.value=isMi?Math.round(+v*1609.34):+v;
+  }
   renderBuilderSteps();
 }
 function groupSelectedAsRepeats(){
