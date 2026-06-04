@@ -1,4 +1,4 @@
-const C = 'scull-v1.37';
+const C = 'scull-v1.38';
 self.addEventListener('install', e => {
   self.skipWaiting();
 });
