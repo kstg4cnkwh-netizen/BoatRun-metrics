@@ -2251,10 +2251,11 @@ function renderMetricSlot(i, key) {
         }
         case 'oarangle': {
             const ok = oarAngle != null && on;
-            const boatSub = appSettings.boatClass === 'sweep' ? 'sweep' : 'scull';
-            setVal(i, ok ? oarAngle + '°' : '--', boatSub, !ok,
+            setVal(i, ok ? oarAngle + '°' : '--', '', !ok,
                 ok ? (oarAngleRawArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
                 ok ? (oarAngleRawArr.length >= 3 ? 'g' : 'w') : '');
+            const oaLbl = document.querySelector(`#slot-${i} .tile-metric-name`);
+            if (oaLbl) oaLbl.textContent = `ARC (${appSettings.boatClass === 'sweep' ? 'SWEEP' : 'SCULL'}) ⇄`;
             break;
         }
         case 'checkdelta': {
@@ -2328,7 +2329,7 @@ function renderMetricSlot(i, key) {
             }
             // Update tile label to show current sub-metric
             const lblTxt = document.querySelector(`#slot-${i} .tile-metric-name`);
-            if (lblTxt) lblTxt.textContent = SEL_LABELS[sub] || 'Selectable';
+            if (lblTxt) lblTxt.textContent = (SEL_LABELS[sub] || 'Selectable') + ' ↺';
             break;
         }
         case 'workout': renderWorkoutTile(i); break;
@@ -2477,8 +2478,7 @@ function curveTileValue(key) {
         }
         case 'oar-angle': {
             const ok = oarAngle != null && on;
-            const boatSub2 = appSettings.boatClass === 'sweep' ? 'sweep' : 'scull';
-            return { val: ok ? oarAngle + '°' : '--', dim: !ok, sub: boatSub2,
+            return { val: ok ? oarAngle + '°' : '--', dim: !ok, sub: '',
                 qlabel: ok ? (oarAngleRawArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
                 qcls: ok ? (oarAngleRawArr.length >= 3 ? 'g' : 'w') : '' };
         }
