@@ -2637,9 +2637,38 @@ const DEFAULT_WORKOUTS=[
     {type:'warmup',mode:'open'},
     {type:'work',mode:'distance',value:2000,startWhenRowing:true},
     {type:'cooldown',mode:'open'}
+  ]},
+  {id:'default_baseline_ladder',name:'Baseline: Rate Ladder',steps:[
+    {type:'warmup',mode:'open'},
+    {type:'repeat',count:4,skipLastRest:true,steps:[
+      {type:'work',mode:'time',value:120,timeValue:120,distValue:500},
+      {type:'rest',mode:'time',value:90,timeValue:90,distValue:250}
+    ]},
+    {type:'cooldown',mode:'open'}
   ]}
 ];
-function loadWorkouts(){try{const w=JSON.parse(_LS.getItem(WORKOUT_KEY));if(w&&w.length)return w;}catch{}return JSON.parse(JSON.stringify(DEFAULT_WORKOUTS));}
+function loadWorkouts(){
+  let saved;
+  try{saved=JSON.parse(_LS.getItem(WORKOUT_KEY));}catch{}
+  if(!saved||!saved.length)return JSON.parse(JSON.stringify(DEFAULT_WORKOUTS));
+  // One-time merge: add new default workouts not previously applied
+  let applied;
+  try{applied=JSON.parse(_LS.getItem('scull_defaults_v1'))||[];}catch{applied=[];}
+  const ids=new Set(saved.map(w=>w.id));
+  let changed=false;
+  for(const d of DEFAULT_WORKOUTS){
+    if(!ids.has(d.id)&&!applied.includes(d.id)){
+      saved.push(JSON.parse(JSON.stringify(d)));
+      applied.push(d.id);
+      changed=true;
+    }
+  }
+  if(changed){
+    try{_LS.setItem(WORKOUT_KEY,JSON.stringify(saved));}catch{}
+    try{_LS.setItem('scull_defaults_v1',JSON.stringify(applied));}catch{}
+  }
+  return saved;
+}
 function saveWorkouts(ws){try{_LS.setItem(WORKOUT_KEY,JSON.stringify(ws));}catch{}}
 
 /* Flatten a workout definition into a runtime sequence */
@@ -2677,7 +2706,7 @@ let wkt={
   active:false,def:null,
   sequence:[],       // flattened steps
   seqIdx:0,          // current step index
-  startDist:0,startElapsed:0,
+  startDist:0,startElapsed:0,startStrokeIdx:0,
   lapMetrics:[],     // collected per-step
   countdownActive:false,
   waitingForRow:false,  // startWhenRowing gate active
@@ -2700,6 +2729,7 @@ function wktGetRemaining(){
 function wktStart(def){
   const seq=flattenWorkout(def);
   wkt={active:true,def,sequence:seq,seqIdx:0,startDist:distance,startElapsed:elapsed,
+       startStrokeIdx:sessStrokes.length,
        lapMetrics:[],countdownActive:false,waitingForRow:false,waitStrokeCount:0,waitingForRowAt:0,fromRestCountdown:false};
   // Sync lap markers to the workout start so interval laps measure from this point
   lapStartDist=distance;lapStartTime=elapsed;
@@ -2734,19 +2764,43 @@ function wktMaybeShowCountdown(){
 }
 
 /* Called by lap button AND auto when timer expires */
+function wktIntervalStats(startIdx){
+  const stks=sessStrokes.slice(startIdx);
+  if(!stks.length)return{};
+  const avg=k=>{const v=stks.map(x=>x[k]).filter(v=>v!=null&&!isNaN(v)&&v!==0);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;};
+  const vc=stks.filter(s=>Array.isArray(s.curve)&&s.curve.length===CURVE_POINTS&&s.curveDriveFrac!=null);
+  let curve=null,curveDriveFrac=null;
+  if(vc.length>=3){
+    const out=new Array(CURVE_POINTS).fill(0);let df=0;
+    for(const s of vc){for(let i=0;i<CURVE_POINTS;i++)out[i]+=s.curve[i];df+=s.curveDriveFrac;}
+    for(let i=0;i<CURVE_POINTS;i++)out[i]=+(out[i]/vc.length).toFixed(2);
+    curve=out;curveDriveFrac=+(df/vc.length).toFixed(3);
+  }
+  return{
+    avgImpulse:avg('driveImpulse'),avgDPS:avg('dps'),avgRunLoss:avg('runLossM'),
+    avgCatch:avg('catchPeak'),avgOarAngle:avg('oarAngle'),avgCheckDelta:avg('checkDelta'),
+    avgChar:avg('char'),avgRatio:avg('strokeRatio'),avgConsistency:avg('catchConsistency'),
+    curve,curveDriveFrac
+  };
+}
 function wktAdvance(){
   if(!wkt.active)return;
-  if(wkt.waitingForRow)return; // don't allow manual lap past a gate
+  if(wkt.waitingForRow)return;
   const cur=wktCurrentStep();if(!cur)return;
-  // Snapshot metrics for completed step
+  const ist=wktIntervalStats(wkt.startStrokeIdx);
   const snap={n:wkt.lapMetrics.length+1,type:cur.type,
     dist:Math.round(distance-wkt.startDist),time:elapsed-wkt.startElapsed,
-    rate:strokeRate,catchAvg:catchAvg8,dps:distPerStroke||null,runLoss:runLossM,
-    impulse:sessStrokes.length>0?sessStrokes[sessStrokes.length-1].driveImpulse:null,
-    avgOarAngle:oarAngle||null, avgCheckDelta:checkDelta||null,
-    groupLabel:cur.groupLabel||null};
+    rate:strokeRate,catchAvg:ist.avgCatch??catchAvg8,groupLabel:cur.groupLabel||null,
+    dps:ist.avgDPS??distPerStroke??null,
+    runLoss:ist.avgRunLoss??runLossM,
+    impulse:ist.avgImpulse??(sessStrokes.length>0?sessStrokes[sessStrokes.length-1].driveImpulse:null),
+    avgOarAngle:ist.avgOarAngle??oarAngle??null,
+    avgCheckDelta:ist.avgCheckDelta??checkDelta??null,
+    avgChar:ist.avgChar??null,avgRatio:ist.avgRatio??null,avgConsistency:ist.avgConsistency??null,
+    curve:ist.curve??null,curveDriveFrac:ist.curveDriveFrac??null};
   snap.lapPace=snap.dist>5&&snap.time>0?(snap.time/snap.dist)*500:0;
   wkt.lapMetrics.push(snap);
+  wkt.startStrokeIdx=sessStrokes.length;
   recordLap();
   wkt.seqIdx++;
   wkt.startDist=distance;wkt.startElapsed=elapsed;
@@ -2771,6 +2825,7 @@ function wktEnd(){
 function wktBeginStep(){
   wkt.waitingForRow=false;wkt.waitStrokeCount=0;
   wkt.startDist=distance;wkt.startElapsed=elapsed;
+  wkt.startStrokeIdx=sessStrokes.length;
   hideCountdownOverlay();
   updateWorkoutBar();updateUI();
 }
@@ -2986,12 +3041,18 @@ function stopSess() {
     if (wkt.active) {
         const curStep = wktCurrentStep();
         if (curStep && (elapsed - wkt.startElapsed) > 0) {
+            const ist = wktIntervalStats(wkt.startStrokeIdx);
             const snap = { n: wkt.lapMetrics.length + 1, type: curStep.type,
                 dist: Math.round(distance - wkt.startDist), time: elapsed - wkt.startElapsed,
-                rate: strokeRate, catchAvg: catchAvg8, dps: distPerStroke || null, runLoss: runLossM,
-                impulse: sessStrokes.length > 0 ? sessStrokes[sessStrokes.length - 1].driveImpulse : null,
-                avgOarAngle: oarAngle || null, avgCheckDelta: checkDelta || null,
-                groupLabel: curStep.groupLabel || null };
+                rate: strokeRate, catchAvg: ist.avgCatch ?? catchAvg8, groupLabel: curStep.groupLabel || null,
+                dps: ist.avgDPS ?? distPerStroke ?? null,
+                runLoss: ist.avgRunLoss ?? runLossM,
+                impulse: ist.avgImpulse ?? (sessStrokes.length > 0 ? sessStrokes[sessStrokes.length - 1].driveImpulse : null),
+                avgOarAngle: ist.avgOarAngle ?? oarAngle ?? null,
+                avgCheckDelta: ist.avgCheckDelta ?? checkDelta ?? null,
+                avgChar: ist.avgChar ?? null, avgRatio: ist.avgRatio ?? null,
+                avgConsistency: ist.avgConsistency ?? null,
+                curve: ist.curve ?? null, curveDriveFrac: ist.curveDriveFrac ?? null };
             snap.lapPace = snap.dist > 5 && snap.time > 0 ? (snap.time / snap.dist) * 500 : 0;
             wkt.lapMetrics.push(snap);
         }
@@ -3023,6 +3084,7 @@ function stopSess() {
                 hrTrace: null,  laps: laps.slice(),
                 workoutLapMetrics: wkt.lapMetrics.length ? wkt.lapMetrics.slice() : null,
                 workoutName:    wkt.def?.name || null,
+                workoutId:      wkt.def?.id   || null,
                 calNoiseFloor:  cal.noiseFloor, calThresh: cal.jerkThresh, detectedAxis: selAxis,
                 config: { rl: CONFIG.runLoss, gps: { alpha: CONFIG.gps.speedEmaAlpha, medN: CONFIG.gps.speedMedianN, spike: CONFIG.gps.spikeMarginMps } },
                 settings: { ...appSettings },
