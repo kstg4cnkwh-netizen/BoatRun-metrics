@@ -2641,16 +2641,14 @@ const DEFAULT_WORKOUTS=[
     {type:'work',mode:'distance',value:1000,startWhenRowing:true},
     {type:'cooldown',mode:'open'}
   ]},
-  {id:'default_race2000',name:'Race 2000m',steps:[
-    {type:'warmup',mode:'open'},
-    {type:'work',mode:'distance',value:2000,startWhenRowing:true},
-    {type:'cooldown',mode:'open'}
-  ]},
-  {id:'default_baseline_ladder',name:'Baseline: Rate Ladder',steps:[
+  {id:'default_baseline_ladder_v2',name:'Baseline: Rate Ladder',steps:[
     {type:'warmup',mode:'open'},
     {type:'repeat',count:4,skipLastRest:true,steps:[
-      {type:'work',mode:'time',value:120,timeValue:120,distValue:500},
-      {type:'rest',mode:'time',value:90,timeValue:90,distValue:250}
+      {type:'work',mode:'time',value:60,timeValue:60,distValue:500,targetRate:24},
+      {type:'work',mode:'time',value:60,timeValue:60,distValue:500,targetRate:26},
+      {type:'work',mode:'time',value:60,timeValue:60,distValue:500,targetRate:28},
+      {type:'work',mode:'time',value:60,timeValue:60,distValue:500,targetRate:30},
+      {type:'rest',mode:'time',value:240,timeValue:240,distValue:250}
     ]},
     {type:'cooldown',mode:'open'}
   ]}
