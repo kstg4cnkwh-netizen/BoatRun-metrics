@@ -15,7 +15,7 @@ Two companion web apps that run as PWAs on an iOS device mounted in a scull. The
 1. [Analyser App](#7-analyser-app)
 1. [Workout Benchmark Comparison](#8-workout-benchmark-comparison)
 1. [Metrics Reference](#9-metrics-reference)
-1. [Oar Angle Setup](#10-oar-angle-setup)
+1. [Arc Setup (Scull / Sweep)](#10-arc-setup-scull--sweep)
 1. [HR Zones](#11-hr-zones)
 1. [Google Drive Sync](#12-google-drive-sync)
 
@@ -167,12 +167,18 @@ Tap any profile name to activate it immediately.
 
 ### Curve tab tiles
 
-The four tiles on the CURVE tab are independently configurable. Tap any curve tile to cycle through:
+The four tiles on the CURVE tab are independently configurable. Tap any tile to cycle through the 10 available options:
 
 - Stroke rate
 - Catch slope
-- Distance per stroke
-- Drive impulse
+- Dist/stroke
+- Impulse
+- Run loss
+- Char %
+- Pace
+- Stroke ratio
+- Check Δ
+- Arc (Scull) / Arc (Sweep) — label reads the current boat class from settings, read-only on curve tab
 
 -----
 
@@ -184,7 +190,7 @@ A workout is a structured sequence of steps — warmup, work intervals, rest per
 
 - The INTERVALS tab shows what’s coming and counts down each step
 - The **workout** tile (if assigned) shows the current step type and time remaining
-- At the end of each step, metrics are captured for that interval (pace, rate, catch, impulse, char, ratio, run loss, oar angle, consistency, and the averaged IMU curve)
+- At the end of each step, metrics are captured for that interval (pace, rate, catch, impulse, char, ratio, run loss, arc, consistency, and the averaged IMU curve)
 - All interval data is saved with the session and is available for benchmark comparison in the Analyser
 
 ### Loading a workout
@@ -223,7 +229,7 @@ This is the primary repeatable test for tracking fitness and technique over a tr
 
 Use the Workout Benchmark in the Analyser (see section 8):
 
-- 🟢 Rate, char, ratio, oar angle — compare these freely across any conditions
+- 🟢 Rate, char, ratio, arc — compare these freely across any conditions
 - 🔵 Catch slope, impulse, consistency — compare within same boat
 - 🔴 Pace, DPS, run loss — only meaningful if conditions and direction are matched
 
@@ -269,7 +275,7 @@ Tap the **Lap** button to record a lap split at any point. If a workout is loade
 Each lap records:
 
 - Distance and time for that lap
-- Average pace, rate, catch, DPS, impulse, run loss, oar angle, check delta
+- Average pace, rate, catch, DPS, impulse, run loss, arc, check delta
 
 ### Pausing
 
@@ -366,7 +372,7 @@ The benchmark shows a table for each work interval (Rep 1, Rep 2, etc.) with all
 |Char %  |🟢     |Lower = more front-loaded drive                |
 |Ratio   |🟢     |Higher = longer recovery, more glide time      |
 |Run loss|🔴     |Lower = boat is gliding better                 |
-|Oar °   |🟢     |Should be consistent rep to rep                |
+|Arc °   |🟢     |Should be consistent rep to rep                |
 |DPS     |🔴     |Higher = more distance per stroke              |
 |Consist.|🔵     |Lower = more repeatable catches                |
 
@@ -382,7 +388,7 @@ The current session is highlighted in green (●). Each session gets a colour st
 
 **Tips for valid comparisons**
 
-- Rate is the only reliable cross-session comparison metric in any conditions — if your rate was genuinely the same, technique metrics (catch, impulse, char, ratio, oar angle) are valid to compare
+- Rate is the only reliable cross-session comparison metric in any conditions — if your rate was genuinely the same, technique metrics (catch, impulse, char, ratio, arc) are valid to compare
 - Pace comparison is only meaningful if you rowed the same section of water in the same direction on both occasions — tide and current shift pace significantly
 - The curve shape is condition-independent: if your drive profile has changed, you will see it in the overlaid curves even if pace numbers are incomparable
 
@@ -456,11 +462,11 @@ Where in the drive phase the peak acceleration occurs. 0% = at catch entry, 100%
 
 -----
 
-### 🟢 Oar Angle (degrees)
+### 🟢 Arc — Scull / Sweep (degrees)
 
 The arc the oar sweeps through the water during the drive, in degrees. Derived from GPS distance during the drive phase and your configured oar geometry. A blade slip allowance (~10%) is applied. See section 10 for setup.
 
-**Use:** Consistent oar angle across strokes indicates consistent arc. A sudden drop mid-session signals a shortened or missed stroke. Low and variable oar angle together is a warning: the rower is not committing to the full drive length.
+**Use:** Consistent arc across strokes indicates full, repeatable drive length. A sudden drop mid-session signals a shortened or missed stroke. Low and variable arc together is a warning: the rower is not committing to the full drive.
 
 Typical values: 85–110° depending on rigging and boat class.
 
@@ -510,9 +516,9 @@ IMU-derived: the app integrates accelerometer data across a 2-second window afte
 
 -----
 
-## 10. Oar Angle Setup
+## 10. Arc Setup (Scull / Sweep)
 
-Oar angle is calculated from GPS drive distance and your oar geometry. Set the correct values in HOME → SETTINGS.
+Arc is calculated from GPS drive distance and your oar geometry. Set the correct values in HOME → SETTINGS.
 
 ### Outboard length
 
@@ -533,7 +539,7 @@ Measure your actual outboard for best accuracy. Stroke-to-stroke consistency mat
 Set boat class to **Scull** or **Sweep** in settings. This affects:
 
 - The default outboard length
-- The oar angle geometry (sculling uses two oars; the calculation uses the single-oar outboard in both cases, so only set the outboard for one side)
+- The arc geometry (sculling uses two oars; the calculation uses the single-oar outboard in both cases, so only set the outboard for one side)
 
 ### What the formula does
 
