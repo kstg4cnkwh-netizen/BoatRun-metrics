@@ -3818,12 +3818,21 @@ function renderInnerStep(s,gi,si){
 }
 
 /* Shared row renderer for top-level and inner steps */
-function fmtTargetPace(s){const m=Math.floor(s/60),sc=s%60;return m+':'+(sc<10?'0':'')+sc;}
+function paceUnitShort(){
+  switch(appSettings.paceUnit){
+    case 'pace500': return '/500';
+    case 'pace1000': return '/km';
+    case 'pacemile': return '/mi';
+    case 'kph': return 'kph';
+    case 'mph': return 'mph';
+    default: return '/500';
+  }
+}
 function stepTargetHint(step){
   if(!step)return'';
   const parts=[];
   if(step.targetRate!=null)parts.push(step.targetRate+' SPM');
-  if(step.targetPace!=null)parts.push(fmtTargetPace(step.targetPace)+'/500');
+  if(step.targetPace!=null)parts.push(fmtPace(step.targetPace)+paceUnitShort());
   return parts.join(' · ');
 }
 function stepRowHTML(s,i,arr,sel,isFirst,isLast,gi,si){
@@ -3851,7 +3860,7 @@ function stepRowHTML(s,i,arr,sel,isFirst,isLast,gi,si){
   const hasRate=s.targetRate!=null;
   const hasPace=s.targetPace!=null;
   const rateVal=s.targetRate!=null?s.targetRate:22;
-  const paceVal=s.targetPace!=null?fmtTargetPace(s.targetPace):'2:00';
+  const paceVal=s.targetPace!=null?fmtPace(s.targetPace)+paceUnitShort():fmtPace(120)+paceUnitShort();
   const targetRow=s.type==='work'
     ?'<div class="wkt-target-row">'+
       '<div class="wkt-target-item">'+
@@ -3986,13 +3995,13 @@ function toggleInnerStepTarget(gi,si,field){
 function adjustStepTarget(i,field,dir){
   const s=_wktSteps[i];if(!s)return;
   if(field==='rate'&&s.targetRate!=null)s.targetRate=Math.max(10,Math.min(50,s.targetRate+dir));
-  else if(field==='pace'&&s.targetPace!=null)s.targetPace=Math.max(60,Math.min(300,s.targetPace+dir*5));
+  else if(field==='pace'&&s.targetPace!=null)s.targetPace=Math.max(60,Math.min(300,s.targetPace+dir*2));
   renderBuilderSteps();
 }
 function adjustInnerStepTarget(gi,si,field,dir){
   const s=_wktSteps[gi]&&_wktSteps[gi].steps&&_wktSteps[gi].steps[si];if(!s)return;
   if(field==='rate'&&s.targetRate!=null)s.targetRate=Math.max(10,Math.min(50,s.targetRate+dir));
-  else if(field==='pace'&&s.targetPace!=null)s.targetPace=Math.max(60,Math.min(300,s.targetPace+dir*5));
+  else if(field==='pace'&&s.targetPace!=null)s.targetPace=Math.max(60,Math.min(300,s.targetPace+dir*2));
   renderBuilderSteps();
 }
 
