@@ -322,7 +322,14 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .wkc-body{display:none;padding:0 12px 12px;border-top:1px solid #f0f0f0;}.wkc-body.open{display:block;}
 .wkt-builder{background:#fff;border-radius:4px;padding:12px;margin-bottom:6px;box-shadow:0 1px 3px rgba(0,0,0,.07);}
 /* Step rows in builder */
-.step-row{display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid #f0f0f0;user-select:none;}
+.step-row{display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid #f0f0f0;user-select:none;flex-wrap:wrap;}
+.wkt-target-row{flex-basis:100%;display:flex;gap:10px;align-items:center;padding:4px 0 2px 26px;}
+.wkt-target-item{display:flex;align-items:center;gap:3px;}
+.wkt-target-tog{font-size:9px;font-weight:700;letter-spacing:.08em;padding:2px 6px;border-radius:3px;border:1px solid #ccc;background:#eee;color:#999;cursor:pointer;touch-action:manipulation;}
+.wkt-target-tog.ton{background:#1a5276;color:#fff;border-color:#1a5276;}
+.wkt-target-val{font-size:12px;font-weight:700;min-width:34px;text-align:center;color:#222;}
+.wkt-target-val.tdim{color:#ccc;}
+.wkt-warn{font-size:9px;font-weight:700;letter-spacing:.08em;color:#c0392b;background:rgba(192,57,43,.08);padding:2px 6px;border-radius:3px;display:none;flex-shrink:0;white-space:nowrap;}
 .step-row.step-sel{background:#f0f7ff;margin:0 -12px;padding:8px 12px;}
 .step-drag{color:#bbb;font-size:16px;cursor:grab;padding:0 4px;flex-shrink:0;}
 .step-check{width:18px;height:18px;border-radius:3px;border:2px solid #ddd;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;}
@@ -418,6 +425,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div class="wkt-phase work" id="wkt-phase-lbl">WORK</div>
 <div class="wkt-countdown" id="wkt-countdown">--</div>
 <div class="wkt-info" id="wkt-info-lbl">&#8212;</div>
+<div class="wkt-warn" id="wkt-warn"></div>
 <button class="wkt-ctrl-btn" id="wkt-end-btn">&#x2715; END</button>
 </div>
 <!-- Live body: grid + panels + controls -->
@@ -2881,7 +2889,29 @@ function updateWorkoutBar(){
     const gl=s.groupLabel?(' '+s.groupLabel):'';
     if(s.type==='warmup')infoEl.textContent=running?'Warmup — press LAP when finished':'Press START to begin';
     else if(s.type==='cooldown')infoEl.textContent='Workout complete. Cooldown — press STOP to end';
-    else infoEl.textContent=(wkt.def?.name||'Workout')+' '+prog+gl;
+    else{
+      const hint=stepTargetHint(s);
+      infoEl.textContent=(wkt.def?.name||'Workout')+' '+prog+gl+(hint?' · '+hint:'');
+    }
+  }
+  // Warning: rate/pace off target during work steps
+  const warnEl=document.getElementById('wkt-warn');
+  if(warnEl){
+    const warns=[];
+    if(s&&s.type==='work'&&!wkt.waitingForRow&&running&&!paused){
+      if(s.targetRate!=null&&strokeRate>0){
+        const diff=strokeRate-s.targetRate;
+        if(diff>2)warns.push('▲ '+(diff>0?'+':'')+Math.round(diff)+' SPM');
+        else if(diff<-2)warns.push('▼ '+Math.round(diff)+' SPM');
+      }
+      if(s.targetPace!=null&&pace>0){
+        const diff=pace-s.targetPace;
+        if(diff>5)warns.push('PACE SLOW +'+Math.round(diff)+'s');
+        else if(diff<-5)warns.push('PACE FAST '+Math.round(diff)+'s');
+      }
+    }
+    if(warns.length){warnEl.textContent='⚠ '+warns.join(' · ');warnEl.style.display='block';}
+    else warnEl.style.display='none';
   }
 }
 function updateIntervalsPanel(){
@@ -2938,14 +2968,16 @@ function showCountdownOverlay(mode,seconds,step,restSecs,autoResume){
   clearInterval(_cdownTimer);ov.classList.add('show');wkt.countdownActive=true;
   if(mode==='go'&&seconds>0){
     let n=seconds;
-    numEl.textContent=n;numEl.className='cdown-num';subEl.textContent='';
+    const hint=stepTargetHint(step);
+    numEl.textContent=n;numEl.className='cdown-num';subEl.textContent=hint;
     _cdownTimer=setInterval(()=>{
       n--;
       if(n>0){numEl.textContent=n;numEl.className='cdown-num';}
       else{
         clearInterval(_cdownTimer);
         numEl.textContent='GO!';numEl.className='cdown-num go';
-        subEl.textContent=step?.mode==='distance'?fmtStepDist(step.value):step?.mode==='time'?fmt(step.value):'ROW!';
+        const details=step?.mode==='distance'?fmtStepDist(step.value):step?.mode==='time'?fmt(step.value):'';
+        subEl.textContent=[details,hint].filter(Boolean).join(' · ')||'ROW!';
         setTimeout(()=>{hideCountdownOverlay();if(autoResume)resumeSess();},800);
       }
     },1000);
@@ -2968,7 +3000,8 @@ function showCountdownOverlay(mode,seconds,step,restSecs,autoResume){
   }else if(mode==='go-brief'){
     numEl.textContent='GO!';numEl.className='cdown-num go';
     const details=step?.mode==='distance'?fmtStepDist(step.value):step?.mode==='time'?fmt(step.value):'';
-    subEl.textContent=details;
+    const hint=stepTargetHint(step);
+    subEl.textContent=[details,hint].filter(Boolean).join(' · ');
     _cdownTimer=setTimeout(()=>hideCountdownOverlay(),2000);
   }
 }
@@ -3785,6 +3818,14 @@ function renderInnerStep(s,gi,si){
 }
 
 /* Shared row renderer for top-level and inner steps */
+function fmtTargetPace(s){const m=Math.floor(s/60),sc=s%60;return m+':'+(sc<10?'0':'')+sc;}
+function stepTargetHint(step){
+  if(!step)return'';
+  const parts=[];
+  if(step.targetRate!=null)parts.push(step.targetRate+' SPM');
+  if(step.targetPace!=null)parts.push(fmtTargetPace(step.targetPace)+'/500');
+  return parts.join(' · ');
+}
 function stepRowHTML(s,i,arr,sel,isFirst,isLast,gi,si){
   const isOpen=s.mode==='open';
   const displayVal=s.mode==='time'?(()=>{const m=Math.floor(s.value/60),sc=s.value%60;return m>0?(m+':'+(sc<10?'0':'')+sc):s.value+'s';})():s.mode==='distance'?fmtStepDist(s.value):0;
@@ -3801,6 +3842,32 @@ function stepRowHTML(s,i,arr,sel,isFirst,isLast,gi,si){
   const toggleFn=gi!=null
     ?'toggleInnerStartWhenRowing('+gi+','+si+')'
     :'toggleStartWhenRowing('+i+')';
+
+  // Target sub-row for work steps
+  const tRateFn=gi!=null?'toggleInnerStepTarget('+gi+','+si+',\'rate\')':'toggleStepTarget('+i+',\'rate\')';
+  const tPaceFn=gi!=null?'toggleInnerStepTarget('+gi+','+si+',\'pace\')':'toggleStepTarget('+i+',\'pace\')';
+  const aRateFn=gi!=null?'adjustInnerStepTarget('+gi+','+si+',\'rate\',$DIR)':'adjustStepTarget('+i+',\'rate\',$DIR)';
+  const aPaceFn=gi!=null?'adjustInnerStepTarget('+gi+','+si+',\'pace\',$DIR)':'adjustStepTarget('+i+',\'pace\',$DIR)';
+  const hasRate=s.targetRate!=null;
+  const hasPace=s.targetPace!=null;
+  const rateVal=s.targetRate!=null?s.targetRate:22;
+  const paceVal=s.targetPace!=null?fmtTargetPace(s.targetPace):'2:00';
+  const targetRow=s.type==='work'
+    ?'<div class="wkt-target-row">'+
+      '<div class="wkt-target-item">'+
+        '<button class="wkt-target-tog'+(hasRate?' ton':'')+'" onclick="'+tRateFn+'">SPM</button>'+
+        '<button class="stepper-btn" style="width:22px;height:22px;font-size:13px;'+(hasRate?'':'opacity:.3;pointer-events:none;')+'" onclick="'+aRateFn.replace('$DIR','-1')+'">&#8722;</button>'+
+        '<span class="wkt-target-val'+(hasRate?'':' tdim')+'">'+rateVal+'</span>'+
+        '<button class="stepper-btn" style="width:22px;height:22px;font-size:13px;'+(hasRate?'':'opacity:.3;pointer-events:none;')+'" onclick="'+aRateFn.replace('$DIR','1')+'">+</button>'+
+      '</div>'+
+      '<div class="wkt-target-item">'+
+        '<button class="wkt-target-tog'+(hasPace?' ton':'')+'" onclick="'+tPaceFn+'">PACE</button>'+
+        '<button class="stepper-btn" style="width:22px;height:22px;font-size:13px;'+(hasPace?'':'opacity:.3;pointer-events:none;')+'" onclick="'+aPaceFn.replace('$DIR','-1')+'">&#8722;</button>'+
+        '<span class="wkt-target-val'+(hasPace?'':' tdim')+'">'+paceVal+'</span>'+
+        '<button class="stepper-btn" style="width:22px;height:22px;font-size:13px;'+(hasPace?'':'opacity:.3;pointer-events:none;')+'" onclick="'+aPaceFn.replace('$DIR','1')+'">+</button>'+
+      '</div>'+
+    '</div>'
+    :'';
 
   return '<div class="step-row'+(sel?' step-sel':'')+'" style="'+(gi!=null?'padding-left:8px;':'')+'">'+
     '<div id="'+chkId+'" class="step-check'+(sel?' checked':'')+'">'+(sel?'&#x2713;':'')+'</div>'+
@@ -3841,6 +3908,7 @@ function stepRowHTML(s,i,arr,sel,isFirst,isLast,gi,si){
       : ''
     )+
     '<button class="step-del" onclick="'+delFn+'">&#215;</button>'+
+    targetRow+
     '</div>';
 }
 
@@ -3902,6 +3970,30 @@ function toggleStartWhenRowing(i){
 function toggleInnerStartWhenRowing(gi,si){
   const s=_wktSteps[gi]&&_wktSteps[gi].steps&&_wktSteps[gi].steps[si];if(!s)return;
   s.startWhenRowing=!s.startWhenRowing;renderBuilderSteps();
+}
+function toggleStepTarget(i,field){
+  const s=_wktSteps[i];if(!s)return;
+  if(field==='rate'){s.targetRate=s.targetRate!=null?null:22;}
+  else if(field==='pace'){s.targetPace=s.targetPace!=null?null:120;}
+  renderBuilderSteps();
+}
+function toggleInnerStepTarget(gi,si,field){
+  const s=_wktSteps[gi]&&_wktSteps[gi].steps&&_wktSteps[gi].steps[si];if(!s)return;
+  if(field==='rate'){s.targetRate=s.targetRate!=null?null:22;}
+  else if(field==='pace'){s.targetPace=s.targetPace!=null?null:120;}
+  renderBuilderSteps();
+}
+function adjustStepTarget(i,field,dir){
+  const s=_wktSteps[i];if(!s)return;
+  if(field==='rate'&&s.targetRate!=null)s.targetRate=Math.max(10,Math.min(50,s.targetRate+dir));
+  else if(field==='pace'&&s.targetPace!=null)s.targetPace=Math.max(60,Math.min(300,s.targetPace+dir*5));
+  renderBuilderSteps();
+}
+function adjustInnerStepTarget(gi,si,field,dir){
+  const s=_wktSteps[gi]&&_wktSteps[gi].steps&&_wktSteps[gi].steps[si];if(!s)return;
+  if(field==='rate'&&s.targetRate!=null)s.targetRate=Math.max(10,Math.min(50,s.targetRate+dir));
+  else if(field==='pace'&&s.targetPace!=null)s.targetPace=Math.max(60,Math.min(300,s.targetPace+dir*5));
+  renderBuilderSteps();
 }
 
 function editInnerStep(gi,si){
