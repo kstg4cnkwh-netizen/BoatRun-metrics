@@ -1,6 +1,6 @@
 {
-  "name": "Scull Metrics",
-  "short_name": "Scull",
+  "name": "BoatRun Metrics",
+  "short_name": "BoatRun",
   "description": "On-water rowing metrics — real-time pace, rate, catch, and stroke analysis",
   "start_url": "./",
   "scope": "./",
