@@ -3544,7 +3544,11 @@ function showDetail(id){
     document.getElementById('dback-btn').addEventListener('click',()=>{dw.style.display='none';document.getElementById('ht-log-list').style.display='block';const hb=document.querySelector('.home-body');if(hb)hb.scrollTop=0;renderSessionList();});
     document.getElementById('analyser-btn').addEventListener('click',()=>{
       if(!DriveSync.isSignedIn()){if(confirm('Link Google Drive to use Analyser.\n\nTap OK to sign in to Drive.'))driveSignIn();return;}
-      try{localStorage.setItem('scull_xfer_session',JSON.stringify(s));}catch(e){toast('Could not transfer session');return;}
+      try{
+        localStorage.setItem('scull_xfer_session',JSON.stringify(s));
+        const tokRaw=sessionStorage.getItem('_ds_tok');
+        if(tokRaw)localStorage.setItem('scull_xfer_token',tokRaw);
+      }catch(e){toast('Could not transfer session');return;}
       window.open('https://kstg4cnkwh-netizen.github.io/Scull-analysis/index.html','_blank');
     });
     if(s.paceTrace&&s.paceTrace.length>2){
