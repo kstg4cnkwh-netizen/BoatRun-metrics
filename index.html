@@ -2712,7 +2712,7 @@ function wktStart(def){
   const seq=flattenWorkout(def);
   wkt={active:true,def,sequence:seq,seqIdx:0,startDist:distance,startElapsed:elapsed,
        startStrokeIdx:sessStrokes.length,
-       lapMetrics:[],countdownActive:false,waitingForRow:false,waitStrokeCount:0,waitingForRowAt:0,fromRestCountdown:false};
+       lapMetrics:[],countdownActive:false,waitingForRow:false,waitStrokeCount:0,waitingForRowAt:0,fromRestCountdown:false,workToWork:false,_lastWasWork:false};
   // Sync lap markers to the workout start so interval laps measure from this point
   lapStartDist=distance;lapStartTime=elapsed;
   const bar=document.getElementById('wkt-bar');if(bar)bar.classList.add('wactive');
@@ -2729,9 +2729,9 @@ function wktMaybeShowCountdown(){
   if(s.type==='warmup'){
     if(running) showCountdownOverlay('warmup',null,s);
   }else if(s.type==='work'){
-    if(wkt.fromRestCountdown){
-      wkt.fromRestCountdown=false;
-      showCountdownOverlay('go-brief',null,s);
+    if(wkt.fromRestCountdown||wkt._lastWasWork){
+      wkt.fromRestCountdown=false;wkt._lastWasWork=false;
+      showCountdownOverlay('go-work2work',null,s);
     }else{
       // Pause session for the 5-4-3-2-1 countdown; auto-resume on GO
       pauseSess();
@@ -2783,18 +2783,24 @@ function wktAdvance(){
   snap.lapPace=snap.dist>5&&snap.time>0?(snap.time/snap.dist)*500:0;
   wkt.lapMetrics.push(snap);
   wkt.startStrokeIdx=sessStrokes.length;
+  // Detect work→work transition before seqIdx advances so recordLap can suppress lap summary
+  const peekNext=wkt.sequence[wkt.seqIdx+1]||null;
+  wkt.workToWork=(cur.type==='work'&&peekNext?.type==='work');
   recordLap();
+  const wasWork2Work=wkt.workToWork;
+  wkt.workToWork=false;
   wkt.seqIdx++;
   wkt.startDist=distance;wkt.startElapsed=elapsed;
   if(wkt.seqIdx>=wkt.sequence.length){wktEnd();return;}
   const next=wktCurrentStep();
   if(next?.startWhenRowing){
     wkt.waitingForRow=true;wkt.waitStrokeCount=0;wkt.waitingForRowAt=Date.now();
-    wkt.fromRestCountdown=false;
+    wkt.fromRestCountdown=false;wkt._lastWasWork=false;
     updateWorkoutBar();updateUI();updateIntervalsPanel();
     showCountdownOverlay('ready',null,next);
     return;
   }
+  if(wasWork2Work)wkt._lastWasWork=true;
   updateWorkoutBar();updateUI();updateIntervalsPanel();
   wktMaybeShowCountdown();
 }
@@ -2977,6 +2983,17 @@ function showCountdownOverlay(mode,seconds,step,restSecs,autoResume){
     const hint=stepTargetHint(step);
     subEl.textContent=[details,hint].filter(Boolean).join(' · ');
     _cdownTimer=setTimeout(()=>hideCountdownOverlay(),2000);
+  }else if(mode==='go-work2work'){
+    numEl.textContent='GO';numEl.className='cdown-num go';
+    // Build "go for XX min at XX SPM / XX /500m" message
+    const parts=[];
+    if(step?.mode==='time'){parts.push('go for '+fmt(step.value)+'min');}
+    else if(step?.mode==='distance'){parts.push('go for '+fmtStepDist(step.value));}
+    else{parts.push('go');}
+    const hint=stepTargetHint(step);
+    if(hint)parts.push('at '+hint);
+    subEl.textContent=parts.join(' ');
+    _cdownTimer=setTimeout(()=>hideCountdownOverlay(),3000);
   }
 }
 function hideCountdownOverlay(){
@@ -3143,7 +3160,7 @@ function resetSess() {
     checkDelta = null; checkDeltaRawArr.length = 0;
     catchGpsDist = 0; pendingOarStrokeIdx = -1;
     for (const k of AXES) { gravity[k] = 0; axFast[k] = 0; axSmooth[k] = 0; }
-    wkt = { active: false, def: null, sequence: [], seqIdx: 0, startDist: 0, startElapsed: 0, lapMetrics: [], countdownActive: false, waitingForRow: false, waitStrokeCount: 0, fromRestCountdown: false };
+    wkt = { active: false, def: null, sequence: [], seqIdx: 0, startDist: 0, startElapsed: 0, lapMetrics: [], countdownActive: false, waitingForRow: false, waitStrokeCount: 0, fromRestCountdown: false, workToWork: false, _lastWasWork: false };
     const bar = document.getElementById('wkt-bar'); if (bar) bar.classList.remove('wactive');
     hideCountdownOverlay();
     if (curveTabActive()) renderCurveCanvas();
@@ -3181,7 +3198,7 @@ function recordLap() {
     laps.push({ n: laps.length + 1, dist: d, time: t, pace: p, rate: strokeRate, avgCatch: avgC, avgDPS: distPerStroke || null, avgImpulse: avgI, avgRunLoss: runLossM, avgRdi: rdi, avgOarAngle: oarAngle || null, avgCheckDelta: checkDelta || null });
     lapStartDist = distance; lapStartTime = elapsed;
     const curStep = wkt.active ? wktCurrentStep() : null;
-    if (!curStep || curStep.type === 'work') showLapSplit(laps[laps.length - 1]);
+    if ((!curStep || curStep.type === 'work') && !wkt.workToWork) showLapSplit(laps[laps.length - 1]);
     updateIntervalsPanel();
 }
 function handleLapBtn() {
