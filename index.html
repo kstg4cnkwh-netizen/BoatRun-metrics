@@ -1107,6 +1107,7 @@ function finishCalibration() {
 function enterLive() {
     if (enterLive._done) return;
     enterLive._done = true;
+    try{localStorage.setItem('scull_setup_v1','1');}catch{}
     document.getElementById('screen-cal').classList.remove('active');
     document.getElementById('screen-live').classList.add('active');
     if (cal.done) {
@@ -4259,6 +4260,7 @@ wireWorkoutBar();
 DriveSync.init().then(async()=>{
   const hadOAuth=await checkOAuthReturn();
   if(!hadOAuth&&DriveSync.isSignedIn()){updateDriveBtn();flushQueue().catch(()=>{});await migrateLocalSessionsToDrive();DriveSync.syncFromDrive().catch(()=>{});}
+  if(!hadOAuth){try{if(localStorage.getItem('scull_setup_v1')==='1')showTab('home');}catch{}}
 }).catch(()=>{});
 checkAutosave();
 window.addEventListener('online',()=>{if(DriveSync.isSignedIn())flushQueue().catch(()=>{});});
