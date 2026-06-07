@@ -3541,7 +3541,7 @@ function showDetail(id){
     +'<div style="height:20px"></div>';
   requestAnimationFrame(()=>{
     document.getElementById('dback-btn').addEventListener('click',()=>{dw.style.display='none';document.getElementById('ht-log-list').style.display='block';const hb=document.querySelector('.home-body');if(hb)hb.scrollTop=0;renderSessionList();});
-    document.getElementById('analyser-btn').addEventListener('click',()=>{try{localStorage.setItem('scull_xfer_session',JSON.stringify(s));}catch(e){toast('Could not transfer session');return;}window.open('./analyser.html','_blank');});
+    document.getElementById('analyser-btn').addEventListener('click',()=>{try{localStorage.setItem('scull_xfer_session',JSON.stringify(s));}catch(e){toast('Could not transfer session');return;}window.open('https://kstg4cnkwh-netizen.github.io/Scull-analysis/index.html','_blank');});
     if(s.paceTrace&&s.paceTrace.length>2){
       const gspd=s.garminSpeedTrace&&s.garminSpeedTrace.length>2?s.garminSpeedTrace.filter(x=>x.spd>0.3).map(x=>500/x.spd):[];
       const allPace=[...s.paceTrace,...gspd].filter(v=>v>60&&v<600);
