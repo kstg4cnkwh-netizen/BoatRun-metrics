@@ -4241,7 +4241,7 @@ async function checkOAuthReturn(){
       if(ls&&ls.token&&(Date.now()-ls.ts)<300000){pending={token:ls.token,expires:ls.expires};}
     }catch{}
     if(!pending)return false;
-  }else{_SS.removeItem('_oauth_token');try{pending=JSON.parse(raw);}catch{return false;}}
+  }else{_SS.removeItem('_oauth_token');try{pending=JSON.parse(raw);}catch{return false;}}}
   try{localStorage.removeItem('_oauth_token_ls');}catch{}
   try{DriveSync._injectToken(pending.token,pending.expires);wireTabButtons();showTab('home');updateDriveBtn();toast('Drive linked');flushQueue();await migrateLocalSessionsToDrive();await DriveSync.syncFromDrive();return true;}catch(e){toast('Drive auth failed');return false;}
 }
