@@ -10,7 +10,7 @@
 <link rel="manifest" href="./manifest.json"/>
 <title>Scull Metrics v5</title>
 <script>
-(function(){try{var h=new URLSearchParams(location.hash.slice(1)),t=h.get("access_token");if(!t)return;var d={token:t,expires:parseInt(h.get("expires_in")||"3600")};try{history.replaceState({},"",location.pathname);}catch{}if(window.opener&&!window.opener.closed){try{window.opener.postMessage({type:"_scullOAuth",token:d.token,expires:d.expires},"*");window.close();return;}catch{}}window._scullOAuth=d;try{sessionStorage.setItem("_oauth_token",JSON.stringify(d));}catch{}}catch{}})();
+(function(){try{var h=new URLSearchParams(location.hash.slice(1)),t=h.get("access_token");if(!t)return;var d={token:t,expires:parseInt(h.get("expires_in")||"3600")};try{history.replaceState({},"",location.pathname);}catch{}window._scullOAuth=d;try{sessionStorage.setItem("_oauth_token",JSON.stringify(d));}catch{}if(window.opener&&!window.opener.closed){try{window.opener.postMessage({type:"_scullOAuth",token:d.token,expires:d.expires},"*");window.close();}catch{}}}catch{}})();
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet"/>
 <style>
@@ -877,7 +877,7 @@ async function flushQueue() {
             if (!s) continue;
             try { await DriveSync.upload(s); markSynced(id); n++; } catch {}
         }
-        if (n) { _LS.removeItem(PENDING_KEY); toast(`${n} sessions synced`); renderAnalysisListWithSwipe(); }
+        if (n) { _LS.removeItem(PENDING_KEY); toast(`${n} sessions synced`); renderSessionList(); }
     } catch (e) { toast('Sync failed'); }
 }
 
@@ -1043,7 +1043,7 @@ function driveSignIn() {
                 toast('Drive linked');
                 flushQueue().catch(() => {});
                 DriveSync.syncFromDrive().catch(() => {});
-                renderAnalysisListWithSwipe();
+                renderSessionList();
             };
             window.addEventListener('message', handler);
             const poll = setInterval(() => {
@@ -1052,32 +1052,7 @@ function driveSignIn() {
             return;
         }
     } catch {}
-    try { _SS.setItem('_oauth_screen', document.querySelector('.screen.active')?.id || ''); } catch {}
     window.location.href = url;
-}
-async function checkOAuthReturn() {
-    let pending = window._scullOAuth || null;
-    window._scullOAuth = null;
-    if (!pending) {
-        const raw = _SS.getItem('_oauth_token');
-        if (!raw) return false;
-        _SS.removeItem('_oauth_token');
-        try { pending = JSON.parse(raw); } catch { return false; }
-    }
-    try {
-        DriveSync._injectToken(pending.token, pending.expires);
-        wireTabButtons();
-        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-        document.getElementById('screen-analysis')?.classList.add('active');
-        renderAnalysisListWithSwipe();
-        requestAnimationFrame(renderCtrl);
-        updateDriveBtn();
-        toast('Drive linked');
-        flushQueue();
-        await migrateLocalSessionsToDrive();
-        await DriveSync.syncFromDrive();
-        return true;
-    } catch (e) { toast('Drive auth failed'); return false; }
 }
 
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
