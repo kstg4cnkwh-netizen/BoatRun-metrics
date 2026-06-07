@@ -10,7 +10,7 @@
 <link rel="manifest" href="./manifest.json"/>
 <title>Scull Metrics v5</title>
 <script>
-(function(){try{var h=new URLSearchParams(location.hash.slice(1)),t=h.get("access_token");if(!t)return;var d={token:t,expires:parseInt(h.get("expires_in")||"3600")};try{history.replaceState({},"",location.pathname);}catch{}window._scullOAuth=d;try{sessionStorage.setItem("_oauth_token",JSON.stringify(d));}catch{}if(window.opener&&!window.opener.closed){try{window.opener.postMessage({type:"_scullOAuth",token:d.token,expires:d.expires},"*");window.close();}catch{}}}catch{}})();
+(function(){try{var h=new URLSearchParams(location.hash.slice(1)),t=h.get("access_token");if(!t)return;var d={token:t,expires:parseInt(h.get("expires_in")||"3600")};try{history.replaceState({},"",location.pathname);}catch{}window._scullOAuth=d;try{sessionStorage.setItem("_oauth_token",JSON.stringify(d));}catch{}try{localStorage.setItem("_oauth_token_ls",JSON.stringify({token:d.token,expires:d.expires,ts:Date.now()}));}catch{}if(window.opener&&!window.opener.closed){try{window.opener.postMessage({type:"_scullOAuth",token:d.token,expires:d.expires},"*");window.close();}catch{}}}catch{}})();
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet"/>
 <style>
@@ -4235,7 +4235,14 @@ function handleDriveBtnTap(){if(DriveSync.isSignedIn()){const choice=confirm('Dr
 function updateDriveBtn(){const btn=document.getElementById('drive-btn');if(!btn)return;DriveSync.isSignedIn()?(btn.textContent='Linked',btn.classList.add('drive-linked')):(btn.textContent='Drive',btn.classList.remove('drive-linked'));}
 async function checkOAuthReturn(){
   let pending=window._scullOAuth||null;window._scullOAuth=null;
-  if(!pending){const raw=_SS.getItem('_oauth_token');if(!raw)return false;_SS.removeItem('_oauth_token');try{pending=JSON.parse(raw);}catch{return false;}}
+  if(!pending){const raw=_SS.getItem('_oauth_token');if(!raw){
+    // localStorage fallback: token stored by Safari when iOS PWA redirect flow fires in browser
+    try{const ls=JSON.parse(localStorage.getItem('_oauth_token_ls')||'null');
+      if(ls&&ls.token&&(Date.now()-ls.ts)<300000){pending={token:ls.token,expires:ls.expires};}
+    }catch{}
+    if(!pending)return false;
+  }else{_SS.removeItem('_oauth_token');try{pending=JSON.parse(raw);}catch{return false;}}
+  try{localStorage.removeItem('_oauth_token_ls');}catch{}
   try{DriveSync._injectToken(pending.token,pending.expires);wireTabButtons();showTab('home');updateDriveBtn();toast('Drive linked');flushQueue();await migrateLocalSessionsToDrive();await DriveSync.syncFromDrive();return true;}catch(e){toast('Drive auth failed');return false;}
 }
 
