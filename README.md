@@ -1,4 +1,4 @@
-# Scull Metrics — User Guide
+# BoatRun Metrics — User Guide
 
 Two companion web apps that run as PWAs on an iOS device mounted in a scull. The **Metrics app** records sessions live on the water. The **Analyser app** is used on a desktop or tablet after the session to review data and compare performance over time.
 
@@ -240,10 +240,12 @@ A technique improvement will show in catch slope, impulse, and the shape of the 
 1. HOME → WORKOUTS → **+ NEW WORKOUT**
 1. Enter a name
 1. Add steps using the buttons:
+
 - **Warmup** — ends when you tap Lap
 - **Work** — set duration (time in seconds or distance in metres)
 - **Rest** — set duration
 - **Cooldown** — ends when you tap Lap
+
 1. To create a repeat group: select two or more adjacent steps by tapping their checkboxes, then tap **Group as Repeats** and enter the repeat count
 1. Tap **Save**
 
