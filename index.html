@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<meta name="apple-mobile-web-app-title" content="Scull"/>
+<meta name="apple-mobile-web-app-title" content="BoatRun"/>
 <meta name="theme-color" content="#1a5276"/>
 <link rel="manifest" href="./manifest.json"/>
-<title>Scull Metrics v5</title>
+<title>BoatRun Metrics v5</title>
 <script>
 (function(){try{var h=new URLSearchParams(location.hash.slice(1)),t=h.get("access_token");if(!t)return;var d={token:t,expires:parseInt(h.get("expires_in")||"3600")};try{history.replaceState({},"",location.pathname);}catch{}window._scullOAuth=d;try{sessionStorage.setItem("_oauth_token",JSON.stringify(d));}catch{}try{localStorage.setItem("_oauth_token_ls",JSON.stringify({token:d.token,expires:d.expires,ts:Date.now()}));}catch{}if(window.opener&&!window.opener.closed){try{window.opener.postMessage({type:"_scullOAuth",token:d.token,expires:d.expires},"*");window.close();}catch{}}}catch{}})();
 </script>
@@ -1020,7 +1020,7 @@ const DriveSync = (() => {
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 const DRIVE_CLIENT_ID = '729480414852-kko8e7bi3r38tcg2rf6iiupptagoegpc.apps.googleusercontent.com';
 const DRIVE_SCOPE     = 'https://www.googleapis.com/auth/drive.appdata';
-const OAUTH_REDIRECT  = 'https://kstg4cnkwh-netizen.github.io/Scull-metrics/';
+const OAUTH_REDIRECT  = 'https://kstg4cnkwh-netizen.github.io/BoatRun-metrics/';
 function driveSignIn() {
     const p = new URLSearchParams({
         client_id: DRIVE_CLIENT_ID,
@@ -3542,7 +3542,7 @@ function showDetail(id){
         const tokRaw=sessionStorage.getItem('_ds_tok');
         if(tokRaw)localStorage.setItem('scull_xfer_token',tokRaw);
       }catch(e){toast('Could not transfer session');return;}
-      window.open('https://kstg4cnkwh-netizen.github.io/Scull-analysis/index.html','_blank');
+      window.open('https://kstg4cnkwh-netizen.github.io/BoatRun-analysis/index.html','_blank');
     });
     if(s.paceTrace&&s.paceTrace.length>2){
       const gspd=s.garminSpeedTrace&&s.garminSpeedTrace.length>2?s.garminSpeedTrace.filter(x=>x.spd>0.3).map(x=>500/x.spd):[];
@@ -4241,7 +4241,7 @@ function exportDebugCSV(s){
   rows.push(['##RL'],['stroke_n','start_spd_ms','min_spd_ms','dv_ms','raw_loss_m','med_loss_m','n_samples']);(s.rlDebug||[]).forEach(r=>rows.push([n(r.strokeN),f3(r.startSpeed),f3(r.minSpeed),f3(r.dv),f4(r.rawLoss),f4(r.medLoss),n(r.nSamples)]));rows.push([]);
   if(s.gpsRawTrace&&s.gpsRawTrace.length){rows.push(['##GPS'],['elapsed_s','gps_raw_ms','gps_ema_ms','acc_m','stroke_n','rl_phase']);s.gpsRawTrace.forEach(p=>rows.push([el(p.t),f3(p.rawSpd),f3(p.emaSpd),f2(p.acc),n(p.strokeN),p.rlPhase||'none']));rows.push([]);}
   if(s.hrTrace&&s.hrTrace.length){rows.push(['##HR'],['elapsed_s','hr_bpm']);s.hrTrace.forEach(h=>rows.push([el(h.t),h.hr]));rows.push([]);}
-  const blob=new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);const d=new Date(s.startTime),pad=x=>String(x).padStart(2,'0');a.download='ScullDebug_'+d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes())+'.csv';a.click();toast('Debug CSV exported');
+  const blob=new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);const d=new Date(s.startTime),pad=x=>String(x).padStart(2,'0');a.download='BoatRunDebug_'+d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes())+'.csv';a.click();toast('Debug CSV exported');
 }
 
 /* 
