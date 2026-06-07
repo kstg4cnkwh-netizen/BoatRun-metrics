@@ -3511,7 +3511,8 @@ function showDetail(id){
       +s.workoutLapMetrics.map(l=>'<tr'+(l.type==='work'?' style="background:rgba(39,174,96,.12)"':'')+'>'+  '<td>'+l.n+'</td><td>'+l.type.toUpperCase().slice(0,4)+'</td><td>'+l.dist+'m</td><td>'+fmt(l.time)+'</td><td>'+(l.lapPace>0?fmt(l.lapPace):'--')+'</td><td>'+(l.rate||'--')+'</td><td>'+(l.dps?l.dps.toFixed(1):'--')+'</td><td>'+(l.impulse?l.impulse.toFixed(2):'--')+'</td><td>'+(l.runLoss?l.runLoss.toFixed(2):'--')+'</td><td>'+(l.avgOarAngle?Math.round(l.avgOarAngle)+'°':'--')+'</td><td>'+(l.avgCheckDelta?l.avgCheckDelta.toFixed(2):'--')+'</td></tr>').join('')
       +'</table></div>'
     :'';
-  dw.querySelector('#detail-content').innerHTML='<button class="dback" id="dback-btn">Back to Log</button><button class="dback" id="analyser-btn" style="background:#1a5276;color:#fff;margin-left:6px;">Open in Analyser</button>'
+  const driveLinked=DriveSync.isSignedIn();
+  dw.querySelector('#detail-content').innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"><button class="dback" id="dback-btn">← Log</button><button id="analyser-btn" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:7px 12px;border:none;border-radius:3px;cursor:pointer;touch-action:manipulation;background:'+(driveLinked?'#1a5276':'#888')+';color:#fff;">'+(driveLinked?'Analyser ↗':'Link Drive → Analyser')+'</button></div>'
     +'<div style="font-size:10px;color:#aaa;margin-bottom:6px;">'+fmtDate(s.startTime)+(s.detectedAxis?' Axis: '+s.detectedAxis.toUpperCase():'')+(syncedNow?' synced':'')+'</div>'
     +'<div style="display:flex;gap:10px;font-size:9px;letter-spacing:.08em;margin-bottom:10px;flex-wrap:wrap;">'
     +'<span style="color:#27ae60">● Independent</span>'
@@ -3541,7 +3542,11 @@ function showDetail(id){
     +'<div style="height:20px"></div>';
   requestAnimationFrame(()=>{
     document.getElementById('dback-btn').addEventListener('click',()=>{dw.style.display='none';document.getElementById('ht-log-list').style.display='block';const hb=document.querySelector('.home-body');if(hb)hb.scrollTop=0;renderSessionList();});
-    document.getElementById('analyser-btn').addEventListener('click',()=>{try{localStorage.setItem('scull_xfer_session',JSON.stringify(s));}catch(e){toast('Could not transfer session');return;}window.open('https://kstg4cnkwh-netizen.github.io/Scull-analysis/index.html','_blank');});
+    document.getElementById('analyser-btn').addEventListener('click',()=>{
+      if(!DriveSync.isSignedIn()){if(confirm('Link Google Drive to use Analyser.\n\nTap OK to sign in to Drive.'))driveSignIn();return;}
+      try{localStorage.setItem('scull_xfer_session',JSON.stringify(s));}catch(e){toast('Could not transfer session');return;}
+      window.open('https://kstg4cnkwh-netizen.github.io/Scull-analysis/index.html','_blank');
+    });
     if(s.paceTrace&&s.paceTrace.length>2){
       const gspd=s.garminSpeedTrace&&s.garminSpeedTrace.length>2?s.garminSpeedTrace.filter(x=>x.spd>0.3).map(x=>500/x.spd):[];
       const allPace=[...s.paceTrace,...gspd].filter(v=>v>60&&v<600);
