@@ -624,7 +624,8 @@ const CONFIG = Object.freeze({
         spikeMarginMps: 1.5,
         gapResetMs: 3000,
         velWindowMs: 10000,
-        paceWindowMs: 12000
+        paceWindowMs: 12000,
+        headingEmaAlpha: 0.15
     },
     motion: {
         gravityAlpha: 0.965,
@@ -696,6 +697,14 @@ const haversineM = (a, b) => {
         dLon = (b.lon - a.lon) * r,
         x = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLon / 2) ** 2;
     return 2 * R * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+};
+const bearingBetween = (a, b) => {
+    const r = Math.PI / 180;
+    const φ1 = a.lat * r, φ2 = b.lat * r, Δλ = (b.lon - a.lon) * r;
+    return (Math.atan2(
+        Math.sin(Δλ) * Math.cos(φ2),
+        Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ)
+    ) * 180 / Math.PI + 360) % 360;
 };
 const rdiLabel = v =>
     v < -0.2 ? 'DRIVE DOMINANT' :
@@ -1817,6 +1826,7 @@ function onStrokeFinish(now, driveDur) {
 let pace = 0, gpsAccuracyM = null, gpsSpeedEma = -1, gpsLastValidT = 0, gpsWasStopped = false, gpsDeadWarned = false;
 const speedSamples = [], paceDistWindow = [], velocityWindow = [];
 let lastPos = null;
+let headingEmaX = null, headingEmaY = null;
 const sessGpsTrace = [], sessGpsRawTrace = [];
 let pendingRun = null;
 let imuRL = null;  // IMU-based run loss state for current recovery
@@ -1913,10 +1923,25 @@ function handlePos(pos) {
         });
     }
     const lat = pos.coords.latitude, lon = pos.coords.longitude, cur = { lat, lon, t: Date.now() };
+    // Update heading EMA (circular, handles 359→1° wrap) when moving
+    const hdg = pos.coords.heading;
+    if (hdg != null && !isNaN(hdg) && spd != null && spd > 0.5) {
+        const hAlpha = CONFIG.gps.headingEmaAlpha, hRad = hdg * Math.PI / 180;
+        headingEmaX = headingEmaX == null ? Math.cos(hRad) : hAlpha * Math.cos(hRad) + (1 - hAlpha) * headingEmaX;
+        headingEmaY = headingEmaY == null ? Math.sin(hRad) : hAlpha * Math.sin(hRad) + (1 - hAlpha) * headingEmaY;
+    }
     if (running && !paused && lastPos && lat != null && lon != null && lastPos.lat != null) {
         const d = haversineM(lastPos, cur);
         if (d >= CONFIG.gps.minMoveDist && d < 30 && gpsSpeedEma > 0.5) {
-            distance += d;
+            // Project displacement onto forward axis — rejects lateral GPS jitter
+            let dFwd = d;
+            if (headingEmaX != null && d > 0.5) {
+                const fwdHdg = (Math.atan2(headingEmaY, headingEmaX) * 180 / Math.PI + 360) % 360;
+                let delta = ((bearingBetween(lastPos, cur) - fwdHdg) + 180) % 360 - 180;
+                const proj = Math.cos(delta * Math.PI / 180);
+                if (proj > 0.5) dFwd = d * proj;  // within 60° of heading — apply projection
+            }
+            distance += dFwd;
             cur.dist = distance;
             sessGpsTrace.push(cur);
             paceDistWindow.push({ t: now, dist: distance });
@@ -3045,7 +3070,7 @@ function resumeSess() {
     if (running) return;
     clearInterval(timerInt); clearInterval(autosaveInt);
     paused = false; running = true;
-    paceDistWindow.length = 0; velocityWindow.length = 0; gpsSpeedEma = -1; speedSamples.length = 0;
+    paceDistWindow.length = 0; velocityWindow.length = 0; gpsSpeedEma = -1; speedSamples.length = 0; headingEmaX = null; headingEmaY = null;
     timerInt = setInterval(() => { elapsed++; wktCheckAuto(); checkGpsAlive(); updateUI(); updateWorkoutBar(); }, 1000);
     saveInProgress(); autosaveInt = setInterval(saveInProgress, CONFIG.ui.autosaveMs);
     requestAnimationFrame(renderCtrl);
@@ -3148,7 +3173,7 @@ function resetSess() {
     sessGpsTrace.length = 0; sessGpsRawTrace.length = 0;
     strokeTs.length = 0; paceDistWindow.length = 0; velocityWindow.length = 0;
     speedSamples.length = 0; prevStrokeDist = 0; prevStrokeDistT = 0;
-    gpsLastValidT = 0; gpsSpeedEma = -1; gpsWasStopped = false; gpsAccuracyM = null;
+    gpsLastValidT = 0; gpsSpeedEma = -1; gpsWasStopped = false; gpsAccuracyM = null; headingEmaX = null; headingEmaY = null;
     fsmState = FS.IDLE; catchPeakJerk = 0; catchStartT = 0; lastCatchAbsT = 0; lastDriveEndT = 0;
     strokesDetected = 0; jerkThreshActive = jerkThreshBase; adaptReady = false;
     acBuf.length = 0; acLastUpdate = 0; jerkBuf.length = 0; catchTsBuf.length = 0;
