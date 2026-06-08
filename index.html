@@ -625,7 +625,10 @@ const CONFIG = Object.freeze({
         gapResetMs: 3000,
         velWindowMs: 10000,
         paceWindowMs: 12000,
-        headingEmaAlpha: 0.15
+        headingEmaAlpha: 0.15,
+        oneEuroMinCutoff: 0.30,
+        oneEuroBeta: 0.40,
+        oneEuroDCutoff: 1.0 //lower=more-smoothing, higher=more-responsive; 1.0 is a reasonable starting point  
     },
     motion: {
         gravityAlpha: 0.965,
@@ -1827,6 +1830,26 @@ let pace = 0, gpsAccuracyM = null, gpsSpeedEma = -1, gpsLastValidT = 0, gpsWasSt
 const speedSamples = [], paceDistWindow = [], velocityWindow = [];
 let lastPos = null;
 let headingEmaX = null, headingEmaY = null;
+// ── Velocity engine: One-Euro adaptive filter on GPS Doppler speed ───────────
+// Smooth when pace is steady, low-lag when it changes (start / rate shifts).
+function makeOneEuro(minCutoff, beta, dCutoff) {
+    let xPrev = null, dxPrev = 0, tPrev = 0;
+    const alpha = (cutoff, dt) => 1 / (1 + 1 / (2 * Math.PI * cutoff * dt));
+    return {
+        reset() { xPrev = null; dxPrev = 0; tPrev = 0; },
+        filter(x, t) {
+            if (xPrev == null) { xPrev = x; tPrev = t; return x; }
+            const dt = Math.max((t - tPrev) / 1000, 1e-3); tPrev = t;
+            const aD = alpha(dCutoff, dt);
+            dxPrev = aD * ((x - xPrev) / dt) + (1 - aD) * dxPrev;
+            const aX = alpha(minCutoff + beta * Math.abs(dxPrev), dt);
+            xPrev = aX * x + (1 - aX) * xPrev;
+            return xPrev;
+        }
+    };
+}
+const vFilter = makeOneEuro(CONFIG.gps.oneEuroMinCutoff, CONFIG.gps.oneEuroBeta, CONFIG.gps.oneEuroDCutoff);
+let lastDistT = 0;
 const sessGpsTrace = [], sessGpsRawTrace = [];
 let pendingRun = null;
 let imuRL = null;  // IMU-based run loss state for current recovery
@@ -1872,25 +1895,37 @@ function updatePendingRunLoss() {
 }
 function pushVelocity(t, v) {
     const gapMs = gpsLastValidT > 0 ? t - gpsLastValidT : 0;
+    // Cold start or long gap → reinitialise filter
     if (gpsSpeedEma < 0 || gapMs > CONFIG.gps.gapResetMs) {
-        gpsLastValidT = t; gpsSpeedEma = v; gpsWasStopped = false;
-        if (gapMs > CONFIG.gps.gapResetMs) { paceDistWindow.length = 0; speedSamples.length = 0; }
+        gpsLastValidT = t; lastDistT = t; gpsWasStopped = false;
+        vFilter.reset(); gpsSpeedEma = vFilter.filter(v, t);
+        if (gapMs > CONFIG.gps.gapResetMs) paceDistWindow.length = 0;
         return;
     }
+    // Resuming from a stop
     if (gpsWasStopped && v > 0.5) {
-        gpsLastValidT = t; gpsSpeedEma = v; gpsWasStopped = false; paceDistWindow.length = 0; return;
+        gpsLastValidT = t; lastDistT = t; gpsWasStopped = false;
+        vFilter.reset(); gpsSpeedEma = vFilter.filter(v, t);
+        return;
     }
+    // Near-stationary
     if (v < 0.3) {
-        if (gpsSpeedEma < 0.5) { gpsLastValidT = t; gpsWasStopped = true; return; }
+        if (gpsSpeedEma < 0.5) { gpsLastValidT = t; gpsWasStopped = true; vFilter.reset(); return; }
         if ((t - lastCatchAbsT) < 4000) return;
         return;
     }
     gpsLastValidT = t;
-    pushLimit(speedSamples, v, CONFIG.gps.speedMedianN);
-    const medV = median(speedSamples) ?? v;
-    const vCapped = (gpsSpeedEma > 1.0 && medV > gpsSpeedEma + CONFIG.gps.spikeMarginMps)
-        ? gpsSpeedEma + CONFIG.gps.spikeMarginMps : medV;
-    gpsSpeedEma = CONFIG.gps.speedEmaAlpha * vCapped + (1 - CONFIG.gps.speedEmaAlpha) * gpsSpeedEma;
+    // Light spike clamp, then One-Euro filter on the Doppler speed
+    let vIn = v;
+    if (gpsSpeedEma > 1.0 && vIn > gpsSpeedEma + CONFIG.gps.spikeMarginMps)
+        vIn = gpsSpeedEma + CONFIG.gps.spikeMarginMps;
+    gpsSpeedEma = vFilter.filter(vIn, t);
+    // Distance from velocity integral — unbiased, no position-jitter inflation
+    if (lastDistT > 0) {
+        const dtD = (t - lastDistT) / 1000;
+        if (dtD > 0 && dtD < 3 && gpsSpeedEma > 0.3) distance += gpsSpeedEma * dtD;
+    }
+    lastDistT = t;
     if (gpsSpeedEma > 0.3) {
         velocityWindow.push({ t, v: gpsSpeedEma });
         const vc = t - CONFIG.gps.velWindowMs;
@@ -1922,44 +1957,19 @@ function handlePos(pos) {
             strokeN: strokeCount, rlPhase
         });
     }
+    // Record route position for the map (distance now comes from ∫v dt in pushVelocity)
     const lat = pos.coords.latitude, lon = pos.coords.longitude, cur = { lat, lon, t: Date.now() };
-    // Update heading EMA (circular, handles 359→1° wrap) when moving
-    const hdg = pos.coords.heading;
-    if (hdg != null && !isNaN(hdg) && spd != null && spd > 0.5) {
-        const hAlpha = CONFIG.gps.headingEmaAlpha, hRad = hdg * Math.PI / 180;
-        headingEmaX = headingEmaX == null ? Math.cos(hRad) : hAlpha * Math.cos(hRad) + (1 - hAlpha) * headingEmaX;
-        headingEmaY = headingEmaY == null ? Math.sin(hRad) : hAlpha * Math.sin(hRad) + (1 - hAlpha) * headingEmaY;
-    }
-    if (running && !paused && lastPos && lat != null && lon != null && lastPos.lat != null) {
-        const d = haversineM(lastPos, cur);
-        if (d >= CONFIG.gps.minMoveDist && d < 30 && gpsSpeedEma > 0.5) {
-            // Project displacement onto forward axis — rejects lateral GPS jitter
-            let dFwd = d;
-            if (headingEmaX != null && d > 0.5) {
-                const fwdHdg = (Math.atan2(headingEmaY, headingEmaX) * 180 / Math.PI + 360) % 360;
-                let delta = ((bearingBetween(lastPos, cur) - fwdHdg) + 180) % 360 - 180;
-                const proj = Math.cos(delta * Math.PI / 180);
-                if (proj > 0.5) dFwd = d * proj;  // within 60° of heading — apply projection
-            }
-            distance += dFwd;
-            cur.dist = distance;
-            sessGpsTrace.push(cur);
-            paceDistWindow.push({ t: now, dist: distance });
-            const pdCut = now - CONFIG.gps.paceWindowMs;
-            while (paceDistWindow.length > 1 && paceDistWindow[0].t < pdCut) paceDistWindow.shift();
-        }
+    if (running && !paused && lat != null && lon != null && gpsSpeedEma > 0.5) {
+        cur.dist = distance;
+        sessGpsTrace.push(cur);
     }
     lastPos = cur;
+    // Pace straight from the One-Euro filtered Doppler velocity
     if (running && !paused) {
-        if (spd != null && spd < 0.3) { paceDistWindow.length = 0; pace = 0; }
-        else if (paceDistWindow.length >= 2) {
-            const old = paceDistWindow[0], new_ = paceDistWindow[paceDistWindow.length - 1];
-            const dtS = (new_.t - old.t) / 1000, dd = new_.dist - old.dist;
-            if (dd >= 3 && dtS >= 3) {
-                const raw = (dtS / dd) * 500;
-                if (raw >= 90 && raw <= CONFIG.gps.maxPaceS) { pace = raw; sessPaceTrace.push(pace); }
-            }
-        }
+        if (gpsSpeedEma > CONFIG.gps.minSpeedForPace) {
+            const raw = 500 / gpsSpeedEma;
+            if (raw >= 90 && raw <= CONFIG.gps.maxPaceS) { pace = raw; sessPaceTrace.push(pace); }
+        } else pace = 0;
         if (gpsLastValidT > 0 && (now - gpsLastValidT) > 6000) pace = 0;
     }
     updateUI();
@@ -3070,7 +3080,7 @@ function resumeSess() {
     if (running) return;
     clearInterval(timerInt); clearInterval(autosaveInt);
     paused = false; running = true;
-    paceDistWindow.length = 0; velocityWindow.length = 0; gpsSpeedEma = -1; speedSamples.length = 0; headingEmaX = null; headingEmaY = null;
+    paceDistWindow.length = 0; velocityWindow.length = 0; gpsSpeedEma = -1; speedSamples.length = 0; headingEmaX = null; headingEmaY = null; vFilter.reset(); lastDistT = 0;
     timerInt = setInterval(() => { elapsed++; wktCheckAuto(); checkGpsAlive(); updateUI(); updateWorkoutBar(); }, 1000);
     saveInProgress(); autosaveInt = setInterval(saveInProgress, CONFIG.ui.autosaveMs);
     requestAnimationFrame(renderCtrl);
@@ -3173,7 +3183,7 @@ function resetSess() {
     sessGpsTrace.length = 0; sessGpsRawTrace.length = 0;
     strokeTs.length = 0; paceDistWindow.length = 0; velocityWindow.length = 0;
     speedSamples.length = 0; prevStrokeDist = 0; prevStrokeDistT = 0;
-    gpsLastValidT = 0; gpsSpeedEma = -1; gpsWasStopped = false; gpsAccuracyM = null; headingEmaX = null; headingEmaY = null;
+    gpsLastValidT = 0; gpsSpeedEma = -1; gpsWasStopped = false; gpsAccuracyM = null; headingEmaX = null; headingEmaY = null; vFilter.reset(); lastDistT = 0;
     fsmState = FS.IDLE; catchPeakJerk = 0; catchStartT = 0; lastCatchAbsT = 0; lastDriveEndT = 0;
     strokesDetected = 0; jerkThreshActive = jerkThreshBase; adaptReady = false;
     acBuf.length = 0; acLastUpdate = 0; jerkBuf.length = 0; catchTsBuf.length = 0;
