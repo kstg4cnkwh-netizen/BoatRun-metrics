@@ -628,7 +628,8 @@ const CONFIG = Object.freeze({
         headingEmaAlpha: 0.15,
         oneEuroMinCutoff: 0.30,
         oneEuroBeta: 0.40,
-        oneEuroDCutoff: 1.0 //lower=more-smoothing, higher=more-responsive; 1.0 is a reasonable starting point  
+        oneEuroDCutoff: 1.0, //lower=more-smoothing, higher=more-responsive; 1.0 is a reasonable starting point  
+        paceAvgMs: 5000
     },
     motion: {
         gravityAlpha: 0.965,
@@ -1967,8 +1968,16 @@ function handlePos(pos) {
     // Pace straight from the One-Euro filtered Doppler velocity
     if (running && !paused) {
         if (gpsSpeedEma > CONFIG.gps.minSpeedForPace) {
-            const raw = 500 / gpsSpeedEma;
-            if (raw >= 90 && raw <= CONFIG.gps.maxPaceS) { pace = raw; sessPaceTrace.push(pace); }
+            // Average over ~5 s (2–3 strokes) for a readable display pace
+            const cut = now - CONFIG.gps.paceAvgMs;
+            let sum = 0, n = 0;
+            for (let i = velocityWindow.length - 1; i >= 0 && velocityWindow[i].t >= cut; i--)
+                { sum += velocityWindow[i].v; n++; }
+            const vMean = n > 0 ? sum / n : gpsSpeedEma;
+            if (vMean > CONFIG.gps.minSpeedForPace) {
+                const raw = 500 / vMean;
+                if (raw >= 90 && raw <= CONFIG.gps.maxPaceS) { pace = raw; sessPaceTrace.push(pace); }
+            } else pace = 0;
         } else pace = 0;
         if (gpsLastValidT > 0 && (now - gpsLastValidT) > 6000) pace = 0;
     }
