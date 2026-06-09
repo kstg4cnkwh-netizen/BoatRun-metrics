@@ -3106,8 +3106,6 @@ function renderCtrl() {
     show('resume', !running && paused);
     show('lock',   running || paused || elapsed > 0);
     show('finish', paused && !sessLocked);
-    const lapEl = document.getElementById('cc-lap');
-    if (lapEl) lapEl.textContent = freshStopped ? 'Ready' : 'Lap';
     const ri = document.getElementById('rec-ind');
     if (ri) {
         if (readyMode) { ri.style.display = 'flex'; ri.innerHTML = '<div class="recdot" style="background:#27ae60;animation:none"></div>READY'; }
