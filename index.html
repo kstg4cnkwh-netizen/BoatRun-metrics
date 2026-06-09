@@ -1818,6 +1818,7 @@ function onStrokeFinish(now, driveDur) {
     pendingOarStrokeIdx = sessStrokes.length - 1;
     pendingCurveDriveCount = catchToCatchSamples.length;
     updateUI();
+    if (sessionReady && running) { exitSessionReady(); return; }
     if (wkt.active && running && !paused && wkt.waitingForRow) {
         if (Date.now() - wkt.waitingForRowAt < 2000) return; // ignore strokes in first 2s after gate opens
         if (strokeRate >= 12) { wkt.waitStrokeCount++; } else { wkt.waitStrokeCount = 0; }
@@ -2018,7 +2019,7 @@ function checkGpsAlive() {
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // SESSION STATE — running, paused, elapsed, laps, autosave
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
-let running = false, paused = false, elapsed = 0;
+let running = false, paused = false, elapsed = 0, sessionReady = false;
 let distance = 0, lapStartDist = 0, lapStartTime = 0;
 let laps = [], sessStart = null, sessStrokes = [], sessPaceTrace = [];
 let sessSaved = false, timerInt = null, autosaveInt = null, wakeLock = null, sessLocked = false;
@@ -2767,6 +2768,7 @@ let wkt={
   waitStrokeCount:0,    // gate: strokes ≥ 12spm seen
   waitingForRowAt:0,    // timestamp when gate was activated (ms)
   fromRestCountdown:false, // true during rest end 3-2-1, clears on work entry
+  readyPaused:false,    // timer frozen during READY gate
 };
 
 function wktCurrentStep(){return wkt.active?wkt.sequence[wkt.seqIdx]||null:null;}
@@ -2784,14 +2786,18 @@ function wktStart(def){
   const seq=flattenWorkout(def);
   wkt={active:true,def,sequence:seq,seqIdx:0,startDist:distance,startElapsed:elapsed,
        startStrokeIdx:sessStrokes.length,
-       lapMetrics:[],countdownActive:false,waitingForRow:false,waitStrokeCount:0,waitingForRowAt:0,fromRestCountdown:false,workToWork:false,_lastWasWork:false};
-  // Sync lap markers to the workout start so interval laps measure from this point
+       lapMetrics:[],countdownActive:false,waitingForRow:false,waitStrokeCount:0,waitingForRowAt:0,fromRestCountdown:false,workToWork:false,_lastWasWork:false,readyPaused:false};
   lapStartDist=distance;lapStartTime=elapsed;
   const bar=document.getElementById('wkt-bar');if(bar)bar.classList.add('wactive');
   toast('Workout: '+def.name);
-  // Check if first step needs startWhenRowing
   const first=wktCurrentStep();
-  if(first?.startWhenRowing){wkt.waitingForRow=true;wkt.waitingForRowAt=Date.now();updateWorkoutBar();updateUI();updateIntervalsPanel();showCountdownOverlay('ready',null,first);return;}
+  if(first?.startWhenRowing){
+    clearInterval(timerInt); wkt.readyPaused=true;
+    wkt.waitingForRow=true;wkt.waitingForRowAt=Date.now();
+    updateWorkoutBar();updateUI();updateIntervalsPanel();
+    showCountdownOverlay('ready',null,first);
+    return;
+  }
   updateWorkoutBar();updateUI();updateIntervalsPanel();
   wktMaybeShowCountdown();
 }
@@ -2866,6 +2872,7 @@ function wktAdvance(){
   if(wkt.seqIdx>=wkt.sequence.length){wktEnd();return;}
   const next=wktCurrentStep();
   if(next?.startWhenRowing){
+    clearInterval(timerInt); wkt.readyPaused=true;
     wkt.waitingForRow=true;wkt.waitStrokeCount=0;wkt.waitingForRowAt=Date.now();
     wkt.fromRestCountdown=false;wkt._lastWasWork=false;
     updateWorkoutBar();updateUI();updateIntervalsPanel();
@@ -2883,11 +2890,17 @@ function wktEnd(){
 }
 /* Called when rowing detected while waitingForRow gate is active */
 function wktBeginStep(){
-  wkt.waitingForRow=false;wkt.waitStrokeCount=0;
-  wkt.startDist=distance;wkt.startElapsed=elapsed;
+  wkt.waitingForRow=false; wkt.waitStrokeCount=0;
+  wkt.startDist=distance; wkt.startElapsed=elapsed;
   wkt.startStrokeIdx=sessStrokes.length;
+  lapStartDist=distance; lapStartTime=elapsed; // backdate lap start to actual rowing start
+  if(wkt.readyPaused){
+    wkt.readyPaused=false;
+    clearInterval(timerInt);
+    timerInt=setInterval(()=>{ elapsed++;wktCheckAuto();checkGpsAlive();updateUI();updateWorkoutBar(); },1000);
+  }
   hideCountdownOverlay();
-  updateWorkoutBar();updateUI();
+  updateWorkoutBar(); updateUI();
 }
 function wktCheckAuto(){
   if(!wkt.active||!running||paused||wkt.waitingForRow)return;
@@ -3084,14 +3097,23 @@ SESSION CONTROLS
 */
 function renderCtrl() {
     const show = (id, vis) => { const el = document.getElementById('cc-' + id); if (el) el.style.display = vis ? 'flex' : 'none'; };
-    const active = running && !paused;
-    show('start',  !running && !paused && elapsed === 0);
-    show('lap',    active);
-    show('pause',  active && !sessLocked);
+    const readyMode = sessionReady || (wkt.active && wkt.waitingForRow && running && !paused);
+    const active = running && !paused && !readyMode;
+    const freshStopped = !running && !paused && elapsed === 0 && !sessionReady;
+    show('start',  freshStopped);
+    show('lap',    active || freshStopped);
+    show('pause',  readyMode || (active && !sessLocked));
     show('resume', !running && paused);
     show('lock',   running || paused || elapsed > 0);
     show('finish', paused && !sessLocked);
-    document.getElementById('rec-ind').style.display = active ? 'flex' : 'none';
+    const lapEl = document.getElementById('cc-lap');
+    if (lapEl) lapEl.textContent = freshStopped ? 'Ready' : 'Lap';
+    const ri = document.getElementById('rec-ind');
+    if (ri) {
+        if (readyMode) { ri.style.display = 'flex'; ri.innerHTML = '<div class="recdot" style="background:#27ae60;animation:none"></div>READY'; }
+        else if (active) { ri.style.display = 'flex'; ri.innerHTML = '<div class="recdot"></div>REC'; }
+        else { ri.style.display = 'none'; ri.innerHTML = '<div class="recdot"></div>REC'; }
+    }
 }
 function startSess() {
     if (running) return;
@@ -3109,6 +3131,7 @@ function startSess() {
 }
 function pauseSess() {
     if (!running) return;
+    sessionReady = false;
     paused = true; running = false;
     clearInterval(timerInt);
     requestAnimationFrame(renderCtrl);
@@ -3118,8 +3141,12 @@ function resumeSess() {
     clearInterval(timerInt); clearInterval(autosaveInt);
     paused = false; running = true;
     paceDistWindow.length = 0; velocityWindow.length = 0; gpsSpeedEma = -1; speedSamples.length = 0; headingEmaX = null; headingEmaY = null; vFilter.reset(); lastDistT = 0;
-    timerInt = setInterval(() => { elapsed++; wktCheckAuto(); checkGpsAlive(); updateUI(); updateWorkoutBar(); }, 1000);
-    saveInProgress(); autosaveInt = setInterval(saveInProgress, CONFIG.ui.autosaveMs);
+    if (wkt.active && wkt.waitingForRow) {
+        wkt.readyPaused = true; // stay timer-frozen until wktBeginStep fires
+    } else {
+        timerInt = setInterval(() => { elapsed++; wktCheckAuto(); checkGpsAlive(); updateUI(); updateWorkoutBar(); }, 1000);
+        saveInProgress(); autosaveInt = setInterval(saveInProgress, CONFIG.ui.autosaveMs);
+    }
     requestAnimationFrame(renderCtrl);
 }
 function finishSess() {
@@ -3132,7 +3159,7 @@ function finishSess() {
 }
 function stopSess() {
     if (!running && !paused) return;
-    running = false; paused = false;
+    running = false; paused = false; sessionReady = false;
     clearInterval(timerInt); clearInterval(autosaveInt);
     if (wkt.active) {
         const curStep = wktCurrentStep();
@@ -3208,7 +3235,7 @@ function stopSess() {
 function resetSess() {
     sessLocked = false;
     clearInterval(timerInt); clearInterval(autosaveInt);
-    running = false; paused = false; sessSaved = false;
+    running = false; paused = false; sessSaved = false; sessionReady = false;
     _LS.removeItem(AUTOSAVE_DB);
     elapsed = 0; distance = 0; pace = 0; strokeRate = 0; strokeCount = 0;
     acRate = 0; acConf = 0; distPerStroke = 0; dpsValsArr.length = 0; maxDPS = 0;
@@ -3232,7 +3259,7 @@ function resetSess() {
     checkDelta = null; checkDeltaRawArr.length = 0;
     catchGpsDist = 0; pendingOarStrokeIdx = -1;
     for (const k of AXES) { gravity[k] = 0; axFast[k] = 0; axSmooth[k] = 0; }
-    wkt = { active: false, def: null, sequence: [], seqIdx: 0, startDist: 0, startElapsed: 0, lapMetrics: [], countdownActive: false, waitingForRow: false, waitStrokeCount: 0, fromRestCountdown: false, workToWork: false, _lastWasWork: false };
+    wkt = { active: false, def: null, sequence: [], seqIdx: 0, startDist: 0, startElapsed: 0, lapMetrics: [], countdownActive: false, waitingForRow: false, waitStrokeCount: 0, fromRestCountdown: false, workToWork: false, _lastWasWork: false, readyPaused: false };
     const bar = document.getElementById('wkt-bar'); if (bar) bar.classList.remove('wactive');
     hideCountdownOverlay();
     if (curveTabActive()) renderCurveCanvas();
@@ -3273,8 +3300,26 @@ function recordLap() {
     if ((!curStep || curStep.type === 'work') && !wkt.workToWork) showLapSplit(laps[laps.length - 1]);
     updateIntervalsPanel();
 }
+function enterSessionReady() {
+    if (running || paused || elapsed > 0) return;
+    sessStart = Date.now();
+    lapStartDist = distance; lapStartTime = 0;
+    running = true; paused = false; sessionReady = true;
+    requestAnimationFrame(renderCtrl);
+}
+function exitSessionReady() {
+    if (!sessionReady) return;
+    sessionReady = false;
+    lapStartDist = distance; lapStartTime = elapsed;
+    clearInterval(timerInt);
+    timerInt = setInterval(() => { elapsed++; wktCheckAuto(); checkGpsAlive(); updateUI(); updateWorkoutBar(); }, 1000);
+    saveInProgress(); autosaveInt = setInterval(saveInProgress, CONFIG.ui.autosaveMs);
+    requestAnimationFrame(renderCtrl);
+}
 function handleLapBtn() {
+    if (!running && !paused && elapsed === 0) { enterSessionReady(); return; }
     if (!running || paused) return;
+    if (sessionReady) return;
     if (wkt.active && wkt.waitingForRow) return;
     if (wkt.active) wktAdvance(); else recordLap();
 }
