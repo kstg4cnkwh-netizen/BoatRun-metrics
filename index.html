@@ -1433,7 +1433,8 @@ function onNewCatch(now) {
         if (pendingOarStrokeIdx >= 0 &&
             catchToCatchSamples.length >= 8 &&
             pendingCurveDriveCount >= 2 &&
-            strokeGpsDist > 4.0) {
+            strokeGpsDist > 4.0 &&
+            gpsSpeedEma >= 1.5 && (now - gpsResumeT) > 10000) {
             const rawAngle = computeOarAngleFullStroke(
                 catchToCatchSamples, pendingCurveDriveCount, strokeGpsDist);
             if (rawAngle !== null) {
@@ -1761,7 +1762,7 @@ function onStrokeFinish(now, driveDur) {
     const intervalS = gapMs / 1000;
     if (intervalS > 0.8 && intervalS < 8 && prevStrokeDistT > 0) {
         const dD = distance - prevStrokeDist;
-        if (dD > 0.5 && dD < 25) {
+        if (dD > 0.5 && dD < 25 && gpsSpeedEma >= 1.5 && (now - gpsResumeT) > 10000) {
             pushLimit(dpsValsArr, dD, CONFIG.stroke.dpsMedianN);
             distPerStroke = Math.round((median(dpsValsArr) ?? dD) * 10) / 10;
             if (distPerStroke > maxDPS) maxDPS = distPerStroke;
@@ -1827,7 +1828,7 @@ function onStrokeFinish(now, driveDur) {
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // GPS HANDLER — speed EMA, pace window, haversine distance
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
-let pace = 0, gpsAccuracyM = null, gpsSpeedEma = -1, gpsLastValidT = 0, gpsWasStopped = false, gpsDeadWarned = false;
+let pace = 0, gpsAccuracyM = null, gpsSpeedEma = -1, gpsLastValidT = 0, gpsWasStopped = false, gpsDeadWarned = false, gpsResumeT = -Infinity;
 const speedSamples = [], paceDistWindow = [], velocityWindow = [];
 let lastPos = null;
 let headingEmaX = null, headingEmaY = null;
@@ -1906,12 +1907,18 @@ function pushVelocity(t, v) {
     // Resuming from a stop
     if (gpsWasStopped && v > 0.5) {
         gpsLastValidT = t; lastDistT = t; gpsWasStopped = false;
+        gpsResumeT = t;
         vFilter.reset(); gpsSpeedEma = vFilter.filter(v, t);
         return;
     }
     // Near-stationary
     if (v < 0.3) {
-        if (gpsSpeedEma < 0.5) { gpsLastValidT = t; gpsWasStopped = true; vFilter.reset(); return; }
+        if (gpsSpeedEma < 0.5) {
+            gpsLastValidT = t; gpsWasStopped = true; vFilter.reset();
+            dpsValsArr.length = 0; distPerStroke = 0;   // clear corrupt DPS buffer
+            oarAngleRawArr.length = 0;                   // clear corrupt oar history
+            return;
+        }
         if ((t - lastCatchAbsT) < 4000) return;
         return;
     }
@@ -2595,36 +2602,41 @@ function renderCurveCanvas(){
     ctx.fillStyle='rgba(0,0,0,0.45)';ctx.font='bold 11px Roboto';ctx.textAlign='center';
     ctx.fillText('Row a stroke to see the curve',W/2,H/2);return;
   }
-  // Always include zero in the y-range so the curve shows above AND below the baseline
   let yMin=0,yMax=0;
   for(const c of[lastStrokeCurve,avg5].filter(Boolean))for(const v of c.data){if(v<yMin)yMin=v;if(v>yMax)yMax=v;}
-  // Add 8% padding above and below so the curve doesn't touch the edges
   const yPad=Math.max((yMax-yMin)*0.08,0.1);
   yMin-=yPad;yMax+=yPad;
   const yRange=yMax-yMin||1,sy=v=>padT+(1-(v-yMin)/yRange)*(H-padT-padB);
-  const y0=Math.max(padT,Math.min(H-padB,sy(0)));  // pixel y of zero — always valid now
-  const driveFrac=(lastStrokeCurve??avg5).driveFrac,xDiv=sx(Math.round(driveFrac*(CURVE_POINTS-1)));
+  const y0=Math.max(padT,Math.min(H-padB,sy(0)));
+  const primaryCurve=(lastStrokeCurve??avg5);
+  const driveFrac=primaryCurve.driveFrac,xDiv=sx(Math.round(driveFrac*(CURVE_POINTS-1)));
+  // Find actual catch: first neg→pos zero crossing
+  let catchZeroIdx=-1;
+  for(let i=1;i<CURVE_POINTS;i++){
+    if(primaryCurve.data[i-1]<0&&primaryCurve.data[i]>=0){catchZeroIdx=i;break;}
+  }
+  // Find actual recovery: first pos→neg zero crossing after catch
+  let recovZeroIdx=-1;
+  const searchFrom=catchZeroIdx>=0?catchZeroIdx+1:1;
+  for(let i=searchFrom;i<CURVE_POINTS;i++){
+    if(primaryCurve.data[i-1]>0&&primaryCurve.data[i]<=0){recovZeroIdx=i;break;}
+  }
   // Zone backgrounds
   ctx.fillStyle='rgba(0,100,200,0.05)';ctx.fillRect(padH,padT,xDiv-padH,H-padT-padB);
   ctx.fillStyle='rgba(200,120,0,0.04)';ctx.fillRect(xDiv,padT,W-padH-xDiv,H-padT-padB);
   // Light grid lines
   ctx.strokeStyle='rgba(0,0,0,0.08)';ctx.lineWidth=1;
   for(let i=1;i<4;i++){const y=H*i/4;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
-  // Zero baseline — always draw as a dashed line
+  // Zero baseline dashed
   ctx.save();ctx.strokeStyle='rgba(0,0,0,0.28)';ctx.lineWidth=1;ctx.setLineDash([4,6]);
   ctx.beginPath();ctx.moveTo(padH,y0);ctx.lineTo(W-padH,y0);ctx.stroke();ctx.setLineDash([]);ctx.restore();
-  // Drive/recovery divider
-  ctx.save();ctx.strokeStyle='rgba(0,0,0,0.22)';ctx.lineWidth=1;ctx.setLineDash([3,5]);
-  ctx.beginPath();ctx.moveTo(xDiv,padT);ctx.lineTo(xDiv,H-padB);ctx.stroke();ctx.setLineDash([]);ctx.restore();
-  // Draw a curve with fill between the curve and the zero line (y0)
+  // Draw curves
   function drawCL(curve,color,lw,fill){
     ctx.beginPath();
     for(let i=0;i<CURVE_POINTS;i++){const x=sx(i),y=sy(curve.data[i]);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
     if(fill){
-      // Close path via the zero line so fill appears between curve and zero (above AND below)
       ctx.lineTo(sx(CURVE_POINTS-1),y0);ctx.lineTo(sx(0),y0);ctx.closePath();
       ctx.fillStyle=color+'28';ctx.fill();
-      // Re-draw just the curve line on top of the fill
       ctx.beginPath();
       for(let i=0;i<CURVE_POINTS;i++){const x=sx(i),y=sy(curve.data[i]);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
     }
@@ -2632,7 +2644,23 @@ function renderCurveCanvas(){
   }
   if(avg5)drawCL(avg5,'#e07b00',2.5,true);
   if(lastStrokeCurve)drawCL(lastStrokeCurve,'#0077cc',3.0,false);
-  // Y-axis labels (show actual data extremes, not padded values)
+  // Markers drawn on top of curves
+  // Actual catch zero crossing — red
+  if(catchZeroIdx>=0){
+    const xC=sx(catchZeroIdx);
+    ctx.save();ctx.strokeStyle='#c0392b';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(xC,padT);ctx.lineTo(xC,H-padB);ctx.stroke();ctx.restore();
+  }
+  // Indicated recovery (driveFrac) — blue
+  ctx.save();ctx.strokeStyle='#2980b9';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(xDiv,padT);ctx.lineTo(xDiv,H-padB);ctx.stroke();ctx.restore();
+  // Actual recovery zero crossing — green
+  if(recovZeroIdx>=0){
+    const xR=sx(recovZeroIdx);
+    ctx.save();ctx.strokeStyle='#27ae60';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(xR,padT);ctx.lineTo(xR,H-padB);ctx.stroke();ctx.restore();
+  }
+  // Y-axis labels
   const dataMax=yMax-yPad,dataMin=yMin+yPad;
   ctx.fillStyle='rgba(0,0,0,0.45)';ctx.font='9px Roboto';ctx.textAlign='left';
   ctx.fillText(dataMax.toFixed(1),3,padT-4);ctx.fillText(dataMin.toFixed(1),3,H-padB+11);
@@ -3192,7 +3220,7 @@ function resetSess() {
     sessGpsTrace.length = 0; sessGpsRawTrace.length = 0;
     strokeTs.length = 0; paceDistWindow.length = 0; velocityWindow.length = 0;
     speedSamples.length = 0; prevStrokeDist = 0; prevStrokeDistT = 0;
-    gpsLastValidT = 0; gpsSpeedEma = -1; gpsWasStopped = false; gpsAccuracyM = null; headingEmaX = null; headingEmaY = null; vFilter.reset(); lastDistT = 0;
+    gpsLastValidT = 0; gpsSpeedEma = -1; gpsWasStopped = false; gpsDeadWarned = false; gpsAccuracyM = null; headingEmaX = null; headingEmaY = null; vFilter.reset(); lastDistT = 0; gpsResumeT = -Infinity;
     fsmState = FS.IDLE; catchPeakJerk = 0; catchStartT = 0; lastCatchAbsT = 0; lastDriveEndT = 0;
     strokesDetected = 0; jerkThreshActive = jerkThreshBase; adaptReady = false;
     acBuf.length = 0; acLastUpdate = 0; jerkBuf.length = 0; catchTsBuf.length = 0;
