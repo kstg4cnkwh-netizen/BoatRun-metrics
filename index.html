@@ -1324,6 +1324,7 @@ function runFSM(now, fast, jerk) {
             const wasRecovery = (fsmState === FS.RECOVERY);
             if (jerk > jerkThreshActive && fast > accThreshBase && tSinceCatch > ref
                     && (now - lastDriveEndT) > CONFIG.stroke.postDriveLockoutMs) {
+                lastCatchAbsT = now;                           // lock refractory before any early-return path
                 onNewCatch(now);                               // ← now passed in
                 fsmState = FS.CATCH;
                 catchStartT = now; catchPeakJerk = jerk;
@@ -1427,16 +1428,19 @@ function onNewCatch(now) {
         }
     }
     imuRL = null;
-    // \u9472 \u9472  Oar angle: full catch-to-catch integration anchored to GPS stroke dist
+    // ─── Oar angle: IMU integration anchored to smoothed average GPS speed ─────
     {
-        const strokeGpsDist = distance - catchGpsDist;
+        // Stable average speed from the 10-s velocity window (same source as pace display)
+        let vMean = 0;
+        if (velocityWindow.length > 0) {
+            vMean = velocityWindow.reduce((s, x) => s + x.v, 0) / velocityWindow.length;
+        }
         if (pendingOarStrokeIdx >= 0 &&
             catchToCatchSamples.length >= 8 &&
             pendingCurveDriveCount >= 2 &&
-            strokeGpsDist > 4.0 &&
-            gpsSpeedEma >= 1.5 && (now - gpsResumeT) > 10000) {
-            const rawAngle = computeOarAngleFullStroke(
-                catchToCatchSamples, pendingCurveDriveCount, strokeGpsDist);
+            vMean >= 1.5 && (now - gpsResumeT) > 6000) {
+            const rawAngle = computeOarAngle(
+                catchToCatchSamples, pendingCurveDriveCount, vMean);
             if (rawAngle !== null) {
                 pushLimit(oarAngleRawArr, rawAngle, 5);
                 const win  = oarAngleRawArr;
@@ -1553,25 +1557,25 @@ function computeDriveImpulse(samples) {
     }
     return imp > 0 ? +imp.toFixed(4) : null;
 }
-// \u9472 \u9472  Oar arc angle — full catch-to-catch IMU integration \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 
-// Uses catchToCatchSamples (axFast, full stroke) + GPS stroke distance as
-// an exact anchor, eliminating GPS-speed-lag bias.
+// ─── Oar arc angle — full catch-to-catch IMU integration ──────────────────
+// Uses catchToCatchSamples (axFast) + smoothed GPS average speed as anchor.
 //
-// The velocity profile is:  v(t) = vCatch + \u916 V(t)
-// where \u916 V(t) = \u8747 a dt from catch.
+// The velocity profile is:  v(t) = vCatch + ΔV(t)
+// where ΔV(t) = ∫ a dt from catch.
 //
-// GPS gives total stroke distance exactly:
-//   gpsStrokeDist = \u8747 v dt = vCatch × T + \u8747 \u916 V dt
-// → vCatch = (gpsStrokeDist − ∫ ΔV dt) / T   (solved analytically)
+// Average stroke speed (vMean, from 10-s velocity window) gives:
+//   vMean = vCatch + intDVFull / T
+// → vCatch = vMean − intDVFull / T
 //
+// Avoids per-stroke GPS distance noise; uses only the stable windowed mean.
 // Drive distance = ∫ v dt over drive portion only → angle = dist / outboard
-function computeOarAngleFullStroke(samples, driveCount, gpsStrokeDist) {
+function computeOarAngle(samples, driveCount, vMean) {
     const OUTBOARD      = outboardLength();
     const R2D           = 180 / Math.PI;
     const SLIP_FRACTION = 0.10;
     const n             = samples.length;
     if (n < 8 || driveCount < 2 || driveCount >= n) return null;
-    if (gpsStrokeDist < 4.0 || gpsStrokeDist > 30)  return null;
+    if (vMean < 0.5 || vMean > 8) return null;
 
     // Pass 1 — cumulative ΔV from catch (sample 0)
     const cumulDV = new Array(n).fill(0);
@@ -1592,26 +1596,13 @@ function computeOarAngleFullStroke(samples, driveCount, gpsStrokeDist) {
         intDVFull += (cumulDV[i - 1] + cumulDV[i]) / 2 * dt;
     }
 
-    // Solve for catch speed using GPS as anchor
-    const vCatch = (gpsStrokeDist - intDVFull) / T;
+    // Solve for catch speed anchored to smoothed average: vCatch = vMean − intDVFull/T
+    const vCatch = vMean - intDVFull / T;
     if (vCatch < 0.5 || vCatch > 8) return null;
-    if (gpsSpeedEma > 0.5 && vCatch < gpsSpeedEma * 0.45) return null;
+    if (vCatch < vMean * 0.30) return null;   // sanity: catch speed ≥ 30% of mean
 
     // Detect blade-out as the LAST positive→negative zero-crossing of acceleration
     // within the plausible drive window (15%–65% of stroke).
-    //
-    // IMU profile across the stroke:
-    //   catch    → large positive jerk (blade engages)
-    //   drive    → sustained positive acceleration, reducing toward finish
-    //   finish   → acceleration crosses zero as propulsive force collapses
-    //   recovery → low/flat, with slight positive from body-swing toward next catch
-    //   pre-catch→ largest negative jerk of the stroke (NOT the finish)
-    //
-    // We take the LAST crossing so noise dips during the drive are overridden by
-    // subsequent positive samples. Jerk-based detection is not used because the
-    // largest negative jerk occurs just before the catch, not at the finish.
-    // The FSM driveCount (which fires on first fast<0, too early) is kept as
-    // a lower bound only.
     const searchStart = Math.round(n * 0.15);
     const searchEnd   = Math.round(n * 0.65);
     let finishIdx = -1;
