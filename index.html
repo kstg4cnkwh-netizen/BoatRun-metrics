@@ -1853,6 +1853,12 @@ function onStrokeFinish(now, driveDur) {
     pendingOarStrokeIdx = sessStrokes.length - 1;
     pendingCurveDriveCount = catchToCatchSamples.length;
     updateUI();
+    if (lapReady) {
+        lapReady = false;
+        lapStartDist = distance;
+        lapStartTime = elapsed;
+        requestAnimationFrame(renderCtrl);
+    }
     if (sessionReady && running) { exitSessionReady(); return; }
     if (wkt.active && running && !paused && wkt.waitingForRow) {
         if (Date.now() - wkt.waitingForRowAt < 2000) return; // ignore strokes in first 2s after gate opens
@@ -1987,7 +1993,7 @@ function handlePos(pos) {
     }
     // Record route position for the map (distance now comes from ∫v dt in pushVelocity)
     const lat = pos.coords.latitude, lon = pos.coords.longitude, cur = { lat, lon, t: Date.now() };
-    if (running && !paused && lat != null && lon != null && gpsSpeedEma > 0.5) {
+    if (running && !paused && lat != null && lon != null) {
         cur.dist = distance;
         sessGpsTrace.push(cur);
     }
@@ -2051,7 +2057,7 @@ function checkGpsAlive() {
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // SESSION STATE — running, paused, elapsed, laps, autosave
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
-let running = false, paused = false, elapsed = 0, sessionReady = false;
+let running = false, paused = false, elapsed = 0, sessionReady = false, lapReady = false;
 let distance = 0, lapStartDist = 0, lapStartTime = 0;
 let laps = [], sessStart = null, sessStrokes = [], sessPaceTrace = [];
 let sessSaved = false, timerInt = null, autosaveInt = null, wakeLock = null, sessLocked = false;
@@ -2344,6 +2350,7 @@ function renderMetricSlot(i, key) {
             break;
         }
         case 'laptime':
+            if (lapReady) { setVal(i, fmt(0), '', true, 'READY', ''); break; }
             setVal(i, fmt(elapsed - lapStartTime), '', !on, on ? 'LIVE' : 'WAIT', on ? 'g' : '');
             break;
         case 'totaldist': {
@@ -2355,6 +2362,7 @@ function renderMetricSlot(i, key) {
             break;
         }
         case 'lapdist': {
+            if (lapReady) { setVal(i, '--', '', true, 'READY', ''); break; }
             const ldm = distance - lapStartDist;
             const ldv = on && ldm > 0 ? (appSettings.distUnit === 'km' ? (ldm/1000).toFixed(2) : (ldm/1609.34).toFixed(2)) : '--';
             setVal(i, ldv, '', !on, on ? 'LIVE' : 'WAIT', on ? 'g' : '');
@@ -2389,11 +2397,11 @@ function renderMetricSlot(i, key) {
             switch (sub) {
                 case 'tod': { const d=new Date(); setVal(i,`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`,'',false,'LIVE','g'); break; }
                 case 'totaltime': { const ok=on||elapsed>0; setVal(i,fmtH(elapsed),'',!on,ok?(on?'LIVE':'DONE'):'OFF',ok?(on?'g':'w'):''); break; }
-                case 'laptime': setVal(i,fmt(elapsed-lapStartTime),'',!on,on?'LIVE':'WAIT',on?'g':''); break;
+                case 'laptime': if (lapReady) { setVal(i,fmt(0),'',true,'READY',''); break; } setVal(i,fmt(elapsed-lapStartTime),'',!on,on?'LIVE':'WAIT',on?'g':''); break;
                 case 'totaldist': { const ok2=running||elapsed>0; const dv2=ok2?(appSettings.distUnit==='km'?(distance/1000).toFixed(2):(distance/1609.34).toFixed(2)):'0'; setVal(i,dv2,'',!ok2,ok2?(on?'LIVE':'DONE'):'OFF',ok2?(on?'g':'w'):''); break; }
-                case 'lapdist': { const ldm2=distance-lapStartDist; const ldv2=on&&ldm2>0?(appSettings.distUnit==='km'?(ldm2/1000).toFixed(2):(ldm2/1609.34).toFixed(2)):'--'; setVal(i,ldv2,'',!on,on?'LIVE':'WAIT',on?'g':''); break; }
+                case 'lapdist': { if (lapReady) { setVal(i,'--','',true,'READY',''); break; } const ldm2=distance-lapStartDist; const ldv2=on&&ldm2>0?(appSettings.distUnit==='km'?(ldm2/1000).toFixed(2):(ldm2/1609.34).toFixed(2)):'--'; setVal(i,ldv2,'',!on,on?'LIVE':'WAIT',on?'g':''); break; }
                 case 'avgpace': { const avgP=distance>5&&elapsed>0?(elapsed/distance)*500:0; const okA=avgP>50&&avgP<500; setVal(i,okA?fmtPace(avgP):paceNoVal(),'',!okA,okA?'LIVE':'WAIT',okA?'g':''); break; }
-                case 'lappace': { const ld3=distance-lapStartDist,lt3=elapsed-lapStartTime; const lp=ld3>5&&lt3>0?(lt3/ld3)*500:0; const okL=on&&lp>50&&lp<500; setVal(i,okL?fmtPace(lp):paceNoVal(),'',!okL,okL?'LIVE':'WAIT',okL?'g':''); break; }
+                case 'lappace': { if (lapReady) { setVal(i,paceNoVal(),'',true,'READY',''); break; } const ld3=distance-lapStartDist,lt3=elapsed-lapStartTime; const lp=ld3>5&&lt3>0?(lt3/ld3)*500:0; const okL=on&&lp>50&&lp<500; setVal(i,okL?fmtPace(lp):paceNoVal(),'',!okL,okL?'LIVE':'WAIT',okL?'g':''); break; }
             }
             // Update tile label to show current sub-metric
             const lblTxt = document.querySelector(`#slot-${i} .tile-metric-name`);
@@ -3129,7 +3137,7 @@ SESSION CONTROLS
 */
 function renderCtrl() {
     const show = (id, vis) => { const el = document.getElementById('cc-' + id); if (el) el.style.display = vis ? 'flex' : 'none'; };
-    const readyMode = sessionReady || (wkt.active && wkt.waitingForRow && running && !paused);
+    const readyMode = sessionReady || lapReady || (wkt.active && wkt.waitingForRow && running && !paused);
     const active = running && !paused && !readyMode;
     const freshStopped = !running && !paused && elapsed === 0 && !sessionReady;
     show('start',  freshStopped);
@@ -3161,10 +3169,9 @@ function startSess() {
 }
 function pauseSess() {
     if (!running) return;
-    sessionReady = false;
+    sessionReady = false; lapReady = false;
     paused = true; running = false;
     clearInterval(timerInt);
-    requestAnimationFrame(renderCtrl);
 }
 function resumeSess() {
     if (running) return;
@@ -3189,7 +3196,7 @@ function finishSess() {
 }
 function stopSess() {
     if (!running && !paused) return;
-    running = false; paused = false; sessionReady = false;
+    running = false; paused = false; sessionReady = false; lapReady = false;
     clearInterval(timerInt); clearInterval(autosaveInt);
     if (wkt.active) {
         const curStep = wktCurrentStep();
@@ -3267,7 +3274,7 @@ function stopSess() {
 function resetSess() {
     sessLocked = false;
     clearInterval(timerInt); clearInterval(autosaveInt);
-    running = false; paused = false; sessSaved = false; sessionReady = false;
+    running = false; paused = false; sessSaved = false; sessionReady = false; lapReady = false;
     elapsed = 0; distance = 0; pace = 0; strokeRate = 0; strokeCount = 0;
     acRate = 0; acConf = 0; distPerStroke = 0; dpsValsArr.length = 0; maxDPS = 0;
     lapStartDist = 0; lapStartTime = 0; catchLast = null; catchPeakSess = null; catchAvg8 = null;
@@ -3350,9 +3357,16 @@ function exitSessionReady() {
 function handleLapBtn() {
     if (!running && !paused && elapsed === 0) { enterSessionReady(); return; }
     if (!running || paused) return;
-    if (sessionReady) return;
+    if (sessionReady || lapReady) return;
     if (wkt.active && wkt.waitingForRow) return;
-    if (wkt.active) wktAdvance(); else recordLap();
+    if (wkt.active) { wktAdvance(); return; }
+    if (!wkt.active && gpsSpeedEma <= 0.5) {
+        recordLap();
+        lapReady = true;
+        requestAnimationFrame(renderCtrl);
+        return;
+    }
+    recordLap();
 }
 function toggleSessLock() {
     sessLocked = !sessLocked;
