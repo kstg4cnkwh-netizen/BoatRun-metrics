@@ -1974,7 +1974,7 @@ function handlePos(pos) {
     else if (acc < 25) { pill.className = 'pill pill-warn'; pill.textContent = 'GPS ' + Math.round(acc) + 'm'; }
     else               { pill.className = 'pill pill-err';  pill.textContent = 'GPS ' + Math.round(acc) + 'm'; }
     const spd = pos.coords.speed, now = performance.now();
-    if (running && !paused && spd != null && spd >= 0 && spd < 8) {
+    if (running && !paused && !sessionReady && spd != null && spd >= 0 && spd < 8) {
         if (gpsDeadWarned) { gpsDeadWarned = false; toast('GPS restored'); }
         pushVelocity(now, spd);
         updatePendingRunLoss();
@@ -1993,13 +1993,13 @@ function handlePos(pos) {
     }
     // Record route position for the map (distance now comes from ∫v dt in pushVelocity)
     const lat = pos.coords.latitude, lon = pos.coords.longitude, cur = { lat, lon, t: Date.now() };
-    if (running && !paused && lat != null && lon != null) {
+    if (running && !paused && !sessionReady && lat != null && lon != null) {
         cur.dist = distance;
         sessGpsTrace.push(cur);
     }
     lastPos = cur;
     // Pace straight from the One-Euro filtered Doppler velocity
-    if (running && !paused) {
+    if (running && !paused && !sessionReady) {
         if (gpsSpeedEma > CONFIG.gps.minSpeedForPace) {
              // Average over whole stroke cycles (catch→catch endpoints) so
             // intra-stroke surge bias cancels. Falls back to time window.
@@ -3162,24 +3162,25 @@ function renderCtrl() {
     }
 }
 function startSess() {
-    if (running) return;
+    if (running || paused || elapsed > 0) return;
     const gpsPill = document.getElementById('p-gps');
     if (gpsPill && (gpsPill.classList.contains('pill-err') || gpsPill.classList.contains('pill-warn'))) {
         toast('⚠️ GPS not ready — pace data may be missing');
     }
-    clearInterval(timerInt); clearInterval(autosaveInt);
-    sessStart = Date.now();
-    lapStartDist = distance; lapStartTime = elapsed;
-    running = true; paused = false;
-    timerInt = setInterval(() => { elapsed++; wktCheckAuto(); checkGpsAlive(); updateUI(); updateWorkoutBar(); }, 1000);
-    saveInProgress(); autosaveInt = setInterval(saveInProgress, CONFIG.ui.autosaveMs);
-    requestAnimationFrame(renderCtrl);
+    enterSessionReady();
 }
 function pauseSess() {
     if (!running) return;
-    sessionReady = false; lapReady = false;
+    if (sessionReady) {
+        hideCountdownOverlay();
+        running = false; sessionReady = false;
+        sessStart = null; lastDistT = 0;
+        requestAnimationFrame(renderCtrl);
+        return;
+    }
     paused = true; running = false;
     clearInterval(timerInt);
+    requestAnimationFrame(renderCtrl);
 }
 function resumeSess() {
     if (running) return;
@@ -3352,12 +3353,23 @@ function enterSessionReady() {
     sessStart = Date.now();
     lapStartDist = distance; lapStartTime = 0;
     running = true; paused = false; sessionReady = true;
+    const ov = document.getElementById('countdown-overlay');
+    const numEl = document.getElementById('cdown-num');
+    const subEl = document.getElementById('cdown-sub');
+    if (ov && numEl && subEl) {
+        clearInterval(_cdownTimer);
+        numEl.textContent = 'READY'; numEl.className = 'cdown-num';
+        subEl.textContent = 'Row to start recording';
+        ov.classList.add('show');
+    }
     requestAnimationFrame(renderCtrl);
 }
 function exitSessionReady() {
     if (!sessionReady) return;
     sessionReady = false;
     lapStartDist = distance; lapStartTime = elapsed;
+    lastDistT = performance.now();   // prevent distance gap-burst on first GPS fix after ready
+    hideCountdownOverlay();
     clearInterval(timerInt);
     timerInt = setInterval(() => { elapsed++; wktCheckAuto(); checkGpsAlive(); updateUI(); updateWorkoutBar(); }, 1000);
     saveInProgress(); autosaveInt = setInterval(saveInProgress, CONFIG.ui.autosaveMs);
