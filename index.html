@@ -2877,7 +2877,7 @@ function wktIntervalStats(startIdx){
     curve=out;curveDriveFrac=+(df/vc.length).toFixed(3);
   }
   return{
-    avgImpulse:avg('driveImpulse'),avgDPS:avg('dps'),avgRunLoss:avg('runLossM'),
+    avgImpulse:avg('driveImpulse'),avgDPS:avg('dps'),avgRunLoss:avg('runLossM'),avgRunLossPct:avg('runLossPct'),
     avgCatch:avg('catchPeak'),avgOarAngle:avg('oarAngle'),avgCheckDelta:avg('checkDelta'),
     avgChar:avg('char'),avgRatio:avg('strokeRatio'),avgConsistency:avg('catchConsistency'),
     curve,curveDriveFrac
@@ -2893,6 +2893,7 @@ function wktAdvance(){
     rate:strokeRate,catchAvg:ist.avgCatch??catchAvg8,groupLabel:cur.groupLabel||null,
     dps:ist.avgDPS??distPerStroke??null,
     runLoss:ist.avgRunLoss??runLossM,
+    runLossPct:ist.avgRunLossPct??runLossPct,
     impulse:ist.avgImpulse??(sessStrokes.length>0?sessStrokes[sessStrokes.length-1].driveImpulse:null),
     avgOarAngle:ist.avgOarAngle??oarAngle??null,
     avgCheckDelta:ist.avgCheckDelta??checkDelta??null,
@@ -3207,6 +3208,7 @@ function stopSess() {
                 rate: strokeRate, catchAvg: ist.avgCatch ?? catchAvg8, groupLabel: curStep.groupLabel || null,
                 dps: ist.avgDPS ?? distPerStroke ?? null,
                 runLoss: ist.avgRunLoss ?? runLossM,
+                runLossPct: ist.avgRunLossPct ?? runLossPct,
                 impulse: ist.avgImpulse ?? (sessStrokes.length > 0 ? sessStrokes[sessStrokes.length - 1].driveImpulse : null),
                 avgOarAngle: ist.avgOarAngle ?? oarAngle ?? null,
                 avgCheckDelta: ist.avgCheckDelta ?? checkDelta ?? null,
@@ -3664,7 +3666,7 @@ function showDetail(id){
   const syncedNow=isSynced(s.id);
   const wktHTML=s.workoutLapMetrics&&s.workoutLapMetrics.length
     ?'<div class="chart-card" style="border-color:#f39c12"><div class="chart-lbl"><span>Workout Intervals: '+(s.workoutName||'')+'</span></div><table class="lap-tbl"><tr><th>#</th><th>Type</th><th>Dist</th><th>Time</th><th>Pace</th><th>Rate</th><th>DPS</th><th>Imp</th><th>RL</th><th>Arc°</th><th>ΔV</th></tr>'
-      +s.workoutLapMetrics.map(l=>'<tr'+(l.type==='work'?' style="background:rgba(39,174,96,.12)"':'')+'>'+  '<td>'+l.n+'</td><td>'+l.type.toUpperCase().slice(0,4)+'</td><td>'+l.dist+'m</td><td>'+fmt(l.time)+'</td><td>'+(l.lapPace>0?fmt(l.lapPace):'--')+'</td><td>'+(l.rate||'--')+'</td><td>'+(l.dps?l.dps.toFixed(1):'--')+'</td><td>'+(l.impulse?l.impulse.toFixed(2):'--')+'</td><td>'+(l.runLoss?l.runLoss.toFixed(2):'--')+'</td><td>'+(l.avgOarAngle?Math.round(l.avgOarAngle)+'°':'--')+'</td><td>'+(l.avgCheckDelta?l.avgCheckDelta.toFixed(2):'--')+'</td></tr>').join('')
+      +s.workoutLapMetrics.map(l=>'<tr'+(l.type==='work'?' style="background:rgba(39,174,96,.12)"':'')+'>'+  '<td>'+l.n+'</td><td>'+l.type.toUpperCase().slice(0,4)+'</td><td>'+l.dist+'m</td><td>'+fmt(l.time)+'</td><td>'+(l.lapPace>0?fmt(l.lapPace):'--')+'</td><td>'+(l.rate||'--')+'</td><td>'+(l.dps?l.dps.toFixed(1):'--')+'</td><td>'+(l.impulse?l.impulse.toFixed(2):'--')+'</td><td>'+(l.runLoss?l.runLoss.toFixed(2)+'m':'--')+'</td><td>'+(l.avgOarAngle?Math.round(l.avgOarAngle)+'°':'--')+'</td><td>'+(l.avgCheckDelta?l.avgCheckDelta.toFixed(2):'--')+'</td></tr>').join('')
       +'</table></div>'
     :'';
   const driveLinked=DriveSync.isSignedIn();
@@ -3683,7 +3685,7 @@ function showDetail(id){
     +'<div class="sgrid"><div class="sbox" style="border-color:#2980b9"><span class="sbox-v">'+(s.avgImpulse!=null?s.avgImpulse.toFixed(2):'--')+'</span><span class="sbox-l">Impulse</span></div><div class="sbox" style="border-color:#e74c3c"><span class="sbox-v">'+(s.avgRunLossPct!=null?s.avgRunLossPct.toFixed(1)+'%':(s.avgRunLossM!=null?s.avgRunLossM.toFixed(2)+'m':'--'))+'</span><span class="sbox-l">Run Loss</span><span class="sbox-u">'+(s.avgRunLossMps!=null?s.avgRunLossMps.toFixed(2)+'m/s':'')+'</span></div><div class="sbox" style="border-color:#2980b9"><span class="sbox-v">'+(s.avgCheckDelta!=null?s.avgCheckDelta.toFixed(2):'--')+'</span><span class="sbox-l">Check Delta</span><span class="sbox-u">M/S</span></div></div>'
     +'<div class="sgrid"><div class="sbox"><span class="sbox-v">'+(s.laps?s.laps.length:0)+'</span><span class="sbox-l">Laps</span></div><div class="sbox" style="grid-column:2/4"><span class="sbox-v" style="font-size:11px">'+(s.workoutName||'--')+'</span><span class="sbox-l">Workout</span></div></div>'
     +(s.calNoiseFloor!=null?'<div style="font-size:9px;color:#aaa;text-align:center;margin-bottom:6px;">CAL noise '+s.calNoiseFloor+' jerk '+s.calThresh+'</div>':'')
-    +(s.laps&&s.laps.length&&!(s.workoutLapMetrics&&s.workoutLapMetrics.length)?'<div class="chart-card" style="border-color:#ddd"><div class="chart-lbl"><span>Laps</span></div><table class="lap-tbl"><tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>Rate</th><th>DPS</th><th>Imp</th><th>RL</th><th>Arc°</th><th>ΔV</th></tr>'+(()=>{const best=s.laps.length>1?s.laps.reduce((b,l)=>l.pace>0&&l.pace<b.pace?l:b,s.laps[0]):null;return s.laps.map(l=>'<tr class="'+(best&&l.n===best.n?'best':'')+'"><td>'+l.n+'</td><td>'+l.dist+'m</td><td>'+fmt(l.time)+'</td><td>'+(l.pace>0?fmt(l.pace):'--')+'</td><td>'+(l.rate||'--')+'</td><td>'+(l.avgDPS?l.avgDPS.toFixed(1):'--')+'</td><td>'+(l.avgImpulse?l.avgImpulse.toFixed(2):'--')+'</td><td>'+(l.avgRunLoss?l.avgRunLoss.toFixed(2):'--')+'</td><td>'+(l.avgOarAngle?Math.round(l.avgOarAngle)+'°':'--')+'</td><td>'+(l.avgCheckDelta?l.avgCheckDelta.toFixed(2):'--')+'</td></tr>').join('');})()+'</table></div>':'')
+    +(s.laps&&s.laps.length&&!(s.workoutLapMetrics&&s.workoutLapMetrics.length)?'<div class="chart-card" style="border-color:#ddd"><div class="chart-lbl"><span>Laps</span></div><table class="lap-tbl"><tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>Rate</th><th>DPS</th><th>Imp</th><th>RL</th><th>Arc°</th><th>ΔV</th></tr>'+(()=>{const best=s.laps.length>1?s.laps.reduce((b,l)=>l.pace>0&&l.pace<b.pace?l:b,s.laps[0]):null;return s.laps.map(l=>'<tr class="'+(best&&l.n===best.n?'best':'')+'"><td>'+l.n+'</td><td>'+l.dist+'m</td><td>'+fmt(l.time)+'</td><td>'+(l.pace>0?fmt(l.pace):'--')+'</td><td>'+(l.rate||'--')+'</td><td>'+(l.avgDPS?l.avgDPS.toFixed(1):'--')+'</td><td>'+(l.avgImpulse?l.avgImpulse.toFixed(2):'--')+'</td><td>'+(l.avgRunLoss?l.avgRunLoss.toFixed(2)+'m':'--')+'</td><td>'+(l.avgOarAngle?Math.round(l.avgOarAngle)+'°':'--')+'</td><td>'+(l.avgCheckDelta?l.avgCheckDelta.toFixed(2):'--')+'</td></tr>').join('');})()+'</table></div>':'')
     +wktHTML
     +(s.garminLaps&&s.garminLaps.length?'<div class="chart-card" style="border-color:#8e44ad"><div class="chart-lbl"><span>Garmin Laps</span></div><table class="lap-tbl"><tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>HR</th><th>SPM</th><th>DPS</th></tr>'+s.garminLaps.map(l=>'<tr><td>'+l.n+'</td><td>'+l.dist+'m</td><td>'+fmt(l.time)+'</td><td>'+(l.pace>0?fmt(l.pace):'--')+'</td><td>'+(l.avgHr||'--')+'</td><td>'+(l.garminAvgSpm||'--')+'</td><td>'+(l.avgStrokeDist?l.avgStrokeDist+'m':'--')+'</td></tr>').join('')+'</table></div>':'')
     +hrHTML
