@@ -1449,11 +1449,19 @@ function onNewCatch(now) {
     imuRL = null;
     // ─── Oar angle: IMU integration anchored to smoothed average GPS speed ─────
     {
-        // Stable average speed from the 10-s velocity window (same source as pace display)
+        // Average speed over WHOLE stroke cycles: window runs catch→catch
+        // (both endpoints at catch phase) so intra-stroke surge bias cancels.
         let vMean = 0;
         if (velocityWindow.length > 0) {
-            const vCut = now - Math.min(6000, lastKnownPeriodMs * 2);
-            const vSlice = velocityWindow.filter(x => x.t >= vCut);
+            // Oldest catch within ~3 periods of now; fall back to time cut
+            let vCut = now - Math.min(6000, lastKnownPeriodMs * 2);
+            for (let i = 0; i < catchTsBuf.length; i++) {
+                if (catchTsBuf[i] >= now - lastKnownPeriodMs * 3.2) {
+                    vCut = catchTsBuf[i];
+                    break;
+                }
+            }
+            const vSlice = velocityWindow.filter(x => x.t >= vCut && x.t <= now);
             const vSrc = vSlice.length >= 3 ? vSlice : velocityWindow.slice(-10);
             vMean = vSrc.reduce((s, x) => s + x.v, 0) / vSrc.length;
         }
@@ -1608,38 +1616,52 @@ function computeOarAngle(samples, driveCount, vMean) {
     const T = (samples[n - 1].t - samples[0].t) / 1000;
     if (T < 0.8 || T > 8) return null;
 
-    // ∫ ΔV dt over full stroke (positive because drive > recovery in integrated area)
+    // ∫ ΔV dt over full stroke → solve vCatch from GPS mean anchor
     let intDVFull = 0;
     for (let i = 1; i < n; i++) {
         const dt = (samples[i].t - samples[i - 1].t) / 1000;
         if (dt <= 0 || dt > 0.15) continue;
         intDVFull += (cumulDV[i - 1] + cumulDV[i]) / 2 * dt;
     }
-
-    // Solve for catch speed: vCatch = vMean − intDVFull/T
-    // intDVFull > 0 ensures vCatch < vMean (catch = minimum speed) ✓
     const vCatch = vMean - intDVFull / T;
     if (vCatch < 0.5 || vCatch > 8) return null;
-    if (vCatch < vMean * 0.25) return null;   // sanity: catch ≥ 25% of mean
+    if (vCatch < vMean * 0.25) return null;
 
-    // Blade-out: LAST neg→pos zero-crossing in raw samples within drive window (15–65%).
-    // raw samples[i].v < 0 = drive; samples[i].v >= 0 = recovery.
-    const searchStart = Math.round(n * 0.15);
-    const searchEnd   = Math.round(n * 0.65);
-    let finishIdx = -1;
-    for (let i = searchStart; i < searchEnd - 1; i++) {
-        if (samples[i].v < 0 && samples[i + 1].v >= 0) finishIdx = i;
+    // ── Signal-derived drive boundaries (raw v: negative = drive) ──────────
+    // Deepest negative peak within first 70% of window
+    let peakIdx = -1, peakV = 0;
+    const peakEnd = Math.round(n * 0.70);
+    for (let i = 0; i < peakEnd; i++) {
+        if (samples[i].v < peakV) { peakV = samples[i].v; peakIdx = i; }
+    }
+    if (peakIdx < 1 || peakV > -0.05) return null;
+
+    // Catch = pos→neg crossing immediately before the peak (onset of drive)
+    let catchIdx = 0;
+    for (let i = peakIdx; i > 0; i--) {
+        if (samples[i - 1].v >= 0) { catchIdx = i; break; }
     }
 
-    const dc = Math.min(
-        Math.max(driveCount, finishIdx > 0 ? finishIdx : driveCount),
-        Math.round(n * 0.58)
-    );
-    if (dc < 2) return null;
+    // Finish = first neg→pos crossing after the peak that STAYS ≥0 ~150ms
+    // (rejects inter-peak dips on double-hump drives)
+    let finishIdx = -1;
+    const finishCap = Math.round(n * 0.65);
+    for (let i = peakIdx + 1; i < finishCap; i++) {
+        if (samples[i].v >= 0) {
+            let sustained = true;
+            const tEnd = samples[i].t + 150;
+            for (let j = i + 1; j < n && samples[j].t <= tEnd; j++) {
+                if (samples[j].v < -0.05) { sustained = false; break; }
+            }
+            if (sustained) { finishIdx = i; break; }
+        }
+    }
+    if (finishIdx < 0) finishIdx = Math.min(driveCount, finishCap);  // FSM fallback
+    if (finishIdx - catchIdx < 2) return null;
 
-    // Pass 2 — integrate velocity over drive phase (catch → blade-out)
+    // Pass 2 — integrate v = vCatch + ΔV over catch → blade-out
     let driveDist = 0;
-    for (let i = 1; i < dc; i++) {
+    for (let i = catchIdx + 1; i <= finishIdx; i++) {
         const dt = (samples[i].t - samples[i - 1].t) / 1000;
         if (dt <= 0 || dt > 0.15) continue;
         driveDist += ((vCatch + cumulDV[i - 1]) + (vCatch + cumulDV[i])) / 2 * dt;
@@ -1973,11 +1995,24 @@ function handlePos(pos) {
     // Pace straight from the One-Euro filtered Doppler velocity
     if (running && !paused) {
         if (gpsSpeedEma > CONFIG.gps.minSpeedForPace) {
-            // Average over ~5 s (2–3 strokes) for a readable display pace
-            const cut = now - CONFIG.gps.paceAvgMs;
+             // Average over whole stroke cycles (catch→catch endpoints) so
+            // intra-stroke surge bias cancels. Falls back to time window.
+            let tEnd = now, tStart = now - CONFIG.gps.paceAvgMs;
+            if (catchTsBuf.length >= 2 &&
+                now - catchTsBuf[catchTsBuf.length - 1] < lastKnownPeriodMs * 1.5) {
+                tEnd = catchTsBuf[catchTsBuf.length - 1];
+                tStart = tEnd - CONFIG.gps.paceAvgMs;
+                for (let i = 0; i < catchTsBuf.length; i++) {
+                    if (catchTsBuf[i] >= tEnd - CONFIG.gps.paceAvgMs - lastKnownPeriodMs * 0.6) {
+                        tStart = catchTsBuf[i];
+                        break;
+                    }
+                }
+            }
             let sum = 0, n = 0;
-            for (let i = velocityWindow.length - 1; i >= 0 && velocityWindow[i].t >= cut; i--)
-                { sum += velocityWindow[i].v; n++; }
+            for (let i = velocityWindow.length - 1; i >= 0 && velocityWindow[i].t >= tStart; i--) {
+                if (velocityWindow[i].t <= tEnd) { sum += velocityWindow[i].v; n++; }
+            }
             const vMean = n > 0 ? sum / n : gpsSpeedEma;
             if (vMean > CONFIG.gps.minSpeedForPace) {
                 const raw = 500 / vMean;
