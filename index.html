@@ -1324,7 +1324,7 @@ function runFSM(now, fast, jerk) {
             const wasRecovery = (fsmState === FS.RECOVERY);
             if (jerk > jerkThreshActive && fast > accThreshBase && tSinceCatch > ref
                     && (now - lastDriveEndT) > CONFIG.stroke.postDriveLockoutMs) {
-                lastCatchAbsT = now;                           // lock refractory before any early-return path
+                           // lock refractory before any early-return path
                 onNewCatch(now);                               // ← now passed in
                 fsmState = FS.CATCH;
                 catchStartT = now; catchPeakJerk = jerk;
@@ -1560,15 +1560,13 @@ function computeDriveImpulse(samples) {
 // ─── Oar arc angle — full catch-to-catch IMU integration ──────────────────
 // Uses catchToCatchSamples (axFast) + smoothed GPS average speed as anchor.
 //
-// The velocity profile is:  v(t) = vCatch + ΔV(t)
-// where ΔV(t) = ∫ a dt from catch.
+// axFast[selAxis] is NEGATIVE during drive (rower faces backward, axis inverted).
+// Negate internally so cumulDV is positive-during-drive, matching v = vCatch + ΔV.
 //
-// Average stroke speed (vMean, from 10-s velocity window) gives:
-//   vMean = vCatch + intDVFull / T
-// → vCatch = vMean − intDVFull / T
+// vMean (10-s velocity window) gives:  vMean = vCatch + intDVFull / T
+// → vCatch = vMean − intDVFull / T   (intDVFull > 0 → vCatch < vMean ✓)
 //
-// Avoids per-stroke GPS distance noise; uses only the stable windowed mean.
-// Drive distance = ∫ v dt over drive portion only → angle = dist / outboard
+// Drive distance = ∫ v dt over drive portion → angle = 2·arcsin(dist / 2L)
 function computeOarAngle(samples, driveCount, vMean) {
     const OUTBOARD      = outboardLength();
     const R2D           = 180 / Math.PI;
@@ -1577,18 +1575,18 @@ function computeOarAngle(samples, driveCount, vMean) {
     if (n < 8 || driveCount < 2 || driveCount >= n) return null;
     if (vMean < 0.5 || vMean > 8) return null;
 
-    // Pass 1 — cumulative ΔV from catch (sample 0)
+    // Pass 1 — cumulative ΔV, negated for correct forward-positive convention
     const cumulDV = new Array(n).fill(0);
     for (let i = 1; i < n; i++) {
         const dt = (samples[i].t - samples[i - 1].t) / 1000;
         if (dt <= 0 || dt > 0.15) { cumulDV[i] = cumulDV[i - 1]; continue; }
-        cumulDV[i] = cumulDV[i - 1] + samples[i].v * dt;
+        cumulDV[i] = cumulDV[i - 1] + (-samples[i].v) * dt;
     }
 
     const T = (samples[n - 1].t - samples[0].t) / 1000;
     if (T < 0.8 || T > 8) return null;
 
-    // ∫ ΔV dt over full stroke
+    // ∫ ΔV dt over full stroke (positive because drive > recovery in integrated area)
     let intDVFull = 0;
     for (let i = 1; i < n; i++) {
         const dt = (samples[i].t - samples[i - 1].t) / 1000;
@@ -1596,18 +1594,19 @@ function computeOarAngle(samples, driveCount, vMean) {
         intDVFull += (cumulDV[i - 1] + cumulDV[i]) / 2 * dt;
     }
 
-    // Solve for catch speed anchored to smoothed average: vCatch = vMean − intDVFull/T
+    // Solve for catch speed: vCatch = vMean − intDVFull/T
+    // intDVFull > 0 ensures vCatch < vMean (catch = minimum speed) ✓
     const vCatch = vMean - intDVFull / T;
     if (vCatch < 0.5 || vCatch > 8) return null;
-    if (vCatch < vMean * 0.30) return null;   // sanity: catch speed ≥ 30% of mean
+    if (vCatch < vMean * 0.25) return null;   // sanity: catch ≥ 25% of mean
 
-    // Detect blade-out as the LAST positive→negative zero-crossing of acceleration
-    // within the plausible drive window (15%–65% of stroke).
+    // Blade-out: LAST neg→pos zero-crossing in raw samples within drive window (15–65%).
+    // raw samples[i].v < 0 = drive; samples[i].v >= 0 = recovery.
     const searchStart = Math.round(n * 0.15);
     const searchEnd   = Math.round(n * 0.65);
     let finishIdx = -1;
     for (let i = searchStart; i < searchEnd - 1; i++) {
-        if (samples[i].v > 0 && samples[i + 1].v <= 0) finishIdx = i;
+        if (samples[i].v < 0 && samples[i + 1].v >= 0) finishIdx = i;
     }
 
     const dc = Math.min(
@@ -1653,13 +1652,14 @@ function computeCheckDelta(samples) {
 
 // Lines 1480–1572 — REPLACE the entire onStrokeFinish function
 function onStrokeFinish(now, driveDur) {
+    const prevCatchT = lastCatchAbsT;          // save previous catch time for gapMs
+    lastCatchAbsT = driveStartT;               // lock refractory now — before any early return
     if (driveDur < CONFIG.stroke.minDriveMs || driveDur > CONFIG.stroke.maxDriveMs) return;
     const catchSlope = Math.round(Math.abs(catchPeakJerk));
     if (catchSlope < 2 || catchSlope < jerkThreshBase * 1.5) return;
 
     // ── Rest-gap reset: check BEFORE touching catchTsBuf or strokeRate ──────
-    // Use driveStartT vs lastCatchAbsT — this is the actual gap before THIS stroke.
-    const gapMs = lastCatchAbsT > 0 ? driveStartT - lastCatchAbsT : 0;
+    const gapMs = prevCatchT > 0 ? driveStartT - prevCatchT : 0;
     if (gapMs / 1000 > CONFIG.stroke.restGapS) {
         oarAngle = null;
         checkDelta = null; checkDeltaRawArr.length = 0;
@@ -1681,7 +1681,6 @@ function onStrokeFinish(now, driveDur) {
         }
     }
     if (catchTsBuf.length > CATCH_TS_BUF) catchTsBuf.shift();
-    lastCatchAbsT = driveStartT;
     const medRate = rateFromMedianIntervals();
     if (medRate > 0) {
         let bl;
