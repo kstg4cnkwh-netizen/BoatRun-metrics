@@ -3353,15 +3353,6 @@ function enterSessionReady() {
     sessStart = Date.now();
     lapStartDist = distance; lapStartTime = 0;
     running = true; paused = false; sessionReady = true;
-    const ov = document.getElementById('countdown-overlay');
-    const numEl = document.getElementById('cdown-num');
-    const subEl = document.getElementById('cdown-sub');
-    if (ov && numEl && subEl) {
-        clearInterval(_cdownTimer);
-        numEl.textContent = 'READY'; numEl.className = 'cdown-num';
-        subEl.textContent = 'Row to start recording';
-        ov.classList.add('show');
-    }
     requestAnimationFrame(renderCtrl);
 }
 function exitSessionReady() {
