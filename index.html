@@ -2673,16 +2673,23 @@ function renderCurveCanvas(){
   ctx.beginPath();ctx.moveTo(padH,y0);ctx.lineTo(W-padH,y0);ctx.stroke();ctx.setLineDash([]);ctx.restore();
   // Draw curves
   function drawCL(curve,color,lw,fill){
-    ctx.beginPath();
-    for(let i=0;i<CURVE_POINTS;i++){const x=sx(i),y=sy(curve.data[i]);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
     if(fill){
-      ctx.lineTo(sx(CURVE_POINTS-1),y0);ctx.lineTo(sx(0),y0);ctx.closePath();
-      ctx.fillStyle=color+'28';ctx.fill();
+      ctx.save();ctx.beginPath();ctx.rect(padH,padT,W-padH*2,y0-padT);ctx.clip();
       ctx.beginPath();
       for(let i=0;i<CURVE_POINTS;i++){const x=sx(i),y=sy(curve.data[i]);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
+      ctx.lineTo(sx(CURVE_POINTS-1),y0);ctx.lineTo(sx(0),y0);ctx.closePath();
+      ctx.fillStyle='rgba(39,174,96,0.16)';ctx.fill();ctx.restore();
+      ctx.save();ctx.beginPath();ctx.rect(padH,y0,W-padH*2,H-padB-y0);ctx.clip();
+      ctx.beginPath();
+      for(let i=0;i<CURVE_POINTS;i++){const x=sx(i),y=sy(curve.data[i]);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
+      ctx.lineTo(sx(CURVE_POINTS-1),y0);ctx.lineTo(sx(0),y0);ctx.closePath();
+      ctx.fillStyle='rgba(192,57,43,0.16)';ctx.fill();ctx.restore();
     }
+    ctx.beginPath();
+    for(let i=0;i<CURVE_POINTS;i++){const x=sx(i),y=sy(curve.data[i]);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
     ctx.strokeStyle=color;ctx.lineWidth=lw;ctx.lineJoin='round';ctx.stroke();
   }
+
   if(avg5)drawCL(avg5,'#e07b00',2.5,true);
   if(lastStrokeCurve)drawCL(lastStrokeCurve,'#0077cc',3.0,false);
   // Markers drawn on top of curves
