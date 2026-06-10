@@ -1335,7 +1335,7 @@ function runFSM(now, fast, jerk) {
             if (fsmState === FS.RECOVERY && tSinceCatch > CONFIG.stroke.periodMaxMs * 1.5)
                 fsmState = FS.IDLE;
             // IMU run loss — accumulate only while still in RECOVERY (after catch, fsmState = CATCH)
-            if (wasRecovery && fsmState === FS.RECOVERY && imuRL && now >= imuRL.startAt) {
+            if (wasRecovery && fsmState === FS.RECOVERY && imuRL && now >= imuRL.startAt && now <= imuRL.endAt) {
                 if (imuRL.lastT < 0) {
                     imuRL.lastT = now;                         // first sample: set clock, skip dt
                 } else {
@@ -1407,8 +1407,8 @@ function onNewCatch(now) {
     // Finalise IMU run loss from the recovery that just ended
     if (imuRL && imuRL.nSamples >= 8 && imuRL.v0 !== null) {
         const dv       = Math.max(0, -imuRL.minDeltaV);
-        const recovS   = clamp((now - imuRL.driveEndT) / 1000, 0.5, 4.0);
-        const rawLoss  = +(dv * recovS * 0.5).toFixed(4);
+        const sampledS = clamp(Math.min(CONFIG.runLoss.windowMs, Math.max(0, now - imuRL.driveEndT - CONFIG.runLoss.startAfterDriveMs)) / 1000, 0.3, 4.0);
+        const rawLoss  = +(dv * sampledS * 0.5).toFixed(4);
         if (rawLoss >= 0 && rawLoss <= CONFIG.runLoss.maxLossM) {
             pushLimit(runLosses, rawLoss, CONFIG.runLoss.medianN);
             runLossM = median(runLosses);
@@ -1427,13 +1427,35 @@ function onNewCatch(now) {
             }
         }
     }
+    // ── RL debug entry — built here so sprint strokes aren't missed ──────────
+    {
+        const imuDv = imuRL ? +Math.max(0, -imuRL.minDeltaV).toFixed(4) : null;
+        const imuN  = imuRL ? imuRL.nSamples : 0;
+        const sN    = imuRL ? imuRL.strokeN  : null;
+        const pRun  = (pendingRun && pendingRun.strokeN === sN) ? pendingRun : null;
+        if (sN != null) {
+            const gpsDv = (pRun && pRun.startSpeed != null)
+                ? +Math.max(0, pRun.startSpeed - pRun.minSpeed).toFixed(4) : null;
+            rlDebug.push({
+                strokeN: sN,
+                startSpeed: pRun?.startSpeed != null ? +pRun.startSpeed.toFixed(3) : null,
+                minSpeed:   pRun?.minSpeed   != null ? +pRun.minSpeed.toFixed(3)   : null,
+                dv: gpsDv, imuDv,
+                medLoss: runLossM != null ? +runLossM.toFixed(4) : null,
+                nSamples: pRun?.nSamples || 0, imuN
+            });
+        }
+    }
     imuRL = null;
     // ─── Oar angle: IMU integration anchored to smoothed average GPS speed ─────
     {
         // Stable average speed from the 10-s velocity window (same source as pace display)
         let vMean = 0;
         if (velocityWindow.length > 0) {
-            vMean = velocityWindow.reduce((s, x) => s + x.v, 0) / velocityWindow.length;
+            const vCut = now - Math.min(6000, lastKnownPeriodMs * 2);
+            const vSlice = velocityWindow.filter(x => x.t >= vCut);
+            const vSrc = vSlice.length >= 3 ? vSlice : velocityWindow.slice(-10);
+            vMean = vSrc.reduce((s, x) => s + x.v, 0) / vSrc.length;
         }
         if (pendingOarStrokeIdx >= 0 &&
             catchToCatchSamples.length >= 8 &&
@@ -1522,7 +1544,7 @@ let charValsArr = [], strokeChar = 50;
 let distPerStroke = 0, dpsValsArr = [], maxDPS = 0;
 let prevStrokeDist = 0, prevStrokeDistT = 0;
 const MAX_STROKE_TS = 4, strokeTs = [];
-const CATCH_TS_BUF = 7, catchTsBuf = [];
+const CATCH_TS_BUF = 5, catchTsBuf = [];
 let rdi = null, rdiValsArr = [];
 let strokeRatio = null, strokeRatioValsArr = [];
 let oarAngle = null, oarAngleRawArr = [];
@@ -1690,9 +1712,9 @@ function onStrokeFinish(now, driveDur) {
             const safe = (acRate > medRate * 1.25 || acRate < medRate * 0.80) ? medRate : acRate;
             bl = 0.80 * medRate + 0.20 * safe;
         } else {
-            bl = 0.70 * medRate + 0.30 * strokeRate;
+            bl = 0.85 * medRate + 0.15 * strokeRate;
         }
-        if (strokeRate > 0) bl = Math.max(strokeRate - 3.5, Math.min(strokeRate + 3.5, bl));
+        if (strokeRate > 0) bl = Math.max(strokeRate - 5, Math.min(strokeRate + 5, bl));
         strokeRate = clamp(Math.round(bl * 2) / 2, CONFIG.stroke.spmMin, CONFIG.stroke.spmMax);
     }
     strokesDetected++;
@@ -1775,6 +1797,7 @@ function onStrokeFinish(now, driveDur) {
     };
     imuRL = {
         startAt:    now + CONFIG.runLoss.startAfterDriveMs,
+        endAt:      now + CONFIG.runLoss.startAfterDriveMs + CONFIG.runLoss.windowMs,
         v0:         gpsSpeedEma > 0.3 ? gpsSpeedEma : null,
         deltaV:     0,
         minDeltaV:  0,
@@ -1861,25 +1884,9 @@ function updatePendingRunLoss() {
     // pendingRun is kept alive so handlePos can tag each GPS fix with rlPhase,
     // and so rlDebug records the GPS-observed speed window for comparison.
     const p = pendingRun;
-    if (!p) return;
+    if (!p || p._done) return;
     const t = performance.now(), s = gpsSpeedEma;
-    if (t >= p.endAt) {
-        if (p.startSpeed !== null && p.startSpeed > 0.2) {
-            const dv = Math.max(0, p.startSpeed - p.minSpeed);
-            const gpsLoss = +(dv * (CONFIG.runLoss.windowMs / 1000) * 0.5).toFixed(4);
-            rlDebug.push({
-                strokeN: p.strokeN,
-                startSpeed: +p.startSpeed.toFixed(4), minSpeed: +p.minSpeed.toFixed(4),
-                dv: +dv.toFixed(4), rawLoss: gpsLoss,
-                medLoss: runLossM != null ? +runLossM.toFixed(4) : null,
-                nSamples: p.nSamples || 0
-            });
-        } else {
-            rlDebug.push({ strokeN: p.strokeN, startSpeed: null, minSpeed: null, dv: null, rawLoss: null, medLoss: null, nSamples: p.nSamples || 0 });
-        }
-        pendingRun = null;
-        return;
-    }
+    if (t >= p.endAt) { p._done = true; return; }
     if (s < 0.2) return;
     if (t >= p.startAt) {
         if (p.startSpeed === null) { p.startSpeed = s; p.minSpeed = s; p.nSamples = 1; }
@@ -3206,11 +3213,13 @@ function stopSess() {
                 _LS.removeItem(AUTOSAVE_DB);
                 toast('Session saved ✓ (' + sessStrokes.length + ' strokes)');
             } else {
-                toast('⚠️ Save failed');
                 try {
-                    const snap = { id: sessStart.toString(), startTime: sessStart, duration: elapsed, distance: Math.round(distance), strokeCount, catchPeakSess, catchAvg8, laps, strokes: sessStrokes, paceTrace: sessPaceTrace, gpsTrace: sessGpsTrace, _autosave: true, _savedAt: Date.now() };
+                    const snap = { id: sessStart.toString(), startTime: sessStart, duration: elapsed, distance: Math.round(distance), strokeCount, catchPeakSess, catchAvg8, laps, strokes: sessStrokes, paceTrace: sessPaceTrace, gpsTrace: sessGpsTrace, rlDebug: rlDebug.slice(), _autosave: true, _savedAt: Date.now() };
                     _LS.setItem(AUTOSAVE_DB, JSON.stringify(snap));
-                } catch {}
+                    alert('⚠️ Session save failed — stored as autosave.\n\nClose and reopen the app to recover it.\nOr go to LOG and delete old sessions to free storage, then tap Finish again.');
+                } catch {
+                    alert('⚠️ Session save failed and autosave also failed — storage is full.\n\nDo NOT close this app. Go to LOG (in another tab) and delete old sessions, then return here and tap Finish again.');
+                }
             }
         } catch (e) {
             toast('⚠️ Save error');
@@ -3224,7 +3233,6 @@ function resetSess() {
     sessLocked = false;
     clearInterval(timerInt); clearInterval(autosaveInt);
     running = false; paused = false; sessSaved = false; sessionReady = false;
-    _LS.removeItem(AUTOSAVE_DB);
     elapsed = 0; distance = 0; pace = 0; strokeRate = 0; strokeCount = 0;
     acRate = 0; acConf = 0; distPerStroke = 0; dpsValsArr.length = 0; maxDPS = 0;
     lapStartDist = 0; lapStartTime = 0; catchLast = null; catchPeakSess = null; catchAvg8 = null;
@@ -3328,7 +3336,7 @@ function checkAutosave() {
         const snap = JSON.parse(raw);
         if (!snap || !snap._autosave || !snap.strokeCount) return;
         const age = Date.now() - snap._savedAt;
-        if (age > 12 * 3600 * 1000) { _LS.removeItem(AUTOSAVE_DB); return; }
+        if (age > 48 * 3600 * 1000) { _LS.removeItem(AUTOSAVE_DB); return; }
         const mins = Math.round(snap.duration / 60), km = (snap.distance / 1000).toFixed(2);
         if (confirm('Recover autosaved session?\n' + km + ' km  ' + mins + ' min  ' + snap.strokeCount + ' strokes\n(' + Math.round(age / 60000) + ' min ago)')) {
             snap._autosave = false;
@@ -3338,12 +3346,13 @@ function checkAutosave() {
                 renderSessionList();
                 alert('Session recovered and saved to LOG.');
             } else {
-                alert('⚠️ Recovery save failed — session still in autosave. Try again or free up storage.');
+                alert('⚠️ Recovery save failed.\n\nGo to LOG and delete one or more old sessions to free storage, then restart the app to try again.\n\nYour session is still preserved.');
             }
         } else {
+            if (!confirm('Discard this session permanently?')) return;
             _LS.removeItem(AUTOSAVE_DB);
         }
-    } catch { _LS.removeItem(AUTOSAVE_DB); }
+    } catch {}
 }
 function wireButtons() {
     const s = id => document.getElementById('cc-' + id);
@@ -4343,7 +4352,7 @@ function exportDebugCSV(s){
   const cfg=s.config||{},rl=cfg.rl||{},gps=cfg.gps||{};
   rows.push(['rl_startAfterDriveMs',n(rl.startAfterDriveMs??CONFIG.runLoss.startAfterDriveMs),'rl_windowMs',n(rl.windowMs??CONFIG.runLoss.windowMs)]);rows.push(['gps_emaAlpha',n(gps.alpha??CONFIG.gps.speedEmaAlpha),'gps_medianN',n(gps.medN??CONFIG.gps.speedMedianN)]);rows.push([]);
   rows.push(['##STR'],['n','elapsed_s','rate','catch_slope','stroke_char','consistency','dps','run_loss_m','impulse','ratio']);(s.strokes||[]).forEach((r,i)=>{rows.push([i+1,el(r.t),n(r.rate),f2(r.catchPeak),n(r.char),f2(r.catchConsistency),f2(r.dps),f2(r.runLossM),f2(r.driveImpulse),f2(r.strokeRatio)]);});rows.push([]);
-  rows.push(['##RL'],['stroke_n','start_spd_ms','min_spd_ms','dv_ms','raw_loss_m','med_loss_m','n_samples']);(s.rlDebug||[]).forEach(r=>rows.push([n(r.strokeN),f3(r.startSpeed),f3(r.minSpeed),f3(r.dv),f4(r.rawLoss),f4(r.medLoss),n(r.nSamples)]));rows.push([]);
+  rows.push(['##RL'],['stroke_n','start_spd_ms','min_spd_ms','gps_dv_ms','imu_dv_ms','med_loss_m','gps_n','imu_n']);(s.rlDebug||[]).forEach(r=>rows.push([n(r.strokeN),f3(r.startSpeed),f3(r.minSpeed),f3(r.dv),f4(r.imuDv),f4(r.medLoss),n(r.nSamples),n(r.imuN)]));rows.push([]);
   if(s.gpsRawTrace&&s.gpsRawTrace.length){rows.push(['##GPS'],['elapsed_s','gps_raw_ms','gps_ema_ms','acc_m','stroke_n','rl_phase']);s.gpsRawTrace.forEach(p=>rows.push([el(p.t),f3(p.rawSpd),f3(p.emaSpd),f2(p.acc),n(p.strokeN),p.rlPhase||'none']));rows.push([]);}
   if(s.hrTrace&&s.hrTrace.length){rows.push(['##HR'],['elapsed_s','hr_bpm']);s.hrTrace.forEach(h=>rows.push([el(h.t),h.hr]));rows.push([]);}
   const blob=new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);const d=new Date(s.startTime),pad=x=>String(x).padStart(2,'0');a.download='BoatRunDebug_'+d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes())+'.csv';a.click();toast('Debug CSV exported');
