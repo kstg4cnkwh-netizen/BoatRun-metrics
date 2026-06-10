@@ -652,7 +652,7 @@ const CONFIG = Object.freeze({
         catchBufN: 7,
         spmMin: 10,
         spmMax: 50,
-        restGapS: 5.0,
+        restGapS: 8.0,
         nominalMinMs: 1200,
         nominalMaxMs: 3000,
         nominalFallbackMs: 1500
@@ -1315,7 +1315,7 @@ function runFSM(now, fast, jerk) {
         const lastMs = catchTsBuf[catchTsBuf.length - 1] - catchTsBuf[catchTsBuf.length - 2];
         nominalMs = clamp(lastMs, CONFIG.stroke.nominalMinMs, CONFIG.stroke.nominalMaxMs);
     } else {
-        nominalMs = lastKnownPeriodMs;   // was: 1500
+        nominalMs = lastKnownPeriodMs;
     }
     const ref = Math.max(CONFIG.stroke.refractoryMinMs, nominalMs * 0.85);
     switch (fsmState) {
@@ -1325,11 +1325,11 @@ function runFSM(now, fast, jerk) {
             if (jerk > jerkThreshActive && fast > accThreshBase && tSinceCatch > ref
                     && (now - lastDriveEndT) > CONFIG.stroke.postDriveLockoutMs) {
                            // lock refractory before any early-return path
-                onNewCatch(now);                               // ← now passed in
+                onNewCatch(now);
                 fsmState = FS.CATCH;
                 catchStartT = now; catchPeakJerk = jerk;
                 driveAccSamples = [{ t: now, v: fast }];
-                drivePeakAcc = fast; drivePeakAccT = now;
+                drivePeakAcc = 0; drivePeakAccT = now;        // 0 so first negative drive sample becomes peak
                 jerkBuf.length = 0;
             }
             if (fsmState === FS.RECOVERY && tSinceCatch > CONFIG.stroke.periodMaxMs * 1.5)
@@ -1337,11 +1337,11 @@ function runFSM(now, fast, jerk) {
             // IMU run loss — accumulate only while still in RECOVERY (after catch, fsmState = CATCH)
             if (wasRecovery && fsmState === FS.RECOVERY && imuRL && now >= imuRL.startAt && now <= imuRL.endAt) {
                 if (imuRL.lastT < 0) {
-                    imuRL.lastT = now;                         // first sample: set clock, skip dt
+                    imuRL.lastT = now;
                 } else {
                     const dt = (now - imuRL.lastT) / 1000;
                     imuRL.lastT = now;
-                    if (dt > 0 && dt < 0.08) {                // guard against motion pauses
+                    if (dt > 0 && dt < 0.08) {
                         imuRL.deltaV    += fast * dt;
                         if (imuRL.deltaV < imuRL.minDeltaV) imuRL.minDeltaV = imuRL.deltaV;
                         imuRL.nSamples++;
@@ -1352,7 +1352,7 @@ function runFSM(now, fast, jerk) {
         }
         case FS.CATCH:
             driveAccSamples.push({ t: now, v: fast });
-            if (fast > drivePeakAcc) { drivePeakAcc = fast; drivePeakAccT = now; }
+            // No drivePeakAcc tracking here — peak drive force is negative, tracked in FS.DRIVE
             if (jerk > catchPeakJerk && (now - catchStartT) < 200) catchPeakJerk = jerk;
             if ((now - catchStartT) > 75 && jerk < jerkThreshActive * 0.35) {
                 driveStartT = catchStartT; fsmState = FS.DRIVE;
@@ -1361,10 +1361,16 @@ function runFSM(now, fast, jerk) {
             break;
         case FS.DRIVE:
             driveAccSamples.push({ t: now, v: fast });
-            if (fast > drivePeakAcc) { drivePeakAcc = fast; drivePeakAccT = now; }
+            if (fast < drivePeakAcc) { drivePeakAcc = fast; drivePeakAccT = now; } // track peak negative (peak drive force)
             {
                 const dd = now - driveStartT;
-                if ((fast < 0 && dd > CONFIG.stroke.minDriveMs) || dd > CONFIG.stroke.maxDriveMs) {
+                // False-catch abort: fast returned to recovery territory before minDriveMs —
+                // the catch was a noise spike. Reset without touching lastCatchAbsT or lastDriveEndT.
+                if (dd > 50 && dd < CONFIG.stroke.minDriveMs && fast > accThreshBase) {
+                    driveAccSamples = []; fsmState = FS.RECOVERY; break;
+                }
+                // Drive ends when fast returns to >= 0 (blade exit / start of recovery)
+                if ((fast >= 0 && dd > CONFIG.stroke.minDriveMs) || dd > CONFIG.stroke.maxDriveMs) {
                     onStrokeFinish(now, dd);
                     lastDriveEndT = now;
                     fsmState = FS.RECOVERY;
