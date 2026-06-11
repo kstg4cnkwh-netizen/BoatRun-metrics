@@ -421,6 +421,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div class="sbar-l"><span class="sbar-title">SCULL</span><span class="pill pill-off" id="p-gps">GPS</span><span class="pill pill-off" id="p-acc">ACC</span><span class="pill pill-off" id="p-cal">CAL</span><span class="pill pill-off" id="p-axis">AX:?</span></div>
 <div class="sbar-r"><div class="rec" id="rec-ind" style="display:none"><div class="recdot"></div>REC</div></div>
 </div>
+<div id="cox-banner" style="display:none">COX MODE</div>
 <!-- Workout bar -->
 <div class="wkt-bar" id="wkt-bar">
 <div class="wkt-phase work" id="wkt-phase-lbl">WORK</div>
@@ -2181,29 +2182,14 @@ const PROFILES_KEY = 'scull_profiles_v1', ACTIVE_PROFILE_KEY = 'scull_active_pro
 const DEFAULT_PROFILES = [
     {
         name: 'Race',
-        landscape: { layout: '2x2', cells: ['pace','rate','dps','workout'] },
-        portrait:  { layout: '2x2', cells: ['pace','rate','dps','workout'] }
+        landscape: { layout: '2x2', cells: ['pace','rate','oarangle','workout'] },
+        portrait:  { layout: '2x3', cells: ['pace','rate','oarangle','impulse','workout','selectable'] }
     },
     {
         name: 'Training',
-        landscape: { layout: '3x3', cells: ['pace','rate','dps','catch','char','runloss','impulse','selectable','selectable'] },
-        portrait:  { layout: '2x4', cells: ['pace','rate','dps','catch','char','runloss','impulse','selectable'] }
+        landscape: { layout: '3x3', cells: ['pace','rate','dps','impulse','catchdur','runloss','oarangle','workout','selectable'] },
+        portrait:  { layout: '2x4', cells: ['pace','rate','dps','catchdur','oarangle','impulse','workout','selectable'] }
     },
-    {
-        name: 'Intervals',
-        landscape: { layout: '2x2', cells: ['pace','rate','workout','selectable'] },
-        portrait:  { layout: '2x2', cells: ['pace','rate','workout','selectable'] }
-    },
-    {
-        name: 'Easy',
-        landscape: { layout: '2x2', cells: ['pace','rate','selectable','selectable'] },
-        portrait:  { layout: '2x2', cells: ['pace','rate','selectable','selectable'] }
-    },
-    {
-        name: 'Focus',
-        landscape: { layout: '2x1', cells: ['pace','rate'] },
-        portrait:  { layout: '1x2', cells: ['pace','rate'] }
-    }
 ];
 function loadProfiles()          { try { const p = JSON.parse(_LS.getItem(PROFILES_KEY)); if (p && p.length) return p; } catch {} return JSON.parse(JSON.stringify(DEFAULT_PROFILES)); }
 function saveProfiles(p)         { try { _LS.setItem(PROFILES_KEY, JSON.stringify(p)); } catch {} }
