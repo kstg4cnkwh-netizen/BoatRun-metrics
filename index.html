@@ -1778,7 +1778,7 @@ function onStrokeFinish(now, driveDur) {
     const bladeInDur = now - catchZeroT;
     const peakInBlade = drivePeakAccT > catchZeroT ? drivePeakAccT - catchZeroT : 0;
     const rawChar = bladeInDur > 50 ? clamp((peakInBlade / bladeInDur) * 100, 0, 100) : 50;
-    const catchDurMs = catchZeroT > driveStartT ? Math.round(catchZeroT - driveStartT) : null;
+    const catchDurMs = drivePeakAcc < 0 && drivePeakAccT > catchStartT ? Math.round(drivePeakAccT - catchStartT) : null;
     catchTsBuf.push(driveStartT);
     if (strokeRate > 0 && catchTsBuf.length >= 2) {
         const iv = catchTsBuf[catchTsBuf.length - 1] - catchTsBuf[catchTsBuf.length - 2];
@@ -1834,7 +1834,7 @@ function onStrokeFinish(now, driveDur) {
     charValsArr.push(Math.round(rawChar));
     if (charValsArr.length > 5) charValsArr.shift();
     strokeChar = Math.round(charValsArr.reduce((a, b) => a + b, 0) / charValsArr.length);
-    if (catchDurMs !== null && catchDurMs > 10 && catchDurMs < 500) {
+    if (catchDurMs !== null && catchDurMs > 30 && catchDurMs < 800) {
         catchDurValsArr.push(catchDurMs);
         if (catchDurValsArr.length > 5) catchDurValsArr.shift();
         catchDurLast = Math.round(median(catchDurValsArr));
