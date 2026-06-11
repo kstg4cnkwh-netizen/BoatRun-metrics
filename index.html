@@ -1300,7 +1300,8 @@ const FS = Object.freeze({ IDLE: 0, CATCH: 1, DRIVE: 2, RECOVERY: 3 });
 let fsmState = FS.IDLE,
     catchStartT = 0, catchPeakJerk = 0,
     driveStartT = 0, driveAccSamples = [], drivePeakAcc = 0, drivePeakAccT = 0,
-    lastDriveEndT = 0, lastCatchAbsT = 0;
+    lastDriveEndT = 0, lastCatchAbsT = 0,
+    driveHasGoneNeg = false;
 let jerkThreshBase = cal.jerkThresh || 8.0,
     jerkThreshActive = cal.jerkThresh || 8.0,
     accThreshBase = cal.accThresh || 0.8,
@@ -1324,17 +1325,17 @@ function runFSM(now, fast, jerk) {
             const wasRecovery = (fsmState === FS.RECOVERY);
             if (jerk > jerkThreshActive && fast > accThreshBase && tSinceCatch > ref
                     && (now - lastDriveEndT) > CONFIG.stroke.postDriveLockoutMs) {
-                           // lock refractory before any early-return path
                 onNewCatch(now);
                 fsmState = FS.CATCH;
                 catchStartT = now; catchPeakJerk = jerk;
                 driveAccSamples = [{ t: now, v: fast }];
-                drivePeakAcc = 0; drivePeakAccT = now;        // 0 so first negative drive sample becomes peak
+                drivePeakAcc = 0; drivePeakAccT = now;
+                driveHasGoneNeg = false;                       // reset for each new stroke
                 jerkBuf.length = 0;
             }
             if (fsmState === FS.RECOVERY && tSinceCatch > CONFIG.stroke.periodMaxMs * 1.5)
                 fsmState = FS.IDLE;
-            // IMU run loss — accumulate only while still in RECOVERY (after catch, fsmState = CATCH)
+            // IMU run loss — accumulate only while in RECOVERY within the window
             if (wasRecovery && fsmState === FS.RECOVERY && imuRL && now >= imuRL.startAt && now <= imuRL.endAt) {
                 if (imuRL.lastT < 0) {
                     imuRL.lastT = now;
@@ -1342,7 +1343,9 @@ function runFSM(now, fast, jerk) {
                     const dt = (now - imuRL.lastT) / 1000;
                     imuRL.lastT = now;
                     if (dt > 0 && dt < 0.08) {
-                        imuRL.deltaV    += fast * dt;
+                        // Negate fast: during recovery axFast is positive (boat decelerating),
+                        // negating gives a negative accumulation that minDeltaV can track correctly
+                        imuRL.deltaV    += (-fast) * dt;
                         if (imuRL.deltaV < imuRL.minDeltaV) imuRL.minDeltaV = imuRL.deltaV;
                         imuRL.nSamples++;
                     }
@@ -1361,16 +1364,21 @@ function runFSM(now, fast, jerk) {
             break;
         case FS.DRIVE:
             driveAccSamples.push({ t: now, v: fast });
-            if (fast < drivePeakAcc) { drivePeakAcc = fast; drivePeakAccT = now; } // track peak negative (peak drive force)
+            if (fast < 0) driveHasGoneNeg = true;
+            // Only track peak-negative (peak drive force) once drive is confirmed negative
+            if (driveHasGoneNeg && fast < drivePeakAcc) { drivePeakAcc = fast; drivePeakAccT = now; }
             {
                 const dd = now - driveStartT;
-                // False-catch abort: fast returned to recovery territory before minDriveMs —
-                // the catch was a noise spike. Reset without touching lastCatchAbsT or lastDriveEndT.
-                if (dd > 50 && dd < CONFIG.stroke.minDriveMs && fast > accThreshBase) {
-                    driveAccSamples = []; fsmState = FS.RECOVERY; break;
+                // False-catch abort: fast never went negative — was a noise spike.
+                // Reset without touching lastCatchAbsT or lastDriveEndT.
+                if (!driveHasGoneNeg) {
+                    if ((dd > 50 && fast > accThreshBase) || dd >= CONFIG.stroke.minDriveMs) {
+                        driveAccSamples = []; fsmState = FS.RECOVERY; break;
+                    }
                 }
-                // Drive ends when fast returns to >= 0 (blade exit / start of recovery)
-                if ((fast >= 0 && dd > CONFIG.stroke.minDriveMs) || dd > CONFIG.stroke.maxDriveMs) {
+                // Drive ends when fast returns from its negative phase back to >= 0 (blade exit).
+                // Guard: driveHasGoneNeg ensures we don't exit on the initial pos→neg crossing.
+                if ((driveHasGoneNeg && fast >= 0 && dd > CONFIG.stroke.minDriveMs) || dd > CONFIG.stroke.maxDriveMs) {
                     onStrokeFinish(now, dd);
                     lastDriveEndT = now;
                     fsmState = FS.RECOVERY;
@@ -3302,7 +3310,7 @@ function resetSess() {
     strokeTs.length = 0; paceDistWindow.length = 0; velocityWindow.length = 0;
     speedSamples.length = 0; prevStrokeDist = 0; prevStrokeDistT = 0;
     gpsLastValidT = 0; gpsSpeedEma = -1; gpsWasStopped = false; gpsDeadWarned = false; gpsAccuracyM = null; headingEmaX = null; headingEmaY = null; vFilter.reset(); lastDistT = 0; gpsResumeT = -Infinity;
-    fsmState = FS.IDLE; catchPeakJerk = 0; catchStartT = 0; lastCatchAbsT = 0; lastDriveEndT = 0;
+    fsmState = FS.IDLE; catchPeakJerk = 0; catchStartT = 0; lastCatchAbsT = 0; lastDriveEndT = 0; driveHasGoneNeg = false;
     strokesDetected = 0; jerkThreshActive = jerkThreshBase; adaptReady = false;
     acBuf.length = 0; acLastUpdate = 0; jerkBuf.length = 0; catchTsBuf.length = 0;
     axisLocked = false; axisAutoDetected = false; lastAxisCheck = 0;
