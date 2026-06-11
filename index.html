@@ -1309,7 +1309,7 @@ function computeAutocorrelationRate(now) {
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 const FS = Object.freeze({ IDLE: 0, CATCH: 1, DRIVE: 2, RECOVERY: 3 });
 let fsmState = FS.IDLE,
-    catchStartT = 0, catchPeakJerk = 0,
+    catchStartT = 0, catchPeakJerk = 0, catchPlungeJerk = 0,
     driveStartT = 0, driveAccSamples = [], drivePeakAcc = 0, drivePeakAccT = 0,
     lastDriveEndT = 0, lastCatchAbsT = 0,
     driveHasGoneNeg = false;
@@ -1338,7 +1338,7 @@ function runFSM(now, fast, jerk) {
                     && (now - lastDriveEndT) > CONFIG.stroke.postDriveLockoutMs) {
                 onNewCatch(now);
                 fsmState = FS.CATCH;
-                catchStartT = now; catchPeakJerk = jerk;
+                catchStartT = now; catchPeakJerk = jerk; catchPlungeJerk = 0;
                 driveAccSamples = [{ t: now, v: fast }];
                 drivePeakAcc = 0; drivePeakAccT = now;
                 driveHasGoneNeg = false;                       // reset for each new stroke
@@ -1368,6 +1368,7 @@ function runFSM(now, fast, jerk) {
             driveAccSamples.push({ t: now, v: fast });
             // No drivePeakAcc tracking here — peak drive force is negative, tracked in FS.DRIVE
             if (jerk > catchPeakJerk && (now - catchStartT) < 200) catchPeakJerk = jerk;
+            if (jerk < catchPlungeJerk) catchPlungeJerk = jerk;
             if ((now - catchStartT) > 75 && jerk < jerkThreshActive * 0.35) {
                 driveStartT = catchStartT; fsmState = FS.DRIVE;
             }
@@ -1375,6 +1376,7 @@ function runFSM(now, fast, jerk) {
             break;
         case FS.DRIVE:
             driveAccSamples.push({ t: now, v: fast });
+            if (!driveHasGoneNeg && jerk < catchPlungeJerk) catchPlungeJerk = jerk;
             if (fast < 0) driveHasGoneNeg = true;
             // Only track peak-negative (peak drive force) once drive is confirmed negative
             if (driveHasGoneNeg && fast < drivePeakAcc) { drivePeakAcc = fast; drivePeakAccT = now; }
@@ -1572,14 +1574,14 @@ function onNewCatch(now) {
 // STROKE METRICS — rate, catch slope, DPS, RDI, impulse
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 let strokeRate = 0, strokeCount = 0, strokesDetected = 0;
-let catchValsArr = [], catchLast = null, catchPeakSess = null, catchAvg8 = null, catchConsistency = null;
+let catchValsArr = [], trigValsArr = [], catchLast = null, catchPeakSess = null, catchAvg8 = null, catchConsistency = null;
 let charValsArr = [], strokeChar = 50;
 let distPerStroke = 0, dpsValsArr = [], maxDPS = 0;
 let prevStrokeDist = 0, prevStrokeDistT = 0;
 const MAX_STROKE_TS = 4, strokeTs = [];
 const CATCH_TS_BUF = 5, catchTsBuf = [];
 let rdi = null, rdiValsArr = [];
-let strokeRatio = null, strokeRatioValsArr = [];
+let strokeRatio = null, strokeRatioValsArr = [], prevDriveDurMs = 0;
 let oarAngle = null, oarAngleRawArr = [];
 let checkDelta = null, checkDeltaRawArr = [];
 let catchGpsDist = 0, pendingOarStrokeIdx = -1;
@@ -1724,8 +1726,9 @@ function onStrokeFinish(now, driveDur) {
     const prevCatchT = lastCatchAbsT;          // save previous catch time for gapMs
     lastCatchAbsT = driveStartT;               // lock refractory now — before any early return
     if (driveDur < CONFIG.stroke.minDriveMs || driveDur > CONFIG.stroke.maxDriveMs) return;
-    const catchSlope = Math.round(Math.abs(catchPeakJerk));
-    if (catchSlope < 2 || catchSlope < jerkThreshBase * 1.5) return;
+    const trigJerk = Math.abs(catchPeakJerk);
+    if (trigJerk < 2 || trigJerk < jerkThreshBase * 1.5) return;
+    const catchSlope = Math.round(Math.abs(catchPlungeJerk)) || Math.round(trigJerk);
 
     // ── Rest-gap reset: check BEFORE touching catchTsBuf or strokeRate ──────
     const gapMs = prevCatchT > 0 ? driveStartT - prevCatchT : 0;
@@ -1735,12 +1738,22 @@ function onStrokeFinish(now, driveDur) {
         lastKnownPeriodMs = Math.max(lastKnownPeriodMs * 0.70, CONFIG.stroke.nominalFallbackMs);
         acBuf.length = 0; acConf = 0;
         catchTsBuf.length = 0;                // clear completely — seed happens below
-        strokeRate = 0; catchToCatchSamples = []; pendingCurveDriveCount = 0;
+        strokeRate = 0; catchToCatchSamples = []; pendingCurveDriveCount = 0; strokeTs.length = 0; prevDriveDurMs = 0;
     }
     // ── End rest-gap reset ───────────────────────────────────────────────────
 
-    const peakOffset = drivePeakAccT - driveStartT;
-    const rawChar = driveDur > 0 ? clamp((peakOffset / driveDur) * 100, 0, 100) : 50;
+    // Char: % from catch zero-crossing (axFast pos→neg = blade entry) to peak drive,
+    // over full blade-in window (zero-crossing to finish). 0% = peak at entry, 100% = peak at finish.
+    let catchZeroT = driveStartT;
+    for (let i = 1; i < driveAccSamples.length; i++) {
+        if (driveAccSamples[i - 1].v >= 0 && driveAccSamples[i].v < 0) {
+            catchZeroT = driveAccSamples[i].t;
+            break;
+        }
+    }
+    const bladeInDur = now - catchZeroT;
+    const peakInBlade = drivePeakAccT > catchZeroT ? drivePeakAccT - catchZeroT : 0;
+    const rawChar = bladeInDur > 50 ? clamp((peakInBlade / bladeInDur) * 100, 0, 100) : 50;
     catchTsBuf.push(driveStartT);
     if (strokeRate > 0 && catchTsBuf.length >= 2) {
         const iv = catchTsBuf[catchTsBuf.length - 1] - catchTsBuf[catchTsBuf.length - 2];
@@ -1765,14 +1778,16 @@ function onStrokeFinish(now, driveDur) {
         strokeRate = clamp(Math.round(bl * 2) / 2, CONFIG.stroke.spmMin, CONFIG.stroke.spmMax);
     }
     strokesDetected++;
+    trigValsArr.push(trigJerk);
+    if (trigValsArr.length > 8) trigValsArr.shift();
     catchValsArr.push(catchSlope);
     if (catchValsArr.length > 8) catchValsArr.shift();
     catchLast = Math.round(catchValsArr.reduce((a, b) => a + b, 0) / catchValsArr.length);
     catchAvg8 = catchLast;
     if (catchPeakSess == null || catchSlope > catchPeakSess) catchPeakSess = catchSlope;
-    if (catchValsArr.length >= 5) {
-        const m = catchValsArr.reduce((a, b) => a + b, 0) / catchValsArr.length;
-        const sd = Math.sqrt(catchValsArr.reduce((s, v) => s + (v - m) ** 2, 0) / catchValsArr.length);
+    if (trigValsArr.length >= 5) {
+        const m = trigValsArr.reduce((a, b) => a + b, 0) / trigValsArr.length;
+        const sd = Math.sqrt(trigValsArr.reduce((s, v) => s + (v - m) ** 2, 0) / trigValsArr.length);
         const lowerFloor = clamp((cal.noiseFloor || 1.6) * 2.5, 3.0, 10.0);
         const tgt = Math.max(adaptReady ? lowerFloor : jerkThreshBase, m * 0.50 - sd * 0.35);
         jerkThreshActive = adaptReady
@@ -1798,9 +1813,9 @@ function onStrokeFinish(now, driveDur) {
     if (strokeTs.length > MAX_STROKE_TS) strokeTs.shift();
     rdi = null;
     strokeRatio = null;
-    if (strokeTs.length >= 2) {
+    if (strokeTs.length >= 2 && prevDriveDurMs > 0) {
         const prev = strokeTs[strokeTs.length - 2], cur = strokeTs[strokeTs.length - 1];
-        const rec = (cur - prev - driveDur) / 1000, drv = driveDur / 1000;
+        const rec = (cur - prev - prevDriveDurMs) / 1000, drv = prevDriveDurMs / 1000;
         if (rec > 0 && drv > 0) {
             const rv = (rec - drv) / (rec + drv);
             rdiValsArr.push(rv);
@@ -1813,6 +1828,7 @@ function onStrokeFinish(now, driveDur) {
             }
         }
     }
+    prevDriveDurMs = driveDur;
     // ── Oar arc angle ────────────────────────────────────────────────────────
     // Computed in onNewCatch (next catch). Value persists on display until the
     // next valid computation — only cleared on rest gap (boat stopped).
@@ -3318,10 +3334,10 @@ function resetSess() {
     pendingRun = null; runLosses.length = 0; runLossM = null; runLossPcts.length = 0; runLossPct = null; runLossMpsArr.length = 0; runLossMps = null; rlDebug.length = 0;
     laps = []; sessStrokes.length = 0; sessPaceTrace.length = 0;
     sessGpsTrace.length = 0; sessGpsRawTrace.length = 0;
-    strokeTs.length = 0; paceDistWindow.length = 0; velocityWindow.length = 0;
+    strokeTs.length = 0; prevDriveDurMs = 0; paceDistWindow.length = 0; velocityWindow.length = 0;
     speedSamples.length = 0; prevStrokeDist = 0; prevStrokeDistT = 0;
     gpsLastValidT = 0; gpsSpeedEma = -1; gpsWasStopped = false; gpsDeadWarned = false; gpsAccuracyM = null; headingEmaX = null; headingEmaY = null; vFilter.reset(); lastDistT = 0; gpsResumeT = -Infinity;
-    fsmState = FS.IDLE; catchPeakJerk = 0; catchStartT = 0; lastCatchAbsT = 0; lastDriveEndT = 0; driveHasGoneNeg = false;
+    fsmState = FS.IDLE; catchPeakJerk = 0; catchPlungeJerk = 0; trigValsArr.length = 0; catchStartT = 0; lastCatchAbsT = 0; lastDriveEndT = 0; driveHasGoneNeg = false;
     strokesDetected = 0; jerkThreshActive = jerkThreshBase; adaptReady = false;
     acBuf.length = 0; acLastUpdate = 0; jerkBuf.length = 0; catchTsBuf.length = 0;
     axisLocked = false; axisAutoDetected = false; lastAxisCheck = 0;
