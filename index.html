@@ -1303,7 +1303,9 @@ const FS = Object.freeze({ IDLE: 0, CATCH: 1, DRIVE: 2, RECOVERY: 3 });
 let fsmState = FS.IDLE,
     catchStartT = 0, catchPeakJerk = 0,
     driveStartT = 0, driveAccSamples = [], drivePeakAcc = 0, drivePeakAccT = 0,
-    lastDriveEndT = 0, lastCatchAbsT = 0;
+    lastDriveEndT = 0, lastCatchAbsT = 0,
+    driveMinJerk = 0,
+    bladeExitT = 0, prevDriveStartT = 0, prevFastSample = 0, bladeExitDetected = false;
 let jerkThreshBase = cal.jerkThresh || 8.0,
     jerkThreshActive = cal.jerkThresh || 8.0,
     accThreshBase = cal.accThresh || 0.8,
@@ -1330,6 +1332,7 @@ function runFSM(now, fast, jerk) {
                 onNewCatch(now);
                 fsmState = FS.CATCH;
                 catchStartT = now; catchPeakJerk = jerk;
+                driveMinJerk = 0; prevDriveStartT = driveStartT; bladeExitDetected = false;
                 driveAccSamples = [{ t: now, v: fast }];
                 drivePeakAcc = fast; drivePeakAccT = now;
                 jerkBuf.length = 0;
@@ -1350,6 +1353,12 @@ function runFSM(now, fast, jerk) {
                     }
                 }
             }
+            // Blade exit: first neg→pos zero crossing of fast in RECOVERY
+            if (wasRecovery && fsmState === FS.RECOVERY && !bladeExitDetected
+                    && prevFastSample < 0 && fast >= 0 && (now - lastDriveEndT) > 150) {
+                bladeExitT = now;
+                bladeExitDetected = true;
+            }
             break;
         }
         case FS.CATCH:
@@ -1366,6 +1375,7 @@ function runFSM(now, fast, jerk) {
             if (fast > drivePeakAcc) { drivePeakAcc = fast; drivePeakAccT = now; }
             {
                 const dd = now - driveStartT;
+                if (dd < 500 && jerk < driveMinJerk) driveMinJerk = jerk;
                 if ((fast < 0 && dd > CONFIG.stroke.minDriveMs) || dd > CONFIG.stroke.maxDriveMs) {
                     onStrokeFinish(now, dd);
                     lastDriveEndT = now;
@@ -1374,6 +1384,7 @@ function runFSM(now, fast, jerk) {
             }
             break;
     }
+    prevFastSample = fast;
 }
 
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
@@ -1557,13 +1568,6 @@ function onNewCatch(now) {
                 sessStrokes[_ci].curve = Array.from(norm.data, v => Math.round(v * 100) / 100);
                 sessStrokes[_ci].curveDriveFrac = +norm.driveFrac.toFixed(3);
             }
-            // Update catch duration from zero-crossing measurement
-            if (norm.catchDurMs !== null && norm.catchDurMs > 10 && norm.catchDurMs < 500) {
-                catchDurValsArr.push(norm.catchDurMs);
-                if (catchDurValsArr.length > 5) catchDurValsArr.shift();
-                catchDurLast = Math.round(median(catchDurValsArr));
-                if (_ci >= 0 && sessStrokes[_ci]) sessStrokes[_ci].catchDuration = catchDurLast;
-            }
         }
     }
     catchToCatchSamples = [];
@@ -1729,7 +1733,7 @@ function onStrokeFinish(now, driveDur) {
     if (driveDur < CONFIG.stroke.minDriveMs || driveDur > CONFIG.stroke.maxDriveMs) return;
     const trigJerk = Math.abs(catchPeakJerk);
     if (trigJerk < 2 || trigJerk < jerkThreshBase * 1.5) return;
-    const catchSlope = Math.round(trigJerk);
+    const catchSlope = (driveMinJerk < -2) ? Math.round(Math.abs(driveMinJerk)) : Math.round(trigJerk);
 
     // ── Rest-gap reset: check BEFORE touching catchTsBuf or strokeRate ──────
     const gapMs = prevCatchT > 0 ? driveStartT - prevCatchT : 0;
@@ -1739,13 +1743,13 @@ function onStrokeFinish(now, driveDur) {
         lastKnownPeriodMs = Math.max(lastKnownPeriodMs * 0.70, CONFIG.stroke.nominalFallbackMs);
         acBuf.length = 0; acConf = 0;
         catchTsBuf.length = 0;                // clear completely — seed happens below
-        strokeRate = 0; catchToCatchSamples = []; pendingCurveDriveCount = 0; strokeTs.length = 0; prevDriveDurMs = 0;
+        strokeRate = 0; catchToCatchSamples = []; pendingCurveDriveCount = 0; strokeTs.length = 0; prevDriveDurMs = 0; bladeExitT = 0; prevDriveStartT = 0; bladeExitDetected = false;
     }
     // ── End rest-gap reset ───────────────────────────────────────────────────
 
     const peakOffset = drivePeakAccT - driveStartT;
     const rawChar = driveDur > 0 ? clamp((peakOffset / driveDur) * 100, 0, 100) : 50;
-    const catchDurMs = null;
+    const catchDurMs = driveDur;
     catchTsBuf.push(driveStartT);
     if (strokeRate > 0 && catchTsBuf.length >= 2) {
         const iv = catchTsBuf[catchTsBuf.length - 1] - catchTsBuf[catchTsBuf.length - 2];
@@ -1810,15 +1814,15 @@ function onStrokeFinish(now, driveDur) {
     if (strokeTs.length > MAX_STROKE_TS) strokeTs.shift();
     rdi = null;
     strokeRatio = null;
-    if (strokeTs.length >= 2 && prevDriveDurMs > 0) {
-        const prev = strokeTs[strokeTs.length - 2], cur = strokeTs[strokeTs.length - 1];
-        const rec = (cur - prev - prevDriveDurMs) / 1000, drv = prevDriveDurMs / 1000;
-        if (rec > 0 && drv > 0) {
-            const rv = (rec - drv) / (rec + drv);
+    if (bladeExitT > prevDriveStartT + 100 && bladeExitT < driveStartT) {
+        const physDrv = (bladeExitT - prevDriveStartT) / 1000;
+        const physRec = (driveStartT - bladeExitT) / 1000;
+        if (physDrv > 0.3 && physRec > 0.3) {
+            const rv = (physRec - physDrv) / (physRec + physDrv);
             rdiValsArr.push(rv);
             if (rdiValsArr.length > 10) rdiValsArr.shift();
             rdi = clamp(rdiValsArr.reduce((a, b) => a + b, 0) / rdiValsArr.length, -1, 1);
-            const rawRatio = rec / drv;
+            const rawRatio = physRec / physDrv;
             if (rawRatio > 0.3 && rawRatio < 8) {
                 pushLimit(strokeRatioValsArr, rawRatio, 8);
                 strokeRatio = +(median(strokeRatioValsArr) ?? rawRatio).toFixed(2);
@@ -1909,7 +1913,7 @@ function onStrokeFinish(now, driveDur) {
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // GPS HANDLER — speed EMA, pace window, haversine distance
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
-let pace = 0, gpsAccuracyM = null, gpsSpeedEma = -1, gpsLastValidT = 0, gpsWasStopped = false, gpsDeadWarned = false, gpsResumeT = -Infinity;
+let pace = 0, gpsAccuracyM = null, gpsSpeedEma = -1, gpsLastValidT = 0, gpsLastFixT = 0, gpsWasStopped = false, gpsDeadWarned = false, gpsResumeT = -Infinity;
 const speedSamples = [], paceDistWindow = [], velocityWindow = [];
 let lastPos = null;
 let headingEmaX = null, headingEmaY = null;
@@ -1966,13 +1970,14 @@ function pushVelocity(t, v) {
     if (gpsSpeedEma < 0 || gapMs > CONFIG.gps.gapResetMs) {
         gpsLastValidT = t; lastDistT = t; gpsWasStopped = false;
         vFilter.reset(); gpsSpeedEma = vFilter.filter(v, t);
-        if (gapMs > CONFIG.gps.gapResetMs) paceDistWindow.length = 0;
+        if (gapMs > CONFIG.gps.gapResetMs) { paceDistWindow.length = 0; velocityWindow.length = 0; }
         return;
     }
     // Resuming from a stop
     if (gpsWasStopped && v > 0.5) {
         gpsLastValidT = t; lastDistT = t; gpsWasStopped = false;
         gpsResumeT = t;
+        velocityWindow.length = 0;
         vFilter.reset(); gpsSpeedEma = vFilter.filter(v, t);
         return;
     }
@@ -2013,6 +2018,7 @@ function handlePos(pos) {
     else if (acc < 25) { pill.className = 'pill pill-warn'; pill.textContent = 'GPS ' + Math.round(acc) + 'm'; }
     else               { pill.className = 'pill pill-err';  pill.textContent = 'GPS ' + Math.round(acc) + 'm'; }
     const spd = pos.coords.speed, now = performance.now();
+    gpsLastFixT = now;   // position arrived regardless of whether Doppler speed is available
     if (running && !paused && !sessionReady && spd != null && spd >= 0 && spd < 8) {
         if (gpsDeadWarned) { gpsDeadWarned = false; toast('GPS restored'); }
         pushVelocity(now, spd);
@@ -2064,7 +2070,7 @@ function handlePos(pos) {
                 if (raw >= 90 && raw <= CONFIG.gps.maxPaceS) { pace = raw; sessPaceTrace.push(pace); }
             } else pace = 0;
         } else pace = 0;
-        if (gpsLastValidT > 0 && (now - gpsLastValidT) > 6000) pace = 0;
+        if (gpsLastFixT > 0 && (now - gpsLastFixT) > 6000) pace = 0;
     }
     updateUI();
 }
@@ -3332,10 +3338,10 @@ function resetSess() {
     pendingRun = null; runLosses.length = 0; runLossM = null; runLossPcts.length = 0; runLossPct = null; runLossMpsArr.length = 0; runLossMps = null; rlDebug.length = 0;
     laps = []; sessStrokes.length = 0; sessPaceTrace.length = 0;
     sessGpsTrace.length = 0; sessGpsRawTrace.length = 0;
-    strokeTs.length = 0; prevDriveDurMs = 0; paceDistWindow.length = 0; velocityWindow.length = 0;
+    strokeTs.length = 0; prevDriveDurMs = 0; prevFastSample = 0; paceDistWindow.length = 0; velocityWindow.length = 0;
     speedSamples.length = 0; prevStrokeDist = 0; prevStrokeDistT = 0;
-    gpsLastValidT = 0; gpsSpeedEma = -1; gpsWasStopped = false; gpsDeadWarned = false; gpsAccuracyM = null; headingEmaX = null; headingEmaY = null; vFilter.reset(); lastDistT = 0; gpsResumeT = -Infinity;
-    fsmState = FS.IDLE; catchPeakJerk = 0; trigValsArr.length = 0; catchStartT = 0; lastCatchAbsT = 0; lastDriveEndT = 0;
+    gpsLastValidT = 0; gpsLastFixT = 0; gpsSpeedEma = -1; gpsWasStopped = false; gpsDeadWarned = false; gpsAccuracyM = null; headingEmaX = null; headingEmaY = null; vFilter.reset(); lastDistT = 0; gpsResumeT = -Infinity;
+    fsmState = FS.IDLE; catchPeakJerk = 0; driveMinJerk = 0; trigValsArr.length = 0; catchStartT = 0; lastCatchAbsT = 0; lastDriveEndT = 0; bladeExitT = 0; prevDriveStartT = 0; bladeExitDetected = false;
     strokesDetected = 0; jerkThreshActive = jerkThreshBase; adaptReady = false;
     acBuf.length = 0; acLastUpdate = 0; jerkBuf.length = 0; catchTsBuf.length = 0;
     axisLocked = false; axisAutoDetected = false; lastAxisCheck = 0;
