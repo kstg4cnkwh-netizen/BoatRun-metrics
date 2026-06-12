@@ -1386,13 +1386,30 @@ const CURVE_HISTORY_N = 5;
 let catchToCatchSamples = [], pendingCurveDriveCount = 0;
 function normalizeStrokeSamples(samples, dc) {
     if (!samples || samples.length < 4) return null;
-    const data = new Float32Array(CURVE_POINTS), n = samples.length;
+    const n = samples.length;
+    // Locate catch-end: first pos→neg crossing in raw axFast (catch impulse → drive force starts)
+    let catchEndIdx = 0;
+    for (let i = 1; i < n; i++) {
+        if (samples[i - 1].v > 0 && samples[i].v <= 0) { catchEndIdx = i; break; }
+    }
+    // Locate blade-exit: first neg→pos crossing after catchEnd (drive force → recovery)
+    let driveIdx = dc > 0 ? dc : Math.round(n * 0.35);
+    if (catchEndIdx > 0) {
+        for (let i = catchEndIdx + 1; i < n; i++) {
+            if (samples[i - 1].v < 0 && samples[i].v >= 0) { driveIdx = i; break; }
+        }
+    }
+    // Catch duration from timestamps
+    const totalMs = n > 1 ? samples[n - 1].t - samples[0].t : 0;
+    const catchDurMs = (catchEndIdx > 1 && totalMs > 0)
+        ? Math.round((catchEndIdx / n) * totalMs) : null;
+    const data = new Float32Array(CURVE_POINTS);
     for (let i = 0; i < CURVE_POINTS; i++) {
         const t = i / (CURVE_POINTS - 1) * (n - 1);
         const lo = Math.floor(t), hi = Math.min(lo + 1, n - 1), f = t - lo;
         data[i] = -(samples[lo].v * (1 - f) + samples[hi].v * f);
     }
-    return { data, driveFrac: clamp(dc / n, 0, 1) };
+    return { data, driveFrac: clamp(driveIdx / n, 0, 1), catchDurMs };
 }
 function avgCurves(curves) {
     if (!curves.length) return null;
@@ -1526,18 +1543,26 @@ function onNewCatch(now) {
                 sessStrokes[sessStrokes.length - 1].checkDelta = checkDelta;
         }
     }
-    if (pendingCurveDriveCount > 0 && catchToCatchSamples.length >= 8) {
-        const norm = normalizeStrokeSamples(catchToCatchSamples, pendingCurveDriveCount);
+    if (catchToCatchSamples.length >= 20) {
+        const _dc = pendingCurveDriveCount > 0 ? pendingCurveDriveCount : 0;
+        const norm = normalizeStrokeSamples(catchToCatchSamples, _dc);
         if (norm) {
             lastStrokeCurve = norm;
             strokeCurveHistory.push(norm);
             if (strokeCurveHistory.length > CURVE_HISTORY_N) strokeCurveHistory.shift();
             if (curveTabActive()) { renderCurveCanvas(); updateCurveTiles(); }
-            // Save curve to the stroke record that just finished
+            // Save curve + catch duration to the stroke record that just finished
             const _ci = sessStrokes.length - 1;
             if (_ci >= 0 && sessStrokes[_ci]) {
                 sessStrokes[_ci].curve = Array.from(norm.data, v => Math.round(v * 100) / 100);
                 sessStrokes[_ci].curveDriveFrac = +norm.driveFrac.toFixed(3);
+            }
+            // Update catch duration from zero-crossing measurement
+            if (norm.catchDurMs !== null && norm.catchDurMs > 10 && norm.catchDurMs < 500) {
+                catchDurValsArr.push(norm.catchDurMs);
+                if (catchDurValsArr.length > 5) catchDurValsArr.shift();
+                catchDurLast = Math.round(median(catchDurValsArr));
+                if (_ci >= 0 && sessStrokes[_ci]) sessStrokes[_ci].catchDuration = catchDurLast;
             }
         }
     }
