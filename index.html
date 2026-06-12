@@ -1225,8 +1225,8 @@ function handleMotion(e) {
     updateAxes(raw, now);
     maybeDetectAxis(now);
     if (calRunning) return;
-    const rawFast = axFast[selAxis];
-    jerkBuf.push({ t: now, v: rawFast });
+    const fast = axFast[selAxis];
+    jerkBuf.push({ t: now, v: fast });
     if (jerkBuf.length > CONFIG.motion.jerkHistN) jerkBuf.shift();
     let jerk = 0;
     if (jerkBuf.length >= 2) {
@@ -1234,14 +1234,13 @@ function handleMotion(e) {
         if (dtJ > 0.005) jerk = (jerkBuf[jerkBuf.length - 1].v - jerkBuf[0].v) / dtJ;
         jerk = clamp(jerk, -CONFIG.motion.jerkClamp, CONFIG.motion.jerkClamp);
     }
-    const fast = rawFast;
     acBuf.push({ t: now, v: axSmooth[selAxis] });
     const acCut = now - CONFIG.motion.acBufMs;
     while (acBuf.length > 1 && acBuf[0].t < acCut) acBuf.shift();
     if (running && !paused) {
         computeAutocorrelationRate(now);
     }
-    runFSM(now, fast, corrJerk);
+    runFSM(now, fast, jerk);
     if (running && !paused) {
         catchToCatchSamples.push({ t: now, v: axFast[selAxis] });
     }
@@ -1337,14 +1336,14 @@ function runFSM(now, fast, jerk) {
             }
             if (fsmState === FS.RECOVERY && tSinceCatch > CONFIG.stroke.periodMaxMs * 1.5)
                 fsmState = FS.IDLE;
-            // IMU run loss — accumulate only while still in RECOVERY (after catch, fsmState = CATCH)
+            // IMU run loss — accumulate only while in RECOVERY within the window
             if (wasRecovery && fsmState === FS.RECOVERY && imuRL && now >= imuRL.startAt && now <= imuRL.endAt) {
                 if (imuRL.lastT < 0) {
-                    imuRL.lastT = now;                         // first sample: set clock, skip dt
+                    imuRL.lastT = now;
                 } else {
                     const dt = (now - imuRL.lastT) / 1000;
                     imuRL.lastT = now;
-                    if (dt > 0 && dt < 0.08) {                // guard against motion pauses
+                    if (dt > 0 && dt < 0.08) {
                         imuRL.deltaV    += fast * dt;
                         if (imuRL.deltaV < imuRL.minDeltaV) imuRL.minDeltaV = imuRL.deltaV;
                         imuRL.nSamples++;
@@ -1706,6 +1705,7 @@ function onStrokeFinish(now, driveDur) {
     const trigJerk = Math.abs(catchPeakJerk);
     if (trigJerk < 2 || trigJerk < jerkThreshBase * 1.5) return;
     const catchSlope = Math.round(trigJerk);
+
     // ── Rest-gap reset: check BEFORE touching catchTsBuf or strokeRate ──────
     const gapMs = prevCatchT > 0 ? driveStartT - prevCatchT : 0;
     if (gapMs / 1000 > CONFIG.stroke.restGapS) {
@@ -1776,7 +1776,7 @@ function onStrokeFinish(now, driveDur) {
     charValsArr.push(Math.round(rawChar));
     if (charValsArr.length > 5) charValsArr.shift();
     strokeChar = Math.round(charValsArr.reduce((a, b) => a + b, 0) / charValsArr.length);
-    if (catchDurMs !== null && catchDurMs > 30 && catchDurMs < 800) {
+    if (catchDurMs !== null && catchDurMs > 10 && catchDurMs < 500) {
         catchDurValsArr.push(catchDurMs);
         if (catchDurValsArr.length > 5) catchDurValsArr.shift();
         catchDurLast = Math.round(median(catchDurValsArr));
@@ -3314,7 +3314,7 @@ function resetSess() {
     strokesDetected = 0; jerkThreshActive = jerkThreshBase; adaptReady = false;
     acBuf.length = 0; acLastUpdate = 0; jerkBuf.length = 0; catchTsBuf.length = 0;
     axisLocked = false; axisAutoDetected = false; lastAxisCheck = 0;
-     sessStart = null; lastStrokeCurve = null; strokeCurveHistory.length = 0;
+    sessStart = null; lastStrokeCurve = null; strokeCurveHistory.length = 0;
     catchToCatchSamples = []; pendingCurveDriveCount = 0;
     motionSamples = 0; motionStartedAt = 0; lastMotionT = 0;
     imuRL = null; driveImpulseEma = null; oarAngle = null; oarAngleRawArr.length = 0;
