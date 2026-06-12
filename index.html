@@ -43,7 +43,6 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .rec{display:flex;align-items:center;gap:4px;color:#000;font-size:9px;font-weight:700;flex-shrink:0;}
 .recdot{width:7px;height:7px;border-radius:50%;background:#e74c3c;animation:blink 1s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
-#cox-banner{background:#c0392b;color:#fff;font-size:10px;font-weight:700;letter-spacing:.18em;text-align:center;padding:5px 0;flex-shrink:0;}
 
 /* \u9472 \u9472  WORKOUT STATUS BAR \u9472 \u9472  */
 .wkt-bar{background:#f5f5f5;border-bottom:2px solid #1a5276;display:none;align-items:center;gap:6px;padding:4px 8px;flex-shrink:0;min-height:34px;}
@@ -422,7 +421,6 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div class="sbar-l"><span class="sbar-title">SCULL</span><span class="pill pill-off" id="p-gps">GPS</span><span class="pill pill-off" id="p-acc">ACC</span><span class="pill pill-off" id="p-cal">CAL</span><span class="pill pill-off" id="p-axis">AX:?</span></div>
 <div class="sbar-r"><div class="rec" id="rec-ind" style="display:none"><div class="recdot"></div>REC</div></div>
 </div>
-<div id="cox-banner" style="display:none">COX MODE</div>
 <!-- Workout bar -->
 <div class="wkt-bar" id="wkt-bar">
 <div class="wkt-phase work" id="wkt-phase-lbl">WORK</div>
@@ -748,7 +746,6 @@ function setSetting(key, value) {
     if (typeof renderSettingsPanel === 'function') renderSettingsPanel();
     updateUI();
 }
-function updateCoxBanner() { updateDirIndicator(); }
 function toggleBoatClass() {
     appSettings.boatClass = appSettings.boatClass === 'sweep' ? 'scull' : 'sweep';
     saveSettings();
@@ -1138,7 +1135,6 @@ function enterLive() {
     wireWorkoutBar();
     buildGrid();
     renderCtrl();
-    updateCoxBanner();
     updateUI();
 }
 
@@ -1148,17 +1144,7 @@ function enterLive() {
 const AXES = ['x', 'y', 'z'];
 let selAxis = 'x', axisLocked = false, axisAutoDetected = false, lastAxisCheck = 0;
 // Direction detection — auto-detect cox (phone faces fwd) vs rower (phone faces back)
-let coxModeActive = false, directionDetected = false, lastProbeEventT = 0;
-const DIR_PROBE_N = 3;
-const dirJerkSigns = [], dirProbeBuf = [];
-function updateDirIndicator() {
-    const b = document.getElementById('cox-banner');
-    if (b) b.style.display = (directionDetected && coxModeActive) ? 'block' : 'none';
-    const p = document.getElementById('p-axis');
-    if (p && axisAutoDetected) {
-        p.textContent = 'AX:' + selAxis.toUpperCase() + (directionDetected && coxModeActive ? '·C' : '');
-    }
-}
+
 const gravity = { x: 0, y: 0, z: 0 };
 const axFast   = { x: 0, y: 0, z: 0 };
 const axSmooth = { x: 0, y: 0, z: 0 };
@@ -1219,7 +1205,7 @@ function maybeDetectAxis(now) {
     }
     const p = document.getElementById('p-axis');
     if (!p) return;
-    p.textContent = axisAutoDetected ? 'AX:' + selAxis.toUpperCase() + (directionDetected && coxModeActive ? '·C' : '') : 'AX:?';
+    p.textContent = axisAutoDetected ? 'AX:' + selAxis.toUpperCase() : 'AX:?';
     p.className = axisAutoDetected ? (axisLocked ? 'pill pill-on' : 'pill pill-warn') : 'pill pill-off';
 }
 
@@ -1248,23 +1234,7 @@ function handleMotion(e) {
         if (dtJ > 0.005) jerk = (jerkBuf[jerkBuf.length - 1].v - jerkBuf[0].v) / dtJ;
         jerk = clamp(jerk, -CONFIG.motion.jerkClamp, CONFIG.motion.jerkClamp);
     }
-    // Direction probe: classify phone orientation from catch jerk sign during first strokes.
-    // Rower (phone faces back): axFast positive at catch → positive jerk.
-    // Cox  (phone faces fwd):   axFast negative at catch → negative jerk.
-    if (!directionDetected && axisAutoDetected
-            && Math.abs(jerk) > jerkThreshBase * 1.1
-            && (now - lastProbeEventT) > CONFIG.stroke.periodMinMs * 0.7) {
-        lastProbeEventT = now;
-        dirJerkSigns.push(jerk > 0 ? 1 : -1);
-        if (dirJerkSigns.length >= DIR_PROBE_N) {
-            const sum = dirJerkSigns.reduce((a, b) => a + b, 0);
-            coxModeActive = sum < 0;
-            directionDetected = true;
-            updateDirIndicator();
-        }
-    }
-    const fast = coxModeActive ? -rawFast : rawFast;
-    const corrJerk = coxModeActive ? -jerk : jerk;
+    const fast = rawFast;
     acBuf.push({ t: now, v: axSmooth[selAxis] });
     const acCut = now - CONFIG.motion.acBufMs;
     while (acBuf.length > 1 && acBuf[0].t < acCut) acBuf.shift();
@@ -1795,7 +1765,7 @@ function onStrokeFinish(now, driveDur) {
             if (strokesDetected >= 4) {
                 axisLocked = true;
                 const p = document.getElementById('p-axis');
-                if (p) { p.textContent = 'AX:' + selAxis.toUpperCase() + (directionDetected && coxModeActive ? '·C' : ''); p.className = 'pill pill-on'; }
+                if (p) { p.textContent = 'AX:' + selAxis.toUpperCase(); p.className = 'pill pill-on'; }
             }
         }
     }
@@ -3344,8 +3314,7 @@ function resetSess() {
     strokesDetected = 0; jerkThreshActive = jerkThreshBase; adaptReady = false;
     acBuf.length = 0; acLastUpdate = 0; jerkBuf.length = 0; catchTsBuf.length = 0;
     axisLocked = false; axisAutoDetected = false; lastAxisCheck = 0;
-    coxModeActive = false; directionDetected = false; lastProbeEventT = 0; dirJerkSigns.length = 0; dirProbeBuf.length = 0;
-    sessStart = null; lastStrokeCurve = null; strokeCurveHistory.length = 0;
+     sessStart = null; lastStrokeCurve = null; strokeCurveHistory.length = 0;
     catchToCatchSamples = []; pendingCurveDriveCount = 0;
     motionSamples = 0; motionStartedAt = 0; lastMotionT = 0;
     imuRL = null; driveImpulseEma = null; oarAngle = null; oarAngleRawArr.length = 0;
