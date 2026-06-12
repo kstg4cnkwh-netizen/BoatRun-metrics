@@ -1305,7 +1305,9 @@ let fsmState = FS.IDLE,
     driveStartT = 0, driveAccSamples = [], drivePeakAcc = 0, drivePeakAccT = 0,
     lastDriveEndT = 0, lastCatchAbsT = 0,
     driveMinJerk = 0,
-    bladeExitT = 0, prevDriveStartT = 0, prevFastSample = 0, bladeExitDetected = false;
+    bladeExitT = 0, prevDriveStartT = 0, prevFastSample = 0, bladeExitDetected = false,
+    drvPeakNeg = 0, drvPeakNegT = 0, drvImpAcc = 0, drvImpLastT = -1,
+    prevDrvImp = null, prevDrvPeakT = 0, prevCatchEndT = 0;
 let jerkThreshBase = cal.jerkThresh || 8.0,
     jerkThreshActive = cal.jerkThresh || 8.0,
     accThreshBase = cal.accThresh || 0.8,
@@ -1323,23 +1325,34 @@ function runFSM(now, fast, jerk) {
         nominalMs = lastKnownPeriodMs;
     }
     const ref = Math.max(CONFIG.stroke.refractoryMinMs, nominalMs * 0.85);
+    // Strong-evidence bypass: a very sharp catch may arrive after only ~42% of
+    // the nominal period (abrupt rate jump / racing start) — prevents half-rate lock.
+    const refStrong = Math.max(CONFIG.stroke.refractoryMinMs, nominalMs * 0.42);
     switch (fsmState) {
         case FS.IDLE:
         case FS.RECOVERY: {
             const wasRecovery = (fsmState === FS.RECOVERY);
-            if (jerk > jerkThreshActive && fast > accThreshBase && tSinceCatch > ref
+            const strongCatch = jerk > jerkThreshActive * 1.8 && fast > accThreshBase * 1.5;
+            if (jerk > jerkThreshActive && fast > accThreshBase
+                    && tSinceCatch > (strongCatch ? refStrong : ref)
                     && (now - lastDriveEndT) > CONFIG.stroke.postDriveLockoutMs) {
                 onNewCatch(now);
                 fsmState = FS.CATCH;
                 catchStartT = now; catchPeakJerk = jerk;
                 driveMinJerk = 0; prevDriveStartT = driveStartT; bladeExitDetected = false;
+                // Hand the finished stroke's drive-phase peak & impulse to onStrokeFinish
+                prevDrvImp = drvImpAcc; prevDrvPeakT = drvPeakNegT;
+                prevCatchEndT = lastDriveEndT;
+                drvImpAcc = 0; drvImpLastT = -1; drvPeakNeg = 0; drvPeakNegT = 0;
                 driveAccSamples = [{ t: now, v: fast }];
                 drivePeakAcc = fast; drivePeakAccT = now;
                 jerkBuf.length = 0;
             }
             if (fsmState === FS.RECOVERY && tSinceCatch > CONFIG.stroke.periodMaxMs * 1.5)
                 fsmState = FS.IDLE;
-            // IMU run loss — accumulate only while in RECOVERY within the window
+            // IMU run loss — accumulate only while in RECOVERY within the window.
+            // Inverted axis: raw axFast > 0 = hull decelerating, so deltaV RISES
+            // during recovery; maxDeltaV = speed lost since blade exit.
             if (wasRecovery && fsmState === FS.RECOVERY && imuRL && now >= imuRL.startAt && now <= imuRL.endAt) {
                 if (imuRL.lastT < 0) {
                     imuRL.lastT = now;
@@ -1348,16 +1361,42 @@ function runFSM(now, fast, jerk) {
                     imuRL.lastT = now;
                     if (dt > 0 && dt < 0.08) {
                         imuRL.deltaV    += fast * dt;
-                        if (imuRL.deltaV < imuRL.minDeltaV) imuRL.minDeltaV = imuRL.deltaV;
+                        if (imuRL.deltaV > imuRL.maxDeltaV) imuRL.maxDeltaV = imuRL.deltaV;
                         imuRL.nSamples++;
                     }
                 }
+            }
+            // Drive-phase peak & impulse (raw axFast < 0 = hull accelerating),
+            // accumulated from catch-end until blade exit
+            if (wasRecovery && fsmState === FS.RECOVERY && !bladeExitDetected) {
+                if (drvImpLastT < 0) {
+                    drvImpLastT = now;
+                } else {
+                    const dtI = (now - drvImpLastT) / 1000;
+                    drvImpLastT = now;
+                    if (dtI > 0 && dtI < 0.08 && fast < 0) drvImpAcc += (-fast) * dtI;
+                }
+                if (fast < drvPeakNeg) { drvPeakNeg = fast; drvPeakNegT = now; }
             }
             // Blade exit: first neg→pos zero crossing of fast in RECOVERY
             if (wasRecovery && fsmState === FS.RECOVERY && !bladeExitDetected
                     && prevFastSample < 0 && fast >= 0 && (now - lastDriveEndT) > 150) {
                 bladeExitT = now;
                 bladeExitDetected = true;
+                // Rebase run-loss windows to the true finish (blade exit)
+                if (imuRL) {
+                    imuRL.startAt = now + CONFIG.runLoss.startAfterDriveMs;
+                    imuRL.endAt   = imuRL.startAt + CONFIG.runLoss.windowMs;
+                    imuRL.driveEndT = now;
+                    imuRL.deltaV = 0; imuRL.maxDeltaV = 0; imuRL.lastT = -1; imuRL.nSamples = 0;
+                }
+                if (pendingRun) {
+                    pendingRun.startAt = now + CONFIG.runLoss.startAfterDriveMs;
+                    pendingRun.endAt   = pendingRun.startAt + CONFIG.runLoss.windowMs;
+                    pendingRun.driveEndT = now;
+                    pendingRun.startSpeed = null; pendingRun.minSpeed = null;
+                    pendingRun.nSamples = 0; pendingRun._done = false;
+                }
             }
             break;
         }
@@ -1436,7 +1475,7 @@ function avgCurves(curves) {
 function onNewCatch(now) {
     // Finalise IMU run loss from the recovery that just ended
     if (imuRL && imuRL.nSamples >= 8 && imuRL.v0 !== null) {
-        const dv       = Math.max(0, -imuRL.minDeltaV);
+        const dv       = Math.max(0, imuRL.maxDeltaV);
         const sampledS = clamp(Math.min(CONFIG.runLoss.windowMs, Math.max(0, now - imuRL.driveEndT - CONFIG.runLoss.startAfterDriveMs)) / 1000, 0.3, 4.0);
         const rawLoss  = +(dv * sampledS * 0.5).toFixed(4);
         if (rawLoss >= 0 && rawLoss <= CONFIG.runLoss.maxLossM) {
@@ -1459,7 +1498,7 @@ function onNewCatch(now) {
     }
     // ── RL debug entry — built here so sprint strokes aren't missed ──────────
     {
-        const imuDv = imuRL ? +Math.max(0, -imuRL.minDeltaV).toFixed(4) : null;
+        const imuDv = imuRL ? +Math.max(0, imuRL.maxDeltaV).toFixed(4) : null;
         const imuN  = imuRL ? imuRL.nSamples : 0;
         const sN    = imuRL ? imuRL.strokeN  : null;
         const pRun  = (pendingRun && pendingRun.strokeN === sN) ? pendingRun : null;
@@ -1592,33 +1631,21 @@ let checkDelta = null, checkDeltaRawArr = [];
 let catchGpsDist = 0, pendingOarStrokeIdx = -1;
 function rateFromMedianIntervals() {
     if (catchTsBuf.length < 2) return 0;
-    let nominalMs;
-    if (strokeRate > 0) {
-        nominalMs = 60000 / Math.min(strokeRate, CONFIG.stroke.spmMax);
-    } else {
-        const lastMs = catchTsBuf[catchTsBuf.length - 1] - catchTsBuf[catchTsBuf.length - 2];
-        nominalMs = clamp(lastMs, CONFIG.stroke.nominalMinMs, CONFIG.stroke.nominalMaxMs);
-    }
-    const dynMin = Math.max(CONFIG.stroke.periodMinMs, nominalMs * 0.80);
-    const iv = [];
+    const rawIv = [];
     for (let i = 1; i < catchTsBuf.length; i++) {
         const dt = catchTsBuf[i] - catchTsBuf[i - 1];
-        if (dt >= dynMin && dt <= CONFIG.stroke.periodMaxMs) iv.push(dt);
+        if (dt >= CONFIG.stroke.periodMinMs && dt <= CONFIG.stroke.periodMaxMs) rawIv.push(dt);
     }
+    if (!rawIv.length) return 0;
+    const med = median(rawIv);
+    const dynMin = Math.max(CONFIG.stroke.periodMinMs, med * 0.66);
+    const iv = rawIv.filter(dt => dt >= dynMin);
     if (!iv.length) return 0;
     iv.sort((a, b) => a - b);
     const m = Math.floor(iv.length / 2);
     return 60000 / (iv.length % 2 === 0 ? (iv[m - 1] + iv[m]) / 2 : iv[m]);
 }
-function computeDriveImpulse(samples) {
-    let imp = 0;
-    for (let i = 1; i < samples.length; i++) {
-        const dt = (samples[i].t - samples[i - 1].t) / 1000;
-        if (dt <= 0 || dt > 0.1) continue;
-        if (samples[i].v > 0) imp += samples[i].v * dt;
-    }
-    return imp > 0 ? +imp.toFixed(4) : null;
-}
+
 // ─── Oar arc angle — full catch-to-catch IMU integration ──────────────────
 // Uses catchToCatchSamples (axFast) + smoothed GPS average speed as anchor.
 //
@@ -1726,7 +1753,6 @@ function computeCheckDelta(samples) {
     return (delta > 0.05 && delta < 5.0) ? +delta.toFixed(3) : null;
 }
 
-// Lines 1480–1572 — REPLACE the entire onStrokeFinish function
 function onStrokeFinish(now, driveDur) {
     const prevCatchT = lastCatchAbsT;          // save previous catch time for gapMs
     lastCatchAbsT = driveStartT;               // lock refractory now — before any early return
@@ -1744,11 +1770,11 @@ function onStrokeFinish(now, driveDur) {
         acBuf.length = 0; acConf = 0;
         catchTsBuf.length = 0;                // clear completely — seed happens below
         strokeRate = 0; catchToCatchSamples = []; pendingCurveDriveCount = 0; strokeTs.length = 0; prevDriveDurMs = 0; bladeExitT = 0; prevDriveStartT = 0; bladeExitDetected = false;
+        drvImpAcc = 0; drvImpLastT = -1; drvPeakNeg = 0; drvPeakNegT = 0;
+        prevDrvImp = null; prevDrvPeakT = 0; prevCatchEndT = 0;
     }
     // ── End rest-gap reset ───────────────────────────────────────────────────
 
-    const peakOffset = drivePeakAccT - driveStartT;
-    const rawChar = driveDur > 0 ? clamp((peakOffset / driveDur) * 100, 0, 100) : 50;
     const catchDurMs = driveDur;
     catchTsBuf.push(driveStartT);
     if (strokeRate > 0 && catchTsBuf.length >= 2) {
@@ -1802,9 +1828,6 @@ function onStrokeFinish(now, driveDur) {
         const m = catchValsArr.reduce((a, b) => a + b, 0) / catchValsArr.length;
         catchConsistency = Math.round(Math.sqrt(catchValsArr.reduce((s, v) => s + (v - m) ** 2, 0) / catchValsArr.length));
     }
-    charValsArr.push(Math.round(rawChar));
-    if (charValsArr.length > 5) charValsArr.shift();
-    strokeChar = Math.round(charValsArr.reduce((a, b) => a + b, 0) / charValsArr.length);
     if (catchDurMs !== null && catchDurMs > 10 && catchDurMs < 500) {
         catchDurValsArr.push(catchDurMs);
         if (catchDurValsArr.length > 5) catchDurValsArr.shift();
@@ -1828,6 +1851,16 @@ function onStrokeFinish(now, driveDur) {
                 strokeRatio = +(median(strokeRatioValsArr) ?? rawRatio).toFixed(2);
             }
         }
+        // ── Stroke char %: position of peak drive acceleration within the
+        // drive-force phase (catch-end → blade exit) of the stroke that just
+        // ended. Peak time tracked in runFSM (drvPeakNegT). Lags one stroke.
+        if (prevCatchEndT > prevDriveStartT && bladeExitT - prevCatchEndT > 100
+                && prevDrvPeakT > prevCatchEndT && prevDrvPeakT <= bladeExitT) {
+            const rawChar = clamp(((prevDrvPeakT - prevCatchEndT) / (bladeExitT - prevCatchEndT)) * 100, 0, 100);
+            charValsArr.push(Math.round(rawChar));
+            if (charValsArr.length > 5) charValsArr.shift();
+            strokeChar = Math.round(charValsArr.reduce((a, b) => a + b, 0) / charValsArr.length);
+        }
     }
     prevDriveDurMs = driveDur;
     // ── Oar arc angle ────────────────────────────────────────────────────────
@@ -1846,13 +1879,18 @@ function onStrokeFinish(now, driveDur) {
     }
     prevStrokeDist = distance;
     prevStrokeDistT = driveStartT;
-    const driveImpulse = computeDriveImpulse(driveAccSamples);
+    // ── Drive impulse: ∫(−axFast)dt over the drive-force phase (catch-end →
+    // blade exit) of the stroke that just ended. Accumulated in runFSM and
+    // handed over at this catch. Lags one stroke. ─────────────────────────────
+    const driveImpulse = (prevDrvImp != null && prevDrvImp > 0) ? +prevDrvImp.toFixed(4) : null;
     if (driveImpulse !== null) {
         driveImpulseEma = driveImpulseEma === null
             ? driveImpulse
             : IMP_EMA_ALPHA * driveImpulse + (1 - IMP_EMA_ALPHA) * driveImpulseEma;
     }
     const prlStroke = strokeCount + 1;
+    // Run-loss windows are created here with a provisional anchor (catch-end);
+    // both are rebased to the true finish when blade exit fires in runFSM.
     pendingRun = {
         startAt: now + CONFIG.runLoss.startAfterDriveMs,
         endAt:   now + CONFIG.runLoss.startAfterDriveMs + CONFIG.runLoss.windowMs,
@@ -1864,7 +1902,7 @@ function onStrokeFinish(now, driveDur) {
         endAt:      now + CONFIG.runLoss.startAfterDriveMs + CONFIG.runLoss.windowMs,
         v0:         gpsSpeedEma > 0.3 ? gpsSpeedEma : null,
         deltaV:     0,
-        minDeltaV:  0,
+        maxDeltaV:  0,
         lastT:      -1,
         nSamples:   0,
         strokeN:    prlStroke,
