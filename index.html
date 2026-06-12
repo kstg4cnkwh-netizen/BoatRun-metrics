@@ -844,14 +844,14 @@ function saveSess(a) {
     catch {
         try {
             const slim = a.map(s => s.strokes
-                ? { ...s, strokes: s.strokes.map(({ dbg, ...r }) => r), gpsRawTrace: undefined }
+                ? { ...s, strokes: s.strokes.map(({ dbg, ...r }) => r), gpsRawTrace: undefined, rlDebug: undefined }
                 : s);
             _LS.setItem(DB, JSON.stringify(slim));
-            toast('Storage full');
+            toast('Saved — GPS trace removed (storage full)');
         } catch {
             try {
                 _LS.setItem(DB, JSON.stringify(a.slice(0, Math.max(1, a.length - 1))));
-                toast('Storage full — oldest removed');
+                toast('Storage full — oldest session removed');
             } catch {}
         }
     }
@@ -1448,6 +1448,8 @@ function normalizeStrokeSamples(samples, dc) {
         for (let i = catchEndIdx + 1; i < n; i++) {
             if (samples[i - 1].v < 0 && samples[i].v >= 0) { driveIdx = i; break; }
         }
+    } else if (driveIdx > Math.round(n * 0.55)) {
+        driveIdx = Math.round(n * 0.42); // FSM drive anomalously long, no pos→neg crossing — cap
     }
     // Catch duration from timestamps
     const totalMs = n > 1 ? samples[n - 1].t - samples[0].t : 0;
@@ -1537,7 +1539,7 @@ function onNewCatch(now) {
         if (pendingOarStrokeIdx >= 0 &&
             catchToCatchSamples.length >= 8 &&
             pendingCurveDriveCount >= 2 &&
-            vMean >= 1.5 && (now - gpsResumeT) > 6000) {
+            vMean >= 1.0 && (now - gpsResumeT) > 2000) {
             const rawAngle = computeOarAngle(
                 catchToCatchSamples, pendingCurveDriveCount, vMean);
             if (rawAngle !== null) {
@@ -2039,7 +2041,7 @@ function pushVelocity(t, v) {
     // Distance from velocity integral — unbiased, no position-jitter inflation
     if (lastDistT > 0) {
         const dtD = (t - lastDistT) / 1000;
-        if (dtD > 0 && dtD < 3 && gpsSpeedEma > 0.3) distance += gpsSpeedEma * dtD;
+        if (dtD > 0 && dtD < 6 && gpsSpeedEma > 0.3) distance += gpsSpeedEma * dtD;
     }
     lastDistT = t;
     if (gpsSpeedEma > 0.3) {
@@ -2729,6 +2731,7 @@ function renderCurveCanvas(){
   for(const c of[lastStrokeCurve,avg5].filter(Boolean))for(const v of c.data){if(v<yMin)yMin=v;if(v>yMax)yMax=v;}
   const yPad=Math.max((yMax-yMin)*0.08,0.1);
   yMin-=yPad;yMax+=yPad;
+    if(yMax>0&&yMin>-yMax*0.25)yMin=-yMax*0.25;
   const yRange=yMax-yMin||1,sy=v=>padT+(1-(v-yMin)/yRange)*(H-padT-padB);
   const y0=Math.max(padT,Math.min(H-padB,sy(0)));
   const primaryCurve=(lastStrokeCurve??avg5);
