@@ -4459,7 +4459,7 @@ function drawChart(id,data,color,invertY,yMax,points,yMin=null,refLine=null,lapL
   const c=document.getElementById(id);if(!c||data.length<2)return;
   const dpr=window.devicePixelRatio||1,W=c.offsetWidth*dpr,H=c.offsetHeight*dpr;c.width=W;c.height=H;
   const ctx=c.getContext('2d');ctx.clearRect(0,0,W,H);
-  const mn=yMin!=null?yMin:Math.min(...data),mx=yMax!=null?yMax:Math.max(...data);
+  const _d=data.filter(v=>isFinite(v));function _p(a,q){const s=[...a].sort((a,b)=>a-b),i=q*(s.length-1),f=Math.floor(i);return s[f]+((s[f+1]??s[f])-s[f])*(i-f);}const _lo=_d.length>=4?_p(_d,0.03):_d.length?Math.min(..._d):0;const _hi=_d.length>=4?_p(_d,0.97):_d.length?Math.max(..._d):1;const _rng=(_hi-_lo)||Math.abs(_hi)*0.1||1;const mn=yMin!=null?yMin:_lo-_rng*0.08;const mx=yMax!=null?yMax:_hi+_rng*0.08;
   const range=mx-mn||1,pad=4;
   const sy=v=>invertY?pad+(((v-mn)/range)*(H-pad*2)):(H-pad)-(((v-mn)/range)*(H-pad*2));
   ctx.strokeStyle='#f0f0f0';ctx.lineWidth=1;for(let i=0;i<=3;i++){const y=pad+i*(H-pad*2)/3;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
