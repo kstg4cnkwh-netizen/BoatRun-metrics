@@ -322,9 +322,9 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .wkc-name{font-size:13px;font-weight:700;color:#000;flex:1;}
 .wkc-arrow{font-size:10px;color:#aaa;display:inline-block;transition:transform .2s;flex-shrink:0;}
 .wkc-arrow.open{transform:rotate(90deg);}
-.wkc-body{display:none;padding:0 12px 12px;border-top:1px solid #f0f0f0;}.wkc-body.open{display:block;}
-.wkc-details{font-size:10px;color:#bbb;margin-top:8px;line-height:1.8;opacity:0.45;}
-.wkc-details.active{opacity:1;color:#444;}
+.wkc-body{display:none;padding:0 12px 10px;border-top:1px solid #f0f0f0;}.wkc-body.open{display:block;}
+#wkt-builder-wrap.in-card{margin-top:4px;}
+#wkt-builder-wrap.in-card .wkt-builder{background:none;box-shadow:none;border-radius:0;padding:6px 0 0;}
 .wkt-builder{background:#fff;border-radius:4px;padding:12px;margin-bottom:6px;box-shadow:0 1px 3px rgba(0,0,0,.07);}
 /* Step rows in builder */
 .step-row{display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid #f0f0f0;user-select:none;flex-wrap:wrap;}
@@ -3968,12 +3968,10 @@ function renderWorkoutList(){
         <span class="wkc-arrow">&#9658;</span>
       </div>
       <div class="wkc-body" id="wkb-${wi}">
-        <div class="wkt-actions">
+        <div class="wkt-actions" style="margin-bottom:6px;">
           <button class="wkt-btn load" data-action="load" data-wi="${wi}">&#9654; LOAD</button>
-          <button class="wkt-btn save" style="background:#1a5276;" data-action="edit" data-wi="${wi}">EDIT</button>
           <button class="wkt-btn del" data-action="del" data-wi="${wi}">DEL</button>
         </div>
-        <div class="wkc-details" id="wkd-${wi}">${describeWorkout(w)}</div>
       </div>
     </div>`).join('');
 }
@@ -3989,27 +3987,36 @@ function fmtIvDesc(iv){
   if(iv.mode==='time'){const s=iv.value;return s>=60?Math.floor(s/60)+'m'+(s%60?s%60+'s':''):s+'s';}
   return iv.value+'m';
 }
+function detachBuilder(){
+  const bw=document.getElementById('wkt-builder-wrap');
+  const htw=document.getElementById('ht-workouts');
+  if(bw){bw.classList.remove('in-card');if(htw&&bw.parentNode!==htw)htw.appendChild(bw);bw.style.display='none';}
+  document.getElementById('new-wkt-btn').style.display='block';
+}
 function toggleWktCard(wi){
   const body=document.getElementById('wkb-'+wi);if(!body)return;
   const isOpen=body.classList.contains('open');
-  if(isOpen){
-    const bw=document.getElementById('wkt-builder-wrap');
-    if(bw&&bw.style.display!=='none'&&_wktEditId){
-      const curSnap=JSON.stringify({name:(document.getElementById('wkt-builder-name').value||'').trim(),steps:_wktSteps});
-      if(curSnap!==_wktOriginalSnapshot){
-        if(confirm('Save changes?')){saveWorkoutFromBuilder();return;}
-        bw.style.display='none';
-        document.getElementById('new-wkt-btn').style.display='block';
-        _wktEditId=null;_wktSteps=[];_wktSelectedSteps=new Set();_wktOriginalSnapshot=null;
-      }
+  const bw=document.getElementById('wkt-builder-wrap');
+  if(bw&&bw.style.display!=='none'){
+    const curSnap=JSON.stringify({name:(document.getElementById('wkt-builder-name').value||'').trim(),steps:_wktSteps});
+    if(curSnap!==(_wktOriginalSnapshot||JSON.stringify({name:'',steps:[]}))){
+      if(confirm('Save changes?')){saveWorkoutFromBuilder();return;}
     }
+    detachBuilder();_wktEditId=null;_wktSteps=[];_wktSelectedSteps=new Set();_wktOriginalSnapshot=null;
   }
-  document.querySelectorAll('.wkc-body').forEach(b=>{
-    if(b.id!=='wkb-'+wi){b.classList.remove('open');const a=b.previousElementSibling&&b.previousElementSibling.querySelector('.wkc-arrow');if(a)a.classList.remove('open');}
-  });
-  body.classList.toggle('open');
+  document.querySelectorAll('.wkc-body').forEach(b=>{b.classList.remove('open');const a=b.previousElementSibling&&b.previousElementSibling.querySelector('.wkc-arrow');if(a)a.classList.remove('open');});
+  if(isOpen)return;
+  const workouts=loadWorkouts();const w=workouts[wi];if(!w)return;
+  _wktEditId=w.id;_wktSteps=JSON.parse(JSON.stringify(w.steps||[]));_wktSelectedSteps=new Set();
+  _wktOriginalSnapshot=JSON.stringify({name:w.name||'',steps:w.steps||[]});
+  document.getElementById('wkt-builder-name').value=w.name||'';
+  document.getElementById('new-wkt-btn').style.display='none';
+  const bwEl=document.getElementById('wkt-builder-wrap');
+  bwEl.classList.add('in-card');body.appendChild(bwEl);bwEl.style.display='block';
+  renderBuilderSteps();
+  body.classList.add('open');
   const arr=body.previousElementSibling&&body.previousElementSibling.querySelector('.wkc-arrow');
-  if(arr)arr.classList.toggle('open',body.classList.contains('open'));
+  if(arr)arr.classList.add('open');
 }
 function loadWorkoutNow(wi){
   const workouts=loadWorkouts();const def=workouts[wi];if(!def)return;
@@ -4033,6 +4040,7 @@ function editWorkout(wi){
 function deleteWorkout(wi){
   const workouts=loadWorkouts();
   if(!confirm('Delete "'+workouts[wi].name+'"?'))return;
+  detachBuilder();_wktEditId=null;_wktSteps=[];_wktSelectedSteps=new Set();_wktOriginalSnapshot=null;
   workouts.splice(wi,1);saveWorkouts(workouts);renderWorkoutList();toast('Deleted');
 }
 
@@ -4044,11 +4052,10 @@ function wireWorkoutBuilder(){
     document.getElementById('wkt-builder-wrap').style.display='block';
     renderBuilderSteps();
   };
-   document.getElementById('cancel-wkt-btn').onclick=()=>{
-    document.getElementById('wkt-builder-wrap').style.display='none';
-    document.getElementById('new-wkt-btn').style.display='block';
+  document.getElementById('cancel-wkt-btn').onclick=()=>{
+    detachBuilder();
     _wktEditId=null;_wktSteps=[];_wktSelectedSteps=new Set();_wktOriginalSnapshot=null;
-    document.querySelectorAll('.wkc-details').forEach(d=>d.classList.remove('active'));
+    document.querySelectorAll('.wkc-body').forEach(b=>{b.classList.remove('open');const a=b.previousElementSibling&&b.previousElementSibling.querySelector('.wkc-arrow');if(a)a.classList.remove('open');});
   };
   document.getElementById('btn-add-warmup').onclick=()=>addBuilderStep({type:'warmup',mode:'open'});
   document.getElementById('btn-add-work').onclick=()=>addBuilderStep({type:'work',mode:'time',value:240,timeValue:240,distValue:1000});
@@ -4059,7 +4066,7 @@ function wireWorkoutBuilder(){
   document.getElementById('ht-workouts').addEventListener('click',e=>{
     const btn=e.target.closest('[data-action][data-wi]');
     const hdr=e.target.closest('.wkc-header[data-wi]');
-    if(btn){const wi=parseInt(btn.dataset.wi);const a=btn.dataset.action;if(a==='load')loadWorkoutNow(wi);else if(a==='edit')editWorkout(wi);else if(a==='del')deleteWorkout(wi);}
+    if(btn){const wi=parseInt(btn.dataset.wi);const a=btn.dataset.action;if(a==='load')loadWorkoutNow(wi);else if(a==='del')deleteWorkout(wi);}
     else if(hdr){toggleWktCard(parseInt(hdr.dataset.wi));}
   });
 }
@@ -4337,8 +4344,7 @@ function saveWorkoutFromBuilder(){
     workouts.push({id:Date.now().toString(),name,steps:JSON.parse(JSON.stringify(_wktSteps))});
   }
   saveWorkouts(workouts);
-  document.getElementById('wkt-builder-wrap').style.display='none';
-  document.getElementById('new-wkt-btn').style.display='block';
+  detachBuilder();
   _wktEditId=null;_wktSteps=[];_wktSelectedSteps=new Set();_wktOriginalSnapshot=null;
   renderWorkoutList();toast('"'+name+'" saved');
 }
