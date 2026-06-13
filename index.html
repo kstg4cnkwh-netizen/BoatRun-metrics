@@ -3548,6 +3548,7 @@ function showTab(tab){
 }
 
 let _tabsWired=false;
+let _wktBuilderWired=false;
 function wireTabButtons(){
   if(_tabsWired)return;_tabsWired=true;
   // Live screen tabs
@@ -4045,6 +4046,7 @@ function deleteWorkout(wi){
 }
 
 function wireWorkoutBuilder(){
+  if(_wktBuilderWired)return;_wktBuilderWired=true;
   document.getElementById('new-wkt-btn').onclick=()=>{
     _wktEditId=null;_wktSteps=[];_wktSelectedSteps=new Set();
     document.getElementById('wkt-builder-name').value='';
