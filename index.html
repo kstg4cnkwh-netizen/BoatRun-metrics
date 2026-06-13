@@ -320,7 +320,11 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .wkt-card{background:#fff;border-radius:4px;margin-bottom:6px;border-left:4px solid #f39c12;box-shadow:0 1px 3px rgba(0,0,0,.07);overflow:hidden;}
 .wkc-header{display:flex;align-items:center;padding:10px 12px;cursor:pointer;gap:8px;user-select:none;}
 .wkc-name{font-size:13px;font-weight:700;color:#000;flex:1;}
+.wkc-arrow{font-size:10px;color:#aaa;display:inline-block;transition:transform .2s;flex-shrink:0;}
+.wkc-arrow.open{transform:rotate(90deg);}
 .wkc-body{display:none;padding:0 12px 12px;border-top:1px solid #f0f0f0;}.wkc-body.open{display:block;}
+.wkc-details{font-size:10px;color:#bbb;margin-top:8px;line-height:1.8;opacity:0.45;}
+.wkc-details.active{opacity:1;color:#444;}
 .wkt-builder{background:#fff;border-radius:4px;padding:12px;margin-bottom:6px;box-shadow:0 1px 3px rgba(0,0,0,.07);}
 /* Step rows in builder */
 .step-row{display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid #f0f0f0;user-select:none;flex-wrap:wrap;}
@@ -3951,25 +3955,25 @@ WORKOUT BUILDER (P2)
 let _wktEditId=null; // null = new, string = editing existing
 let _wktSteps=[];   // array of step objects being built
 let _wktSelectedSteps=new Set(); // indices of selected steps
+let _wktOriginalSnapshot=null;   // JSON snapshot before edit, for change detection
 
 function renderWorkoutList(){
   const container=document.getElementById('workout-list-container');if(!container)return;
   const workouts=loadWorkouts();
   if(!workouts.length){container.innerHTML='<div style="text-align:center;padding:20px;color:#bbb;font-size:12px;">No workouts yet.</div>';return;}
   container.innerHTML=workouts.map((w,wi)=>`
-    <div class="wkt-card">
-      <div class="wkc-header" onclick="toggleWktCard(${wi})">
-        <span class="wkc-name">${w.name}</span><span class="pc-arrow">&#9658;</span>
+    <div class="wkt-card" id="wktcard-${wi}">
+      <div class="wkc-header" data-wi="${wi}">
+        <span class="wkc-name">${w.name}</span>
+        <span class="wkc-arrow">&#9658;</span>
       </div>
       <div class="wkc-body" id="wkb-${wi}">
-        <div style="font-size:10px;color:#666;margin-bottom:8px;line-height:1.8;">
-          ${describeWorkout(w)}
-        </div>
         <div class="wkt-actions">
-          <button class="wkt-btn load" onclick="loadWorkoutNow(${wi})">&#9654; LOAD</button>
-          <button class="wkt-btn save" style="background:#1a5276;" onclick="editWorkout(${wi})">EDIT</button>
-          <button class="wkt-btn del" onclick="deleteWorkout(${wi})">DEL</button>
+          <button class="wkt-btn load" data-action="load" data-wi="${wi}">&#9654; LOAD</button>
+          <button class="wkt-btn save" style="background:#1a5276;" data-action="edit" data-wi="${wi}">EDIT</button>
+          <button class="wkt-btn del" data-action="del" data-wi="${wi}">DEL</button>
         </div>
+        <div class="wkc-details" id="wkd-${wi}">${describeWorkout(w)}</div>
       </div>
     </div>`).join('');
 }
@@ -3986,9 +3990,26 @@ function fmtIvDesc(iv){
   return iv.value+'m';
 }
 function toggleWktCard(wi){
-  const body=document.getElementById('wkb-'+wi);
-  document.querySelectorAll('.wkc-body').forEach(b=>{if(b.id!=='wkb-'+wi)b.classList.remove('open');});
-  body&&body.classList.toggle('open');
+  const body=document.getElementById('wkb-'+wi);if(!body)return;
+  const isOpen=body.classList.contains('open');
+  if(isOpen){
+    const bw=document.getElementById('wkt-builder-wrap');
+    if(bw&&bw.style.display!=='none'&&_wktEditId){
+      const curSnap=JSON.stringify({name:(document.getElementById('wkt-builder-name').value||'').trim(),steps:_wktSteps});
+      if(curSnap!==_wktOriginalSnapshot){
+        if(confirm('Save changes?')){saveWorkoutFromBuilder();return;}
+        bw.style.display='none';
+        document.getElementById('new-wkt-btn').style.display='block';
+        _wktEditId=null;_wktSteps=[];_wktSelectedSteps=new Set();_wktOriginalSnapshot=null;
+      }
+    }
+  }
+  document.querySelectorAll('.wkc-body').forEach(b=>{
+    if(b.id!=='wkb-'+wi){b.classList.remove('open');const a=b.previousElementSibling&&b.previousElementSibling.querySelector('.wkc-arrow');if(a)a.classList.remove('open');}
+  });
+  body.classList.toggle('open');
+  const arr=body.previousElementSibling&&body.previousElementSibling.querySelector('.wkc-arrow');
+  if(arr)arr.classList.toggle('open',body.classList.contains('open'));
 }
 function loadWorkoutNow(wi){
   const workouts=loadWorkouts();const def=workouts[wi];if(!def)return;
@@ -4000,13 +4021,14 @@ function loadWorkoutNow(wi){
 function editWorkout(wi){
   const workouts=loadWorkouts();const w=workouts[wi];if(!w)return;
   _wktEditId=w.id;
-  // Flatten the stored steps into the builder format
   _wktSteps=JSON.parse(JSON.stringify(w.steps||[]));
   _wktSelectedSteps=new Set();
+  _wktOriginalSnapshot=JSON.stringify({name:w.name||'',steps:w.steps||[]});
   document.getElementById('wkt-builder-name').value=w.name||'';
   document.getElementById('new-wkt-btn').style.display='none';
   document.getElementById('wkt-builder-wrap').style.display='block';
   renderBuilderSteps();
+  const det=document.getElementById('wkd-'+wi);if(det)det.classList.add('active');
 }
 function deleteWorkout(wi){
   const workouts=loadWorkouts();
@@ -4022,10 +4044,11 @@ function wireWorkoutBuilder(){
     document.getElementById('wkt-builder-wrap').style.display='block';
     renderBuilderSteps();
   };
-  document.getElementById('cancel-wkt-btn').onclick=()=>{
+   document.getElementById('cancel-wkt-btn').onclick=()=>{
     document.getElementById('wkt-builder-wrap').style.display='none';
     document.getElementById('new-wkt-btn').style.display='block';
-    _wktEditId=null;_wktSteps=[];_wktSelectedSteps=new Set();
+    _wktEditId=null;_wktSteps=[];_wktSelectedSteps=new Set();_wktOriginalSnapshot=null;
+    document.querySelectorAll('.wkc-details').forEach(d=>d.classList.remove('active'));
   };
   document.getElementById('btn-add-warmup').onclick=()=>addBuilderStep({type:'warmup',mode:'open'});
   document.getElementById('btn-add-work').onclick=()=>addBuilderStep({type:'work',mode:'time',value:240,timeValue:240,distValue:1000});
@@ -4033,6 +4056,12 @@ function wireWorkoutBuilder(){
   document.getElementById('btn-add-cooldown').onclick=()=>addBuilderStep({type:'cooldown',mode:'open'});
   document.getElementById('btn-add-repeats').onclick=()=>groupSelectedAsRepeats();
   document.getElementById('save-wkt-btn').onclick=saveWorkoutFromBuilder;
+  document.getElementById('ht-workouts').addEventListener('click',e=>{
+    const btn=e.target.closest('[data-action][data-wi]');
+    const hdr=e.target.closest('.wkc-header[data-wi]');
+    if(btn){const wi=parseInt(btn.dataset.wi);const a=btn.dataset.action;if(a==='load')loadWorkoutNow(wi);else if(a==='edit')editWorkout(wi);else if(a==='del')deleteWorkout(wi);}
+    else if(hdr){toggleWktCard(parseInt(hdr.dataset.wi));}
+  });
 }
 function addBuilderStep(step){
   _wktSteps.push({...step,id:'s'+Date.now()+Math.random().toString(36).slice(2)});
@@ -4310,7 +4339,7 @@ function saveWorkoutFromBuilder(){
   saveWorkouts(workouts);
   document.getElementById('wkt-builder-wrap').style.display='none';
   document.getElementById('new-wkt-btn').style.display='block';
-  _wktEditId=null;_wktSteps=[];_wktSelectedSteps=new Set();
+  _wktEditId=null;_wktSteps=[];_wktSelectedSteps=new Set();_wktOriginalSnapshot=null;
   renderWorkoutList();toast('"'+name+'" saved');
 }
 
