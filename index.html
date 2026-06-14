@@ -1337,7 +1337,16 @@ function runFSM(now, fast, jerk) {
         case FS.RECOVERY: {
             const wasRecovery = (fsmState === FS.RECOVERY);
             const strongCatch = jerk > jerkThreshActive * 1.8 && fast > accThreshBase * 1.5;
-            if (jerk > jerkThreshActive && fast > accThreshBase
+            // Reject a "ghost" secondary trigger: a much weaker jerk peak
+            // arriving well inside the established stroke period (e.g. a
+            // finish/extraction jolt). Letting this through halves the
+            // detected period and self-locks the FSM at ~2x the real rate.
+            let weakSecondary = false;
+            if (trigValsArr.length >= 3 && tSinceCatch < lastKnownPeriodMs * 0.65) {
+                const avgTrigJerk = trigValsArr.reduce((a, b) => a + b, 0) / trigValsArr.length;
+                if (jerk < avgTrigJerk * 0.5) weakSecondary = true;
+            }
+            if (!weakSecondary && jerk > jerkThreshActive && fast > accThreshBase
                     && tSinceCatch > (strongCatch ? refStrong : ref)
                     && (now - lastDriveEndT) > CONFIG.stroke.postDriveLockoutMs) {
                 onNewCatch(now);
@@ -1957,7 +1966,7 @@ function onStrokeFinish(now, driveDur) {
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // GPS HANDLER — speed EMA, pace window, haversine distance
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
-let pace = 0, gpsAccuracyM = null, gpsSpeedEma = -1, gpsLastValidT = 0, gpsLastFixT = 0, gpsWasStopped = false, gpsDeadWarned = false, gpsResumeT = -Infinity;
+let pace = 0, gpsAccuracyM = null, gpsSpeedEma = -1, gpsLastValidT = 0, gpsLastFixT = 0, gpsWasStopped = false, gpsDeadWarned = false, gpsResumeT = -Infinity, gpsLowSpeedStreak = 0;
 const speedSamples = [], paceDistWindow = [], velocityWindow = [];
 let lastPos = null;
 let headingEmaX = null, headingEmaY = null;
@@ -2012,14 +2021,14 @@ function pushVelocity(t, v) {
     const gapMs = gpsLastValidT > 0 ? t - gpsLastValidT : 0;
     // Cold start or long gap → reinitialise filter
     if (gpsSpeedEma < 0 || gapMs > CONFIG.gps.gapResetMs) {
-        gpsLastValidT = t; lastDistT = t; gpsWasStopped = false;
+        gpsLastValidT = t; lastDistT = t; gpsWasStopped = false; gpsLowSpeedStreak = 0;
         vFilter.reset(); gpsSpeedEma = vFilter.filter(v, t);
         if (gapMs > CONFIG.gps.gapResetMs) { paceDistWindow.length = 0; velocityWindow.length = 0; }
         return;
     }
     // Resuming from a stop
     if (gpsWasStopped && v > 0.5) {
-        gpsLastValidT = t; lastDistT = t; gpsWasStopped = false;
+        gpsLastValidT = t; lastDistT = t; gpsWasStopped = false; gpsLowSpeedStreak = 0;
         gpsResumeT = t;
         velocityWindow.length = 0;
         vFilter.reset(); gpsSpeedEma = vFilter.filter(v, t);
@@ -2027,15 +2036,22 @@ function pushVelocity(t, v) {
     }
     // Near-stationary
     if (v < 0.3) {
-        if (gpsSpeedEma < 0.5) {
-            gpsLastValidT = t; gpsWasStopped = true; vFilter.reset();
-            dpsValsArr.length = 0; distPerStroke = 0;   // clear corrupt DPS buffer
-            oarAngleRawArr.length = 0;                   // clear corrupt oar history
+        gpsLowSpeedStreak++;
+        if (!gpsWasStopped) {
+            // Require several consecutive low-speed fixes (~3s) before
+            // declaring a genuine stop — a single GPS glitch (raw speed
+            // reported as 0) must not wipe the DPS/oar-angle history.
+            if (gpsLowSpeedStreak >= 3 && gpsSpeedEma < 0.5) {
+                gpsLastValidT = t; gpsWasStopped = true; vFilter.reset();
+                dpsValsArr.length = 0; distPerStroke = 0;   // clear corrupt DPS buffer
+                oarAngleRawArr.length = 0;                   // clear corrupt oar history
+            }
             return;
         }
-        if ((t - lastCatchAbsT) < 4000) return;
+        gpsLastValidT = t;
         return;
     }
+    gpsLowSpeedStreak = 0;
     gpsLastValidT = t;
     // Light spike clamp, then One-Euro filter on the Doppler speed
     let vIn = v;
@@ -3385,7 +3401,7 @@ function resetSess() {
     sessGpsTrace.length = 0; sessGpsRawTrace.length = 0;
     strokeTs.length = 0; prevDriveDurMs = 0; prevFastSample = 0; paceDistWindow.length = 0; velocityWindow.length = 0;
     speedSamples.length = 0; prevStrokeDist = 0; prevStrokeDistT = 0;
-    gpsLastValidT = 0; gpsLastFixT = 0; gpsSpeedEma = -1; gpsWasStopped = false; gpsDeadWarned = false; gpsAccuracyM = null; headingEmaX = null; headingEmaY = null; vFilter.reset(); lastDistT = 0; gpsResumeT = -Infinity;
+    gpsLastValidT = 0; gpsLastFixT = 0; gpsSpeedEma = -1; gpsWasStopped = false; gpsDeadWarned = false; gpsAccuracyM = null; headingEmaX = null; headingEmaY = null; vFilter.reset(); lastDistT = 0; gpsResumeT = -Infinity; gpsLowSpeedStreak = 0;
     fsmState = FS.IDLE; catchPeakJerk = 0; driveMinJerk = 0; trigValsArr.length = 0; catchStartT = 0; lastCatchAbsT = 0; lastDriveEndT = 0; bladeExitT = 0; prevDriveStartT = 0; bladeExitDetected = false;
     strokesDetected = 0; jerkThreshActive = jerkThreshBase; adaptReady = false;
     acBuf.length = 0; acLastUpdate = 0; jerkBuf.length = 0; catchTsBuf.length = 0;
