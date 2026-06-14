@@ -510,8 +510,8 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <button class="htab active" data-ht="log">LOG</button>
 <button class="htab" data-ht="layouts">LAYOUTS</button>
 <button class="htab" data-ht="workouts">WORKOUTS</button>
-<button class="htab" data-ht="hr">HR ZONES</button>
 <button class="htab" data-ht="settings">SETTINGS</button>
+<button class="htab" data-ht="about">ABOUT</button>
 </div>
 <div class="home-body">
 <!-- LOG panel (P3 — session list now lives here) -->
@@ -555,13 +555,32 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 </div>
 </div>
 </div>
-<!-- HR ZONES panel -->
-<div id="ht-hr" class="home-panel">
-<div id="hr-editor-root"></div>
-</div>
 <!-- SETTINGS panel -->
 <div id="ht-settings" class="home-panel">
 <div id="settings-root"></div>
+<div id="hr-editor-root" style="margin-top:14px;"></div>
+</div>
+</div>
+<!-- ABOUT panel -->
+<div id="ht-about" class="home-panel">
+<div style="padding:6px 4px 16px;">
+<div style="font-size:11px;color:#999;line-height:1.6;margin-bottom:10px;">What each metric means.</div>
+<div style="border-top:1px solid #eee;">
+<div style="padding:9px 0;border-bottom:1px solid #eee;"><div style="font-weight:600;font-size:12px;">Distance</div><div style="font-size:11px;color:#777;line-height:1.5;margin-top:2px;">Total distance travelled (GPS), in km or mi based on units setting.</div></div>
+<div style="padding:9px 0;border-bottom:1px solid #eee;"><div style="font-weight:600;font-size:12px;">Duration</div><div style="font-size:11px;color:#777;line-height:1.5;margin-top:2px;">Total elapsed time of the session.</div></div>
+<div style="padding:9px 0;border-bottom:1px solid #eee;"><div style="font-weight:600;font-size:12px;">Pace / Speed</div><div style="font-size:11px;color:#777;line-height:1.5;margin-top:2px;">Boat speed, shown in your selected unit (pace per 500m/1km/mile, or km/h/mph). GPS-derived — only valid for comparing the same stretch, direction and tide.</div></div>
+<div style="padding:9px 0;border-bottom:1px solid #eee;"><div style="font-weight:600;font-size:12px;">Rate</div><div style="font-size:11px;color:#777;line-height:1.5;margin-top:2px;">Average stroke rate, in strokes per minute (SPM).</div></div>
+<div style="padding:9px 0;border-bottom:1px solid #eee;"><div style="font-weight:600;font-size:12px;">DPS</div><div style="font-size:11px;color:#777;line-height:1.5;margin-top:2px;">Distance per stroke — average boat travel per stroke cycle.</div></div>
+<div style="padding:9px 0;border-bottom:1px solid #eee;"><div style="font-weight:600;font-size:12px;">Check Delta</div><div style="font-size:11px;color:#777;line-height:1.5;margin-top:2px;">Boat speed swing within one stroke — max minus min speed, catch to catch. Lower means a smoother, more continuous run or lower speed.</div></div>
+<div style="padding:9px 0;border-bottom:1px solid #eee;"><div style="font-weight:600;font-size:12px;">Run Loss</div><div style="font-size:11px;color:#777;line-height:1.5;margin-top:2px;">Percentage of drive speed lost to deceleration during recovery. Accelerometer-derived, condition-independent. Lower is better.</div></div>
+<div style="padding:9px 0;border-bottom:1px solid #eee;"><div style="font-weight:600;font-size:12px;">Oar Arc</div><div style="font-size:11px;color:#777;line-height:1.5;margin-top:2px;">Effective oar angle — arc swept based on boat displacement during the drive, corrected for ~10% blade slip. Not the oar's true mechanical sweep.</div></div>
+<div style="padding:9px 0;border-bottom:1px solid #eee;"><div style="font-weight:600;font-size:12px;">Impulse</div><div style="font-size:11px;color:#777;line-height:1.5;margin-top:2px;">Total positive acceleration during the drive, integrated as a change in velocity (Δv). Higher means more drive power applied to the hull — not a peak value.</div></div>
+<div style="padding:9px 0;border-bottom:1px solid #eee;"><div style="font-weight:600;font-size:12px;">Catch Slope</div><div style="font-size:11px;color:#777;line-height:1.5;margin-top:2px;">Rate of acceleration rise at the catch. Higher means a sharper, more aggressive catch.</div></div>
+<div style="padding:9px 0;border-bottom:1px solid #eee;"><div style="font-weight:600;font-size:12px;">Ratio</div><div style="font-size:11px;color:#777;line-height:1.5;margin-top:2px;">Recovery time ÷ drive time. Higher means a longer, more relaxed recovery relative to the drive.</div></div>
+<div style="padding:9px 0;border-bottom:1px solid #eee;"><div style="font-weight:600;font-size:12px;">Stroke Char</div><div style="font-size:11px;color:#777;line-height:1.5;margin-top:2px;">Where peak power (acceleration) occurs during the drive, as % of drive duration. ~30-45% = front-loaded catch (preferred), ~65%+ = back-loaded/late catch.</div></div>
+<div style="padding:9px 0;border-bottom:1px solid #eee;"><div style="font-weight:600;font-size:12px;">Catch Dur</div><div style="font-size:11px;color:#777;line-height:1.5;margin-top:2px;">Time spent in the catch — from the deceleration spike at body stop and blade entry until drive force builds and the boat accelerates again. Shorter usually means a quicker, more direct connection at the catch.</div></div>
+<div style="padding:9px 0;border-bottom:1px solid #eee;"><div style="font-weight:600;font-size:12px;">Avg HR</div><div style="font-size:11px;color:#777;line-height:1.5;margin-top:2px;">Average heart rate during the session, in beats per minute.</div></div>
+</div>
 </div>
 </div>
 <!-- Home screen nav tabs -->
