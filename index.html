@@ -3860,9 +3860,9 @@ function showDetail(id){
       drawChart('a-dps',s.strokes.map(x=>x.dps||0),'#1a5276',false,20,false,null,null,lapIdx);
       drawChart('a-char',s.strokes.map(x=>x.char||0),'#8e44ad',false,100,true,0,50,lapIdx);
       const ratioData=s.strokes.map(x=>x.strokeRatio||0).filter(v=>v>0);
-      if(ratioData.length>1)drawChart('a-ratio',s.strokes.map(x=>x.strokeRatio||0),'#27ae60',false,5,true,1,null,lapIdx);
-      const oarData=s.strokes.map(x=>x.oarAngle||0);
-      if(oarData.some(v=>v>0))drawChart('a-oarangle',oarData,'#2de0d4',false,150,true,60,[60,90,120,150],lapIdx);
+      if(ratioData.length>1)drawChart('a-ratio',ratioData,'#27ae60',false,null,true,null,null,lapIdx);
+      const oarData=s.strokes.map(x=>x.oarAngle||0).filter(v=>v>0);
+      if(oarData.length>1)drawChart('a-oarangle',oarData,'#2de0d4',false,null,true,null,[60,90],lapIdx);
       const cdData=s.strokes.map(x=>x.checkDelta||0);
       if(cdData.some(v=>v>0))drawChart('a-checkdelta',cdData,'#2980b9',false,null,true,0,null,lapIdx);
     }
