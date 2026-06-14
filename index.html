@@ -3812,6 +3812,7 @@ function showDetail(id){
     +'<div style="display:flex;gap:6px;margin-top:8px;">'
     +'<button class="exp-btn" id="dbg-btn" style="flex:1;font-size:10px;padding:10px 4px;">Debug CSV</button>'
     +'<button class="exp-btn" id="sync-btn" style="flex:1;font-size:10px;padding:10px 4px;background:'+(syncedNow?'#27ae60':'#1a5276')+'">'+(syncedNow?'Re-sync':'Sync to Drive')+'</button>'
+    +'<button class="exp-btn" id="json-btn" style="flex:1;font-size:10px;padding:10px 4px;">JSON</button>'
     +'<button class="del-btn" id="del-btn" style="flex:1;font-size:10px;padding:10px 4px;">Delete</button>'
     +'</div>'
     +'<div style="height:20px"></div>';
@@ -3857,6 +3858,7 @@ function showDetail(id){
     if(s.hrTrace&&s.hrTrace.length>2)drawChart('a-hr',s.hrTrace.map(x=>x.hr),'#c0392b',false);
     const fz=document.getElementById('fit-zone');if(fz)fz.addEventListener('click',()=>{const inp=document.getElementById('fit-input');inp.onchange=ev=>handleGPX(ev,s.id);inp.click();});
     document.getElementById('dbg-btn').addEventListener('click',()=>exportDebugCSV(s));
+    document.getElementById('json-btn').addEventListener('click',()=>exportSessionJSON(s));
     document.getElementById('sync-btn').addEventListener('click',async e=>{e.preventDefault();if(DriveSync.isSignedIn()){try{await DriveSync.upload(s);markSynced(s.id);updateDriveBtn();toast('Synced to Drive');}catch(err){toast('Sync failed');}}else{queuePending(s.id);driveSignIn();}});
     document.getElementById('del-btn').addEventListener('click',()=>{if(confirm('Delete?')){delSess(s.id);dw.style.display='none';document.getElementById('ht-log-list').style.display='block';const hb=document.querySelector('.home-body');if(hb)hb.scrollTop=0;renderSessionList();toast('Deleted');}});
   });
@@ -4557,6 +4559,13 @@ function exportDebugCSV(s){
   if(s.gpsRawTrace&&s.gpsRawTrace.length){rows.push(['##GPS'],['elapsed_s','gps_raw_ms','gps_ema_ms','acc_m','stroke_n','rl_phase']);s.gpsRawTrace.forEach(p=>rows.push([el(p.t),f3(p.rawSpd),f3(p.emaSpd),f2(p.acc),n(p.strokeN),p.rlPhase||'none']));rows.push([]);}
   if(s.hrTrace&&s.hrTrace.length){rows.push(['##HR'],['elapsed_s','hr_bpm']);s.hrTrace.forEach(h=>rows.push([el(h.t),h.hr]));rows.push([]);}
   const blob=new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);const d=new Date(s.startTime),pad=x=>String(x).padStart(2,'0');a.download='BoatRunDebug_'+d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes())+'.csv';a.click();toast('Debug CSV exported');
+}
+function exportSessionJSON(s){
+  const blob=new Blob([JSON.stringify(s)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  const d=new Date(s.startTime),pad=x=>String(x).padStart(2,'0');
+  a.download='RowSess_'+d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes())+'.json';
+  a.click();toast('Session JSON exported');
 }
 
 /* 
