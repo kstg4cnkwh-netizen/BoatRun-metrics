@@ -1375,6 +1375,7 @@ function runFSM(now, fast, jerk) {
                     if (dt > 0 && dt < 0.08) {
                         imuRL.deltaV    += fast * dt;
                         if (imuRL.deltaV > imuRL.maxDeltaV) imuRL.maxDeltaV = imuRL.deltaV;
+                        if (imuRL.deltaV < imuRL.minDeltaV) imuRL.minDeltaV = imuRL.deltaV;
                         imuRL.nSamples++;
                     }
                 }
@@ -1401,7 +1402,7 @@ function runFSM(now, fast, jerk) {
                     imuRL.startAt = now + CONFIG.runLoss.startAfterDriveMs;
                     imuRL.endAt   = imuRL.startAt + CONFIG.runLoss.windowMs;
                     imuRL.driveEndT = now;
-                    imuRL.deltaV = 0; imuRL.maxDeltaV = 0; imuRL.lastT = -1; imuRL.nSamples = 0;
+                    imuRL.deltaV = 0; imuRL.maxDeltaV = 0; imuRL.minDeltaV = 0; imuRL.lastT = -1; imuRL.nSamples = 0;
                 }
                 if (pendingRun) {
                     pendingRun.startAt = now + CONFIG.runLoss.startAfterDriveMs;
@@ -1490,7 +1491,7 @@ function avgCurves(curves) {
 function onNewCatch(now) {
     // Finalise IMU run loss from the recovery that just ended
     if (imuRL && imuRL.nSamples >= 8 && imuRL.v0 !== null) {
-        const dv       = Math.max(0, imuRL.maxDeltaV);
+        const dv       = Math.max(0, imuRL.maxDeltaV - imuRL.minDeltaV);
         const sampledS = clamp(Math.min(CONFIG.runLoss.windowMs, Math.max(0, now - imuRL.driveEndT - CONFIG.runLoss.startAfterDriveMs)) / 1000, 0.3, 4.0);
         const rawLoss  = +(dv * sampledS * 0.5).toFixed(4);
         if (rawLoss >= 0 && rawLoss <= CONFIG.runLoss.maxLossM) {
@@ -1679,12 +1680,21 @@ function computeOarAngle(samples, driveCount, vMean) {
     if (n < 8 || driveCount < 2 || driveCount >= n) return null;
     if (vMean < 0.5 || vMean > 8) return null;
 
+    // Remove any residual DC bias in axFast over the catch-to-catch window
+    // before integrating — axFast should be ~zero-mean per cycle; a small
+    // offset otherwise drifts cumulDV and shifts the catch/finish crossings.
+    let meanV = 0;
+    for (let i = 0; i < n; i++) meanV += samples[i].v;
+    meanV /= n;
+    const v = new Array(n);
+    for (let i = 0; i < n; i++) v[i] = samples[i].v - meanV;
+
     // Pass 1 — cumulative ΔV, negated for correct forward-positive convention
     const cumulDV = new Array(n).fill(0);
     for (let i = 1; i < n; i++) {
         const dt = (samples[i].t - samples[i - 1].t) / 1000;
         if (dt <= 0 || dt > 0.15) { cumulDV[i] = cumulDV[i - 1]; continue; }
-        cumulDV[i] = cumulDV[i - 1] + (-samples[i].v) * dt;
+        cumulDV[i] = cumulDV[i - 1] + (-v[i]) * dt;
     }
 
     const T = (samples[n - 1].t - samples[0].t) / 1000;
@@ -1701,19 +1711,19 @@ function computeOarAngle(samples, driveCount, vMean) {
     if (vCatch < 0.5 || vCatch > 8) return null;
     if (vCatch < vMean * 0.25) return null;
 
-    // ── Signal-derived drive boundaries (raw v: negative = drive) ──────────
+    // ── Signal-derived drive boundaries (detrended v: negative = drive) ─────
     // Deepest negative peak within first 70% of window
     let peakIdx = -1, peakV = 0;
     const peakEnd = Math.round(n * 0.70);
     for (let i = 0; i < peakEnd; i++) {
-        if (samples[i].v < peakV) { peakV = samples[i].v; peakIdx = i; }
+        if (v[i] < peakV) { peakV = v[i]; peakIdx = i; }
     }
     if (peakIdx < 1 || peakV > -0.05) return null;
 
     // Catch = pos→neg crossing immediately before the peak (onset of drive)
     let catchIdx = 0;
     for (let i = peakIdx; i > 0; i--) {
-        if (samples[i - 1].v >= 0) { catchIdx = i; break; }
+        if (v[i - 1] >= 0) { catchIdx = i; break; }
     }
 
     // Finish = first neg→pos crossing after the peak that STAYS ≥0 ~150ms
@@ -1721,11 +1731,11 @@ function computeOarAngle(samples, driveCount, vMean) {
     let finishIdx = -1;
     const finishCap = Math.round(n * 0.65);
     for (let i = peakIdx + 1; i < finishCap; i++) {
-        if (samples[i].v >= 0) {
+        if (v[i] >= 0) {
             let sustained = true;
             const tEnd = samples[i].t + 150;
             for (let j = i + 1; j < n && samples[j].t <= tEnd; j++) {
-                if (samples[j].v < -0.05) { sustained = false; break; }
+                if (v[j] < -0.05) { sustained = false; break; }
             }
             if (sustained) { finishIdx = i; break; }
         }
@@ -1918,6 +1928,7 @@ function onStrokeFinish(now, driveDur) {
         v0:         gpsSpeedEma > 0.3 ? gpsSpeedEma : null,
         deltaV:     0,
         maxDeltaV:  0,
+        minDeltaV:  0,
         lastT:      -1,
         nSamples:   0,
         strokeN:    prlStroke,
