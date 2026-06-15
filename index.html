@@ -641,6 +641,7 @@ const CONFIG = Object.freeze({
     gps: {
         maxAccuracyM: 25,
         minSpeedForPace: 0.7,
+        minSpeedForRecord: 0.5,
         maxPaceS: 600,
         minMoveDist: 0.3,
         speedEmaAlpha: 0.28,
@@ -1534,7 +1535,7 @@ function avgCurves(curves) {
 }
 function onNewCatch(now) {
     // Finalise IMU run loss from the recovery that just ended
-    if (imuRL && imuRL.nSamples >= 8 && imuRL.v0 !== null) {
+    if (imuRL && imuRL.nSamples >= 8 && imuRL.v0 !== null && gpsSpeedEma > CONFIG.gps.minSpeedForRecord) {
         const dv       = Math.max(0, imuRL.maxDeltaV - imuRL.minDeltaV);
         const sampledS = clamp(Math.min(CONFIG.runLoss.windowMs, Math.max(0, now - imuRL.driveEndT - CONFIG.runLoss.startAfterDriveMs)) / 1000, 0.3, 4.0);
         const rawLoss  = +(dv * sampledS * 0.5).toFixed(4);
@@ -1981,7 +1982,7 @@ function onStrokeFinish(now, driveDur) {
     strokeCount++;
     sessStrokes.push({
         t: Date.now(), catchPeak: catchSlope, char: strokeChar,
-        rate: rateToLog > 0 ? rateToLog : null, pace: pace > 0 ? pace : null,
+        rate: (rateToLog > 0 && gpsSpeedEma > CONFIG.gps.minSpeedForRecord) ? rateToLog : null, pace: pace > 0 ? pace : null,
         dist: distance, dps: distPerStroke, runLossM: null,
         driveImpulse, catchConsistency, rdi, strokeRatio, oarAngle, checkDelta,
         catchDuration: catchDurMs,
