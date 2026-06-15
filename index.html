@@ -653,7 +653,11 @@ const CONFIG = Object.freeze({
         oneEuroMinCutoff: 0.30,
         oneEuroBeta: 0.40,
         oneEuroDCutoff: 1.0, //lower=more-smoothing, higher=more-responsive; 1.0 is a reasonable starting point  
-        paceAvgMs: 5000
+        paceAvgMs: 5000,
+        dopplerStuckSpeed: 1.5,
+        dopplerStuckN: 5,
+        havSpeedMin: 2.0,
+        havBufN: 5
     },
     motion: {
         gravityAlpha: 0.99,
@@ -663,7 +667,8 @@ const CONFIG = Object.freeze({
         jerkClamp: 300,
         axBufMs: 14000,
         acBufMs: 15000,
-        acUpdateMs: 2000
+        acUpdateMs: 2000,
+        fastBaselineAlpha: 0.996,
     },
     stroke: {
         periodMinMs: 900,
@@ -1329,7 +1334,7 @@ let fsmState = FS.IDLE,
     driveStartT = 0, driveAccSamples = [], drivePeakAcc = 0, drivePeakAccT = 0,
     lastDriveEndT = 0, lastCatchAbsT = 0,
     driveMinJerk = 0,
-    bladeExitT = 0, prevDriveStartT = 0, prevFastSample = 0, bladeExitDetected = false, posRunStartT = 0,
+    bladeExitT = 0, prevDriveStartT = 0, prevFastSample = 0, bladeExitDetected = false, posRunStartT = 0, fastBaseline = 0,
     drvPeakNeg = 0, drvPeakNegT = 0, drvImpAcc = 0, drvImpLastT = -1,
     prevDrvImp = null, prevDrvPeakT = 0, prevCatchEndT = 0;
 let jerkThreshBase = cal.jerkThresh || 8.0,
@@ -1338,6 +1343,13 @@ let jerkThreshBase = cal.jerkThresh || 8.0,
     adaptReady = false;
 function runFSM(now, fast, jerk) {
     if (!running || paused) { if (fsmState !== FS.IDLE) fsmState = FS.IDLE; return; }
+    // Short-window baseline (~2 stroke periods): tracks slow (~12-15 stroke
+    // period) wander in axFast that otherwise shifts catch/blade-exit
+    // zero-crossing timing — the shared cause of the strokeRatio and
+    // oar-angle slow oscillation. fastDt is used only for state-transition
+    // gating; raw `fast` still drives impulse/run-loss/jerk accumulation.
+    fastBaseline = CONFIG.motion.fastBaselineAlpha * fastBaseline + (1 - CONFIG.motion.fastBaselineAlpha) * fast;
+    const fastDt = fast - fastBaseline;
     const tSinceCatch = now - lastCatchAbsT;
     let nominalMs;
     if (strokeRate > 0) {
@@ -1366,7 +1378,7 @@ function runFSM(now, fast, jerk) {
                 const avgTrigJerk = trigValsArr.reduce((a, b) => a + b, 0) / trigValsArr.length;
                 if (jerk < avgTrigJerk * 0.5) weakSecondary = true;
             }
-            if (!weakSecondary && jerk > jerkThreshActive && fast > accThreshBase
+            if (!weakSecondary && jerk > jerkThreshActive && fastDt > accThreshBase
                     && tSinceCatch > (strongCatch ? refStrong : ref)
                     && (now - lastDriveEndT) > CONFIG.stroke.postDriveLockoutMs
                     && (fsmState === FS.IDLE || bladeExitDetected)) {
@@ -1419,7 +1431,7 @@ function runFSM(now, fast, jerk) {
             // second catch fire inside one physical stroke (detected rate
             // locks at ~2x real rate, oar angle collapses).
             if (wasRecovery && fsmState === FS.RECOVERY && !bladeExitDetected) {
-                if (fast >= 0) {
+                if (fastDt >= 0) {
                     if (posRunStartT === 0) posRunStartT = now;
                     if ((now - posRunStartT) > CONFIG.stroke.bladeExitSustainMs
                             && (now - lastDriveEndT) > 150) {
@@ -1453,7 +1465,7 @@ function runFSM(now, fast, jerk) {
             if ((now - catchStartT) > 75 && jerk < jerkThreshActive * 0.35) {
                 driveStartT = catchStartT; fsmState = FS.DRIVE;
             }
-            if ((now - catchStartT) > 380 && fast < accThreshBase * 0.25) fsmState = FS.RECOVERY;
+            if ((now - catchStartT) > 380 && fastDt < accThreshBase * 0.25) fsmState = FS.RECOVERY;
             break;
         case FS.DRIVE:
             driveAccSamples.push({ t: now, v: fast });
@@ -1461,7 +1473,7 @@ function runFSM(now, fast, jerk) {
             {
                 const dd = now - driveStartT;
                 if (dd < 500 && jerk < driveMinJerk) driveMinJerk = jerk;
-                if ((fast < 0 && dd > CONFIG.stroke.minDriveMs) || dd > CONFIG.stroke.maxDriveMs) {
+                if ((fastDt < 0 && dd > CONFIG.stroke.minDriveMs) || dd > CONFIG.stroke.maxDriveMs) {
                     onStrokeFinish(now, dd);
                     lastDriveEndT = now;
                     fsmState = FS.RECOVERY;
@@ -1589,7 +1601,7 @@ function onNewCatch(now) {
             const rawAngle = computeOarAngle(
                 catchToCatchSamples, pendingCurveDriveCount, vMean);
             if (rawAngle !== null) {
-                pushLimit(oarAngleRawArr, rawAngle, 5);
+                pushLimit(oarAngleRawArr, rawAngle, 3);
                 const win  = oarAngleRawArr;
                 const mean = win.reduce((a, b) => a + b, 0) / win.length;
                 let smoothed;
@@ -1826,7 +1838,7 @@ function onStrokeFinish(now, driveDur) {
         lastKnownPeriodMs = Math.max(lastKnownPeriodMs * 0.70, CONFIG.stroke.nominalFallbackMs);
         acBuf.length = 0; acConf = 0;
         catchTsBuf.length = 0;                // clear completely — seed happens below
-        strokeRate = 0; catchToCatchSamples = []; pendingCurveDriveCount = 0; strokeTs.length = 0; prevDriveDurMs = 0; bladeExitT = 0; prevDriveStartT = 0; bladeExitDetected = false; posRunStartT = 0;
+        strokeRate = 0; catchToCatchSamples = []; pendingCurveDriveCount = 0; strokeTs.length = 0; prevDriveDurMs = 0; bladeExitT = 0; prevDriveStartT = 0; bladeExitDetected = false; posRunStartT = 0; fastBaseline = 0;
         drvImpAcc = 0; drvImpLastT = -1; drvPeakNeg = 0; drvPeakNegT = 0;
         prevDrvImp = null; prevDrvPeakT = 0; prevCatchEndT = 0;
     }
@@ -2012,6 +2024,7 @@ function onStrokeFinish(now, driveDur) {
 let pace = 0, gpsAccuracyM = null, gpsSpeedEma = -1, gpsLastValidT = 0, gpsLastFixT = 0, gpsWasStopped = false, gpsDeadWarned = false, gpsResumeT = -Infinity, gpsLowSpeedStreak = 0;
 const speedSamples = [], paceDistWindow = [], velocityWindow = [];
 let lastPos = null;
+let havSpeedBuf = [], dopplerLowStreak = 0;
 let headingEmaX = null, headingEmaY = null;
 // ── Velocity engine: One-Euro adaptive filter on GPS Doppler speed ───────────
 // Smooth when pace is steady, low-lag when it changes (start / rate shifts).
@@ -2144,6 +2157,31 @@ function handlePos(pos) {
     if (running && !paused && !sessionReady && lat != null && lon != null) {
         cur.dist = distance;
         sessGpsTrace.push(cur);
+    }
+    // ── Haversine cross-check: catches Doppler speed getting "stuck" low
+    // (e.g. after a slow patch) while position fixes and the FSM both show
+    // the boat moving normally / rowing continuing.
+    if (lastPos && lat != null && lon != null && running && !paused && !sessionReady) {
+        const dtH = (cur.t - lastPos.t) / 1000;
+        if (dtH > 0.3 && dtH < 5) {
+            const havSpd = haversineM(lastPos, cur) / dtH;
+            havSpeedBuf.push(havSpd);
+            if (havSpeedBuf.length > CONFIG.gps.havBufN) havSpeedBuf.shift();
+            dopplerLowStreak = (gpsSpeedEma >= 0 && gpsSpeedEma < CONFIG.gps.dopplerStuckSpeed)
+                ? dopplerLowStreak + 1 : 0;
+            const havMean = havSpeedBuf.reduce((a, b) => a + b, 0) / havSpeedBuf.length;
+            const rowing = catchTsBuf.length >= 2 &&
+                (now - catchTsBuf[catchTsBuf.length - 1]) < lastKnownPeriodMs * 2.5;
+            if (havSpeedBuf.length >= CONFIG.gps.havBufN
+                    && dopplerLowStreak >= CONFIG.gps.dopplerStuckN
+                    && havMean > CONFIG.gps.havSpeedMin && rowing) {
+                vFilter.reset();
+                gpsSpeedEma = vFilter.filter(havMean, now);
+                gpsResumeT = now;
+                dopplerLowStreak = 0;
+                havSpeedBuf.length = 0;
+            }
+        }
     }
     lastPos = cur;
     // Pace straight from the One-Euro filtered Doppler velocity
