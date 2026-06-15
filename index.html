@@ -672,6 +672,7 @@ const CONFIG = Object.freeze({
         maxDriveMs: 2800,
         minDriveMs: 300,
         postDriveLockoutMs: 500,
+        bladeExitSustainMs: 150,
         dpsMedianN: 8,
         catchBufN: 7,
         spmMin: 10,
@@ -1328,7 +1329,7 @@ let fsmState = FS.IDLE,
     driveStartT = 0, driveAccSamples = [], drivePeakAcc = 0, drivePeakAccT = 0,
     lastDriveEndT = 0, lastCatchAbsT = 0,
     driveMinJerk = 0,
-    bladeExitT = 0, prevDriveStartT = 0, prevFastSample = 0, bladeExitDetected = false,
+    bladeExitT = 0, prevDriveStartT = 0, prevFastSample = 0, bladeExitDetected = false, posRunStartT = 0,
     drvPeakNeg = 0, drvPeakNegT = 0, drvImpAcc = 0, drvImpLastT = -1,
     prevDrvImp = null, prevDrvPeakT = 0, prevCatchEndT = 0;
 let jerkThreshBase = cal.jerkThresh || 8.0,
@@ -1367,11 +1368,12 @@ function runFSM(now, fast, jerk) {
             }
             if (!weakSecondary && jerk > jerkThreshActive && fast > accThreshBase
                     && tSinceCatch > (strongCatch ? refStrong : ref)
-                    && (now - lastDriveEndT) > CONFIG.stroke.postDriveLockoutMs) {
+                    && (now - lastDriveEndT) > CONFIG.stroke.postDriveLockoutMs
+                    && (fsmState === FS.IDLE || bladeExitDetected)) {
                 onNewCatch(now);
                 fsmState = FS.CATCH;
                 catchStartT = now; catchPeakJerk = jerk;
-                driveMinJerk = 0; prevDriveStartT = driveStartT; bladeExitDetected = false;
+                driveMinJerk = 0; prevDriveStartT = driveStartT; bladeExitDetected = false; posRunStartT = 0;
                 // Hand the finished stroke's drive-phase peak & impulse to onStrokeFinish
                 prevDrvImp = drvImpAcc; prevDrvPeakT = drvPeakNegT;
                 prevCatchEndT = lastDriveEndT;
@@ -1411,24 +1413,35 @@ function runFSM(now, fast, jerk) {
                 }
                 if (fast < drvPeakNeg) { drvPeakNeg = fast; drvPeakNegT = now; }
             }
-            // Blade exit: first neg→pos zero crossing of fast in RECOVERY
-            if (wasRecovery && fsmState === FS.RECOVERY && !bladeExitDetected
-                    && prevFastSample < 0 && fast >= 0 && (now - lastDriveEndT) > 150) {
-                bladeExitT = now;
-                bladeExitDetected = true;
-                // Rebase run-loss windows to the true finish (blade exit)
-                if (imuRL) {
-                    imuRL.startAt = now + CONFIG.runLoss.startAfterDriveMs;
-                    imuRL.endAt   = imuRL.startAt + CONFIG.runLoss.windowMs;
-                    imuRL.driveEndT = now;
-                    imuRL.deltaV = 0; imuRL.maxDeltaV = 0; imuRL.minDeltaV = 0; imuRL.lastT = -1; imuRL.nSamples = 0;
-                }
-                if (pendingRun) {
-                    pendingRun.startAt = now + CONFIG.runLoss.startAfterDriveMs;
-                    pendingRun.endAt   = pendingRun.startAt + CONFIG.runLoss.windowMs;
-                    pendingRun.driveEndT = now;
-                    pendingRun.startSpeed = null; pendingRun.minSpeed = null;
-                    pendingRun.nSamples = 0; pendingRun._done = false;
+            // Blade exit: SUSTAINED neg→pos crossing of fast in RECOVERY.
+            // A brief positive dip mid-drive (double-hump drive) must NOT be
+            // mistaken for the real blade exit — that's what was letting a
+            // second catch fire inside one physical stroke (detected rate
+            // locks at ~2x real rate, oar angle collapses).
+            if (wasRecovery && fsmState === FS.RECOVERY && !bladeExitDetected) {
+                if (fast >= 0) {
+                    if (posRunStartT === 0) posRunStartT = now;
+                    if ((now - posRunStartT) > CONFIG.stroke.bladeExitSustainMs
+                            && (now - lastDriveEndT) > 150) {
+                        bladeExitT = posRunStartT;
+                        bladeExitDetected = true;
+                        // Rebase run-loss windows to the true finish (blade exit)
+                        if (imuRL) {
+                            imuRL.startAt = bladeExitT + CONFIG.runLoss.startAfterDriveMs;
+                            imuRL.endAt   = imuRL.startAt + CONFIG.runLoss.windowMs;
+                            imuRL.driveEndT = bladeExitT;
+                            imuRL.deltaV = 0; imuRL.maxDeltaV = 0; imuRL.minDeltaV = 0; imuRL.lastT = -1; imuRL.nSamples = 0;
+                        }
+                        if (pendingRun) {
+                            pendingRun.startAt = bladeExitT + CONFIG.runLoss.startAfterDriveMs;
+                            pendingRun.endAt   = pendingRun.startAt + CONFIG.runLoss.windowMs;
+                            pendingRun.driveEndT = bladeExitT;
+                            pendingRun.startSpeed = null; pendingRun.minSpeed = null;
+                            pendingRun.nSamples = 0; pendingRun._done = false;
+                        }
+                    }
+                } else {
+                    posRunStartT = 0;
                 }
             }
             break;
@@ -1813,7 +1826,7 @@ function onStrokeFinish(now, driveDur) {
         lastKnownPeriodMs = Math.max(lastKnownPeriodMs * 0.70, CONFIG.stroke.nominalFallbackMs);
         acBuf.length = 0; acConf = 0;
         catchTsBuf.length = 0;                // clear completely — seed happens below
-        strokeRate = 0; catchToCatchSamples = []; pendingCurveDriveCount = 0; strokeTs.length = 0; prevDriveDurMs = 0; bladeExitT = 0; prevDriveStartT = 0; bladeExitDetected = false;
+        strokeRate = 0; catchToCatchSamples = []; pendingCurveDriveCount = 0; strokeTs.length = 0; prevDriveDurMs = 0; bladeExitT = 0; prevDriveStartT = 0; bladeExitDetected = false; posRunStartT = 0;
         drvImpAcc = 0; drvImpLastT = -1; drvPeakNeg = 0; drvPeakNegT = 0;
         prevDrvImp = null; prevDrvPeakT = 0; prevCatchEndT = 0;
     }
