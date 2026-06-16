@@ -640,7 +640,7 @@ const _SS = (() => {
 const CONFIG = Object.freeze({
     gps: {
         maxAccuracyM: 25,
-        minSpeedForPace: 0.7,
+        minSpeedForPace: 0.6,
         minSpeedForRecord: 0.5,
         maxPaceS: 600,
         minMoveDist: 0.3,
@@ -2100,8 +2100,6 @@ function pushVelocity(t, v) {
             // reported as 0) must not wipe the DPS/oar-angle history.
             if (gpsLowSpeedStreak >= 3 && gpsSpeedEma < 0.5) {
                 gpsLastValidT = t; gpsWasStopped = true; vFilter.reset();
-                dpsValsArr.length = 0; distPerStroke = 0;   // clear corrupt DPS buffer
-                oarAngleRawArr.length = 0;                   // clear corrupt oar history
             }
             return;
         }
@@ -2138,7 +2136,7 @@ function handlePos(pos) {
     else               { pill.className = 'pill pill-err';  pill.textContent = 'GPS ' + Math.round(acc) + 'm'; }
     const spd = pos.coords.speed, now = performance.now();
     gpsLastFixT = now;   // position arrived regardless of whether Doppler speed is available
-    if (running && !paused && !sessionReady && spd != null && spd >= 0 && spd < 8) {
+    if ((running || paused) && !sessionReady && spd != null && spd >= 0 && spd < 8) {
         if (gpsDeadWarned) { gpsDeadWarned = false; toast('GPS restored'); }
         pushVelocity(now, spd);
         updatePendingRunLoss();
@@ -2164,7 +2162,7 @@ function handlePos(pos) {
     // ── Haversine cross-check: catches Doppler speed getting "stuck" low
     // (e.g. after a slow patch) while position fixes and the FSM both show
     // the boat moving normally / rowing continuing.
-    if (lastPos && lat != null && lon != null && running && !paused && !sessionReady) {
+    if (lastPos && lat != null && lon != null && (running || paused) && !sessionReady) {
         const dtH = (cur.t - lastPos.t) / 1000;
         if (dtH > 0.3 && dtH < 5) {
             const havSpd = haversineM(lastPos, cur) / dtH;
@@ -3375,7 +3373,10 @@ function resumeSess() {
     if (running) return;
     clearInterval(timerInt); clearInterval(autosaveInt);
     paused = false; running = true;
-    paceDistWindow.length = 0; velocityWindow.length = 0; gpsSpeedEma = -1; speedSamples.length = 0; headingEmaX = null; headingEmaY = null; vFilter.reset(); lastDistT = 0;
+    speedSamples.length = 0; headingEmaX = null; headingEmaY = null;
+    if (performance.now() - gpsLastValidT > CONFIG.gps.gapResetMs) {
+        paceDistWindow.length = 0; velocityWindow.length = 0; gpsSpeedEma = -1; vFilter.reset(); lastDistT = 0;
+    }
     if (wkt.active && wkt.waitingForRow) {
         wkt.readyPaused = true; // stay timer-frozen until wktBeginStep fires
     } else {
