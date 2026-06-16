@@ -657,7 +657,7 @@ const CONFIG = Object.freeze({
         paceAvgMs: 5000,
         dopplerStuckSpeed: 1.5,
         dopplerStuckN: 5,
-        havSpeedMin: 2.0,
+        havSpeedMin: 1.5,
         havBufN: 5
     },
     motion: {
@@ -1682,7 +1682,6 @@ let catchValsArr = [], trigValsArr = [], catchLast = null, catchPeakSess = null,
 let charValsArr = [], strokeChar = 50;
 let catchDurLast = null, catchDurValsArr = [];
 let distPerStroke = 0, dpsValsArr = [], maxDPS = 0;
-let prevStrokeDist = 0, prevStrokeDistT = 0;
 const MAX_STROKE_TS = 4, strokeTs = [];
 const CATCH_TS_BUF = 5, catchTsBuf = [];
 let rdi = null, rdiValsArr = [];
@@ -1911,7 +1910,7 @@ function onStrokeFinish(now, driveDur) {
     if (bladeExitT > prevDriveStartT + 100 && bladeExitT < driveStartT) {
         const physDrv = (bladeExitT - prevDriveStartT) / 1000;
         const physRec = (driveStartT - bladeExitT) / 1000;
-        if (physDrv > 0.3 && physRec > 0.3) {
+        if (physDrv > 0.3 && physRec > 0.3 && physDrv < intervalS * 0.60) {
             const rv = (physRec - physDrv) / (physRec + physDrv);
             rdiValsArr.push(rv);
             if (rdiValsArr.length > 10) rdiValsArr.shift();
@@ -1940,16 +1939,16 @@ function onStrokeFinish(now, driveDur) {
     const rateToLog = strokeRate;
     // ── DPS (GPS only) ───────────────────────────────────────────────────────
     const intervalS = gapMs / 1000;
-    if (intervalS > 0.8 && intervalS < 8 && prevStrokeDistT > 0) {
-        const dD = distance - prevStrokeDist;
-        if (dD > 0.5 && dD < 25 && gpsSpeedEma >= 1.5 && (now - gpsResumeT) > 10000) {
+    if (intervalS > 0.8 && intervalS < 8 && prevCatchT > 0) {
+        const vWin = velocityWindow.filter(e => e.t >= prevCatchT && e.t < now);
+        const meanV = vWin.length >= 2 ? vWin.reduce((s, e) => s + e.v, 0) / vWin.length : gpsSpeedEma;
+        const dD = meanV * intervalS;
+        if (dD > 0.5 && dD < 25 && meanV >= 1.5 && (now - gpsResumeT) > 10000) {
             pushLimit(dpsValsArr, dD, CONFIG.stroke.dpsMedianN);
             distPerStroke = Math.round((median(dpsValsArr) ?? dD) * 10) / 10;
             if (distPerStroke > maxDPS) maxDPS = distPerStroke;
         }
     }
-    prevStrokeDist = distance;
-    prevStrokeDistT = driveStartT;
     // ── Drive impulse: ∫(−axFast)dt over the drive-force phase (catch-end →
     // blade exit) of the stroke that just ended. Accumulated in runFSM and
     // handed over at this catch. Lags one stroke. ─────────────────────────────
@@ -2101,8 +2100,7 @@ function pushVelocity(t, v) {
             // reported as 0) must not wipe the DPS/oar-angle history.
             if (gpsLowSpeedStreak >= 3 && gpsSpeedEma < 0.5) {
                 gpsLastValidT = t; gpsWasStopped = true; vFilter.reset();
-                dpsValsArr.length = 0; distPerStroke = 0;   // clear corrupt DPS buffer
-                oarAngleRawArr.length = 0;                   // clear corrupt oar history
+                dpsValsArr.length = 0;   // force DPS to rebuild from fresh GPS on resume
             }
             return;
         }
@@ -2115,6 +2113,8 @@ function pushVelocity(t, v) {
     let vIn = v;
     if (gpsSpeedEma > 1.0 && vIn > gpsSpeedEma + CONFIG.gps.spikeMarginMps)
         vIn = gpsSpeedEma + CONFIG.gps.spikeMarginMps;
+    if (gpsSpeedEma > 2.0 && vIn < gpsSpeedEma - CONFIG.gps.spikeMarginMps)
+        vIn = gpsSpeedEma - CONFIG.gps.spikeMarginMps;
     gpsSpeedEma = vFilter.filter(vIn, t);
     // Distance from velocity integral — unbiased, no position-jitter inflation
     if (lastDistT > 0) {
@@ -2434,9 +2434,10 @@ function renderMetricSlot(i, key) {
         }
         case 'dps': {
             const ok = on && distPerStroke > 0;
+            const staleDps = ok && dpsValsArr.length === 0;
             setVal(i, ok ? fmtDPS(distPerStroke) : '--', ok ? dpsUnitLabel() : '', !ok,
-                ok ? (dpsValsArr.length >= 3 ? 'MEDIAN' : 'LOW') : 'WAIT',
-                ok ? (dpsValsArr.length >= 3 ? 'g' : 'w') : '');
+                ok ? (staleDps ? 'STALE' : dpsValsArr.length >= 3 ? 'MEDIAN' : 'LOW') : 'WAIT',
+                ok ? (staleDps ? 'b' : dpsValsArr.length >= 3 ? 'g' : 'w') : '');
             const dlbl = document.querySelector(`#slot-${i} .tile-metric-name`);
             if (dlbl) dlbl.textContent = 'DPS (' + dpsUnitLabel() + ')';
             break;
@@ -2499,9 +2500,10 @@ function renderMetricSlot(i, key) {
         }
         case 'oarangle': {
             const ok = oarAngle != null && on;
+            const staleOa = ok && oarAngleRawArr.length === 0;
             setVal(i, ok ? oarAngle + '°' : '--', '', !ok,
-                ok ? (oarAngleRawArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
-                ok ? (oarAngleRawArr.length >= 3 ? 'g' : 'w') : '');
+                ok ? (staleOa ? 'STALE' : oarAngleRawArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
+                ok ? (staleOa ? 'b' : oarAngleRawArr.length >= 3 ? 'g' : 'w') : '');
             const oaLbl = document.querySelector(`#slot-${i} .tile-metric-name`);
             if (oaLbl) oaLbl.textContent = `ARC (${appSettings.boatClass === 'sweep' ? 'SWEEP' : 'SCULL'}) ⇄`;
             break;
@@ -2699,9 +2701,10 @@ function curveTileValue(key) {
         }
         case 'dps': {
             const ok = on && distPerStroke > 0;
+            const staleDps = ok && dpsValsArr.length === 0;
             return { val: ok ? fmtDPS(distPerStroke) : '--', dim: !ok, sub: ok ? dpsUnitLabel() : '',
-                qlabel: ok ? (dpsValsArr.length >= 3 ? 'MEDIAN' : 'LOW') : 'WAIT',
-                qcls: ok ? (dpsValsArr.length >= 3 ? 'g' : 'w') : '' };
+                qlabel: ok ? (staleDps ? 'STALE' : dpsValsArr.length >= 3 ? 'MEDIAN' : 'LOW') : 'WAIT',
+                qcls: ok ? (staleDps ? 'b' : dpsValsArr.length >= 3 ? 'g' : 'w') : '' };
         }
         case 'impulse': {
             const imp = sessStrokes.length > 0 ? sessStrokes[sessStrokes.length - 1].driveImpulse : null;
@@ -2735,9 +2738,10 @@ function curveTileValue(key) {
         }
         case 'oar-angle': {
             const ok = oarAngle != null && on;
+            const staleOa = ok && oarAngleRawArr.length === 0;
             return { val: ok ? oarAngle + '°' : '--', dim: !ok, sub: '',
-                qlabel: ok ? (oarAngleRawArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
-                qcls: ok ? (oarAngleRawArr.length >= 3 ? 'g' : 'w') : '' };
+                qlabel: ok ? (staleOa ? 'STALE' : oarAngleRawArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
+                qcls: ok ? (staleOa ? 'b' : oarAngleRawArr.length >= 3 ? 'g' : 'w') : '' };
         }
         case 'check-delta': {
             const ok = checkDelta != null && on;
@@ -3483,7 +3487,7 @@ function resetSess() {
     laps = []; sessStrokes.length = 0; sessPaceTrace.length = 0;
     sessGpsTrace.length = 0; sessGpsRawTrace.length = 0;
     strokeTs.length = 0; prevDriveDurMs = 0; prevFastSample = 0; paceDistWindow.length = 0; velocityWindow.length = 0;
-    speedSamples.length = 0; prevStrokeDist = 0; prevStrokeDistT = 0;
+    speedSamples.length = 0;
     gpsLastValidT = 0; gpsLastFixT = 0; gpsSpeedEma = -1; gpsWasStopped = false; gpsDeadWarned = false; gpsAccuracyM = null; headingEmaX = null; headingEmaY = null; vFilter.reset(); lastDistT = 0; gpsResumeT = -Infinity; gpsLowSpeedStreak = 0;
     fsmState = FS.IDLE; catchPeakJerk = 0; driveMinJerk = 0; trigValsArr.length = 0; catchStartT = 0; lastCatchAbsT = 0; lastDriveEndT = 0; bladeExitT = 0; prevDriveStartT = 0; bladeExitDetected = false;
     strokesDetected = 0; jerkThreshActive = jerkThreshBase; adaptReady = false;
