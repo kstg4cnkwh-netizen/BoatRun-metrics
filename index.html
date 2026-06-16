@@ -1598,7 +1598,7 @@ function onNewCatch(now) {
         if (pendingOarStrokeIdx >= 0 &&
             catchToCatchSamples.length >= 8 &&
             pendingCurveDriveCount >= 2 &&
-            vMean >= 1.0 && (now - gpsResumeT) > 2000) {
+            vMean >= 1.5 && (now - gpsResumeT) > 10000) {
             const rawAngle = computeOarAngle(
                 catchToCatchSamples, pendingCurveDriveCount, vMean);
             if (rawAngle !== null) {
@@ -1723,7 +1723,7 @@ function computeOarAngle(samples, driveCount, vMean) {
     const SLIP_FRACTION = 0.10;
     const n             = samples.length;
     if (n < 8 || driveCount < 2 || driveCount >= n) return null;
-    if (vMean < 0.5 || vMean > 8) return null;
+    if (vMean < 1.5 || vMean > 8) return null;
 
     // Remove any residual DC bias in axFast over the catch-to-catch window
     // before integrating — axFast should be ~zero-mean per cycle; a small
@@ -1829,12 +1829,13 @@ function onStrokeFinish(now, driveDur) {
     if (driveDur < CONFIG.stroke.minDriveMs || driveDur > CONFIG.stroke.maxDriveMs) return;
     const trigJerk = Math.abs(catchPeakJerk);
     if (trigJerk < 2 || trigJerk < jerkThreshBase * 1.5) return;
-    const catchSlope = (driveMinJerk < -2) ? Math.round(Math.abs(driveMinJerk)) : Math.round(trigJerk);
+    const negComp = driveMinJerk < -2 ? Math.abs(driveMinJerk) : 0;
+    const catchSlope = Math.round(Math.max(trigJerk, negComp));
 
     // ── Rest-gap reset: check BEFORE touching catchTsBuf or strokeRate ──────
     const gapMs = prevCatchT > 0 ? driveStartT - prevCatchT : 0;
     if (gapMs / 1000 > CONFIG.stroke.restGapS) {
-        oarAngle = null;
+        oarAngle = null; oarAngleRawArr.length = 0;
         checkDelta = null; checkDeltaRawArr.length = 0;
         lastKnownPeriodMs = Math.max(lastKnownPeriodMs * 0.70, CONFIG.stroke.nominalFallbackMs);
         acBuf.length = 0; acConf = 0;
@@ -1845,7 +1846,7 @@ function onStrokeFinish(now, driveDur) {
     }
     // ── End rest-gap reset ───────────────────────────────────────────────────
 
-    const catchDurMs = driveDur;
+    const catchDurMs = Math.round(driveDur);
     catchTsBuf.push(driveStartT);
     if (strokeRate > 0 && catchTsBuf.length >= 2) {
         const iv = catchTsBuf[catchTsBuf.length - 1] - catchTsBuf[catchTsBuf.length - 2];
@@ -1898,7 +1899,7 @@ function onStrokeFinish(now, driveDur) {
         const m = catchValsArr.reduce((a, b) => a + b, 0) / catchValsArr.length;
         catchConsistency = Math.round(Math.sqrt(catchValsArr.reduce((s, v) => s + (v - m) ** 2, 0) / catchValsArr.length));
     }
-    if (catchDurMs !== null && catchDurMs > 10 && catchDurMs < 500) {
+    if (catchDurMs !== null && catchDurMs > 10 && catchDurMs < 800) {
         catchDurValsArr.push(catchDurMs);
         if (catchDurValsArr.length > 5) catchDurValsArr.shift();
         catchDurLast = Math.round(median(catchDurValsArr));
