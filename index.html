@@ -560,7 +560,6 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div id="settings-root"></div>
 <div id="hr-editor-root" style="margin-top:14px;"></div>
 </div>
-</div>
 <!-- ABOUT panel -->
 <div id="ht-about" class="home-panel">
 <div style="padding:6px 4px 16px;">
@@ -580,6 +579,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div style="padding:9px 0;border-bottom:1px solid #eee;"><div style="font-weight:600;font-size:12px;">Stroke Char</div><div style="font-size:11px;color:#777;line-height:1.5;margin-top:2px;">Where peak power (acceleration) occurs during the drive, as % of drive duration. ~30-45% = front-loaded catch (preferred), ~65%+ = back-loaded/late catch.</div></div>
 <div style="padding:9px 0;border-bottom:1px solid #eee;"><div style="font-weight:600;font-size:12px;">Catch Dur</div><div style="font-size:11px;color:#777;line-height:1.5;margin-top:2px;">Time spent in the catch — from the deceleration spike at body stop and blade entry until drive force builds and the boat accelerates again. Shorter usually means a quicker, more direct connection at the catch.</div></div>
 <div style="padding:9px 0;border-bottom:1px solid #eee;"><div style="font-weight:600;font-size:12px;">Avg HR</div><div style="font-size:11px;color:#777;line-height:1.5;margin-top:2px;">Average heart rate during the session, in beats per minute.</div></div>
+</div>
 </div>
 </div>
 </div>
@@ -657,7 +657,7 @@ const CONFIG = Object.freeze({
         paceAvgMs: 5000,
         dopplerStuckSpeed: 1.5,
         dopplerStuckN: 5,
-        havSpeedMin: 1.5,
+        havSpeedMin: 2.0,
         havBufN: 5
     },
     motion: {
@@ -2100,7 +2100,8 @@ function pushVelocity(t, v) {
             // reported as 0) must not wipe the DPS/oar-angle history.
             if (gpsLowSpeedStreak >= 3 && gpsSpeedEma < 0.5) {
                 gpsLastValidT = t; gpsWasStopped = true; vFilter.reset();
-                dpsValsArr.length = 0;   // force DPS to rebuild from fresh GPS on resume
+                dpsValsArr.length = 0; distPerStroke = 0;   // clear corrupt DPS buffer
+                oarAngleRawArr.length = 0;                   // clear corrupt oar history
             }
             return;
         }
@@ -2434,10 +2435,9 @@ function renderMetricSlot(i, key) {
         }
         case 'dps': {
             const ok = on && distPerStroke > 0;
-            const staleDps = ok && dpsValsArr.length === 0;
             setVal(i, ok ? fmtDPS(distPerStroke) : '--', ok ? dpsUnitLabel() : '', !ok,
-                ok ? (staleDps ? 'STALE' : dpsValsArr.length >= 3 ? 'MEDIAN' : 'LOW') : 'WAIT',
-                ok ? (staleDps ? 'b' : dpsValsArr.length >= 3 ? 'g' : 'w') : '');
+                ok ? (dpsValsArr.length >= 3 ? 'MEDIAN' : 'LOW') : 'WAIT',
+                ok ? (dpsValsArr.length >= 3 ? 'g' : 'w') : '');
             const dlbl = document.querySelector(`#slot-${i} .tile-metric-name`);
             if (dlbl) dlbl.textContent = 'DPS (' + dpsUnitLabel() + ')';
             break;
@@ -2500,10 +2500,9 @@ function renderMetricSlot(i, key) {
         }
         case 'oarangle': {
             const ok = oarAngle != null && on;
-            const staleOa = ok && oarAngleRawArr.length === 0;
             setVal(i, ok ? oarAngle + '°' : '--', '', !ok,
-                ok ? (staleOa ? 'STALE' : oarAngleRawArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
-                ok ? (staleOa ? 'b' : oarAngleRawArr.length >= 3 ? 'g' : 'w') : '');
+                ok ? (oarAngleRawArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
+                ok ? (oarAngleRawArr.length >= 3 ? 'g' : 'w') : '');
             const oaLbl = document.querySelector(`#slot-${i} .tile-metric-name`);
             if (oaLbl) oaLbl.textContent = `ARC (${appSettings.boatClass === 'sweep' ? 'SWEEP' : 'SCULL'}) ⇄`;
             break;
@@ -2701,10 +2700,9 @@ function curveTileValue(key) {
         }
         case 'dps': {
             const ok = on && distPerStroke > 0;
-            const staleDps = ok && dpsValsArr.length === 0;
             return { val: ok ? fmtDPS(distPerStroke) : '--', dim: !ok, sub: ok ? dpsUnitLabel() : '',
-                qlabel: ok ? (staleDps ? 'STALE' : dpsValsArr.length >= 3 ? 'MEDIAN' : 'LOW') : 'WAIT',
-                qcls: ok ? (staleDps ? 'b' : dpsValsArr.length >= 3 ? 'g' : 'w') : '' };
+                qlabel: ok ? (dpsValsArr.length >= 3 ? 'MEDIAN' : 'LOW') : 'WAIT',
+                qcls: ok ? (dpsValsArr.length >= 3 ? 'g' : 'w') : '' };
         }
         case 'impulse': {
             const imp = sessStrokes.length > 0 ? sessStrokes[sessStrokes.length - 1].driveImpulse : null;
@@ -2738,10 +2736,9 @@ function curveTileValue(key) {
         }
         case 'oar-angle': {
             const ok = oarAngle != null && on;
-            const staleOa = ok && oarAngleRawArr.length === 0;
             return { val: ok ? oarAngle + '°' : '--', dim: !ok, sub: '',
-                qlabel: ok ? (staleOa ? 'STALE' : oarAngleRawArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
-                qcls: ok ? (staleOa ? 'b' : oarAngleRawArr.length >= 3 ? 'g' : 'w') : '' };
+                qlabel: ok ? (oarAngleRawArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
+                qcls: ok ? (oarAngleRawArr.length >= 3 ? 'g' : 'w') : '' };
         }
         case 'check-delta': {
             const ok = checkDelta != null && on;
@@ -4693,7 +4690,7 @@ DriveSync.init().then(async()=>{
 checkAutosave();
 window.addEventListener('online',()=>{if(DriveSync.isSignedIn())flushQueue().catch(()=>{});});
 
-caches.keys().then(keys=>{const el=document.getElementById('splash-version');if(!el)return;const k=keys.find(k=>k.startsWith('scull-'));if(k)el.textContent=k;}).catch(()=>{});
+fetch('./sw.js?'+Date.now()).then(r=>r.text()).then(txt=>{const m=txt.match(/const C\s*=\s*['"]([^'"]+)['"]/);if(m){const el=document.getElementById('splash-version');if(el)el.textContent=m[1];}}).catch(()=>{});
 
 </script>
 </body>
