@@ -1,6 +1,6 @@
-# BoatRun Metrics — User Guide
+# BoatRun — User Guide
 
-Two companion web apps that run as PWAs on an iOS device mounted in a scull. The **Metrics app** records sessions live on the water. The **Analyser app** is used on a desktop or tablet after the session to review data and compare performance over time.
+Two companion web apps that run as PWAs. The **Metrics app** records sessions live on the water from a phone mounted in the boat. The **Analyser app** is used on a desktop or tablet after the session to review data, compare curves, and track progress over time.
 
 -----
 
@@ -12,12 +12,16 @@ Two companion web apps that run as PWAs on an iOS device mounted in a scull. The
 1. [Layouts and Tiles](#4-layouts-and-tiles)
 1. [Workouts](#5-workouts)
 1. [Recording a Session](#6-recording-a-session)
-1. [Analyser App](#7-analyser-app)
-1. [Workout Benchmark Comparison](#8-workout-benchmark-comparison)
-1. [Metrics Reference](#9-metrics-reference)
-1. [Arc Setup (Scull / Sweep)](#10-arc-setup-scull--sweep)
-1. [HR Zones](#11-hr-zones)
-1. [Google Drive Sync](#12-google-drive-sync)
+1. [Analyser App — Overview](#7-analyser-app--overview)
+1. [Analyser App — Chart and Navigation](#8-analyser-app--chart-and-navigation)
+1. [Analyser App — Curve Analysis](#9-analyser-app--curve-analysis)
+1. [Analyser App — Map, HR, and Export](#10-analyser-app--map-hr-and-export)
+1. [Workout Benchmark Comparison](#11-workout-benchmark-comparison)
+1. [Metrics Reference](#12-metrics-reference)
+1. [Arc Setup (Scull / Sweep)](#13-arc-setup-scull--sweep)
+1. [HR Zones](#14-hr-zones)
+1. [Google Drive Sync](#15-google-drive-sync)
+1. [Troubleshooting](#troubleshooting)
 
 -----
 
@@ -37,7 +41,7 @@ Two companion web apps that run as PWAs on an iOS device mounted in a scull. The
 |Metrics (`index.html`)    |Live recording on the water       |Phone in scull   |
 |Analyser (`analyser.html`)|Post-session review and comparison|Desktop or tablet|
 
-Sessions recorded in Metrics are saved to local storage on the phone and optionally synced to Google Drive. The Analyser reads those Drive files.
+Sessions recorded in Metrics are saved to local storage on the phone and optionally synced to Google Drive. The Analyser reads those Drive files or accepts exported `.json` or `.csv` session files.
 
 -----
 
@@ -70,6 +74,7 @@ You do not need to recalibrate every session — calibration persists. Recalibra
 - Mount the phone flat in the boat, screen up, at the stern-most position in the foot stretcher area or rigger area where it will not move
 - Closer to the rigger is better — more stroke motion signal
 - The long axis of the phone should roughly align with the boat’s long axis
+- The phone is mounted **facing the back of the boat** (inverted relative to the direction of travel) — the app accounts for this automatically
 - The app auto-detects which sensor axis (X, Y, or Z) has the strongest stroke signal — the axis pill in the corner shows which axis is in use and goes green once locked
 
 -----
@@ -87,11 +92,11 @@ The stroke detection state shows in the top bar:
 - **WAIT** — not rowing, waiting for signal
 - **AX:X** (orange) — axis detected, not yet locked
 - **AX:X** (green) — axis locked, stroke detection active
-- GPS accuracy pill shows signal quality — orange above 8m, red above 25m (pace is suppressed when red)
+- GPS accuracy pill shows signal quality — orange above 8 m, red above 25 m (pace is suppressed when red)
 
 ### 📈 CURVE
 
-Shows the IMU acceleration curve catch-to-catch. The last stroke (blue) and 5-stroke rolling average (orange) are overlaid. The vertical dashed line divides drive (left) from recovery (right).
+Shows the IMU acceleration curve catch-to-catch. The last stroke (blue) and 5-stroke rolling average (orange) are overlaid. The vertical dashed line divides drive (left) from recovery (right). The fill shading is green above zero and red below, making the drive and deceleration phases immediately visible.
 
 Four tiles below the curve are configurable — tap any tile to cycle through available metrics.
 
@@ -109,7 +114,7 @@ Five sub-panels accessed via the tabs at the top:
 - **LAYOUTS** — create and select display profiles (which metrics show on the tile grid)
 - **WORKOUTS** — build and manage workout programs
 - **HR ZONES** — configure heart rate zones for zone-coloured HR display
-- **SETTINGS** — outboard length, boat class, distance units, and other configuration
+- **SETTINGS** — outboard length, boat class, distance units, Cox mode, and other configuration
 
 -----
 
@@ -178,7 +183,7 @@ The four tiles on the CURVE tab are independently configurable. Tap any tile to 
 - Pace
 - Stroke ratio
 - Check Δ
-- Arc (Scull) / Arc (Sweep) — label reads the current boat class from settings, read-only on curve tab
+- Arc (Scull) / Arc (Sweep) — label reads the current boat class from settings
 
 -----
 
@@ -190,7 +195,7 @@ A workout is a structured sequence of steps — warmup, work intervals, rest per
 
 - The INTERVALS tab shows what’s coming and counts down each step
 - The **workout** tile (if assigned) shows the current step type and time remaining
-- At the end of each step, metrics are captured for that interval (pace, rate, catch, impulse, char, ratio, run loss, arc, consistency, and the averaged IMU curve)
+- At the end of each step, metrics are captured for that interval (pace, rate, catch, impulse, char, ratio, run loss, arc, consistency, catch duration, and the averaged IMU curve)
 - All interval data is saved with the session and is available for benchmark comparison in the Analyser
 
 ### Loading a workout
@@ -221,13 +226,11 @@ This is the primary repeatable test for tracking fitness and technique over a tr
 |3  |22 spm     |2 min|90 sec|
 |4  |24 spm     |2 min|—     |
 
-- Each 2-minute piece is a separate work interval. The app counts down automatically and signals the rest period.
-- Your job is to hold the target rate for each rep. The rate is not enforced by the app — use the rate tile as a guide.
-- Do the test on the same stretch of water in the same direction each time if you want to compare pace.
+Each 2-minute piece is a separate work interval. The app counts down automatically and signals the rest period. Your job is to hold the target rate for each rep — use the rate tile as a guide. Do the test on the same stretch of water in the same direction each time to make pace comparisons valid.
 
 **What to compare across sessions**
 
-Use the Workout Benchmark in the Analyser (see section 8):
+Use the Workout Benchmark in the Analyser (see section 11):
 
 - 🟢 Rate, char, ratio, arc — compare these freely across any conditions
 - 🔵 Catch slope, impulse, consistency — compare within same boat
@@ -296,107 +299,240 @@ HOME → LOG → tap the session. You will see:
 - Summary stats (distance, time, pace, rate, catch, stroke count)
 - Workout interval breakdown table if a workout was used
 - Lap splits table
-- Charts (if Analyser is loaded separately)
 
 -----
 
-## 7. Analyser App
+## 7. Analyser App — Overview
 
 The Analyser is a desktop-first tool for detailed post-session analysis. Open it in a browser on a laptop or tablet.
 
 ### Loading a session
 
-**From file:** Drag and drop a `.json` session file onto the drop zone, or click **Browse** and select the file.
+**From file:** Drag and drop a `.json` session file onto the drop zone, or click **Browse** and select the file. `.csv` debug exports are also accepted.
 
-**From Google Drive:** Click **Drive**, sign in if prompted, and pick a session from the list. Sessions are stored in a private app folder in your Drive — they are not visible in the regular Drive interface.
+**From Google Drive:** Click **Drive**, sign in if prompted, and pick a session from the list. Sessions are stored in a private app folder in your Drive — not visible in the regular Drive interface.
 
-### Chart overview
+Once a session loads, the drop zone is replaced by the full analysis view.
 
-The main chart shows all metrics over the course of the session. Each metric is a separate line:
+### Summary cards
 
-- Toggle lines on/off using the buttons in the top bar
-- Change the X-axis between stroke number, distance (m/km/mi), and time (minutes) using the selector
-- Apply EMA smoothing (3 / 5 / 10 / 15 / 20 / 30 strokes) to reduce noise on noisy metrics
+A row of summary cards appears at the top of the session view, showing:
 
-The **overview strip** below the main chart shows the whole session. Drag the highlighted window to pan, or drag its edges to zoom.
+- Total distance (GPS)
+- Total time
+- Stroke count
+- Average pace
+- Average stroke rate
+- Average catch slope (Catch Avg) and peak catch slope (Catch Peak)
+- Average DPS
+- Average impulse
+- Average run loss
+- Average oar arc
+- Average HR and max HR (if HR data is present)
 
-**Zoom and pan**
+Each card is colour-coded to match the metric’s category (red = condition-dependent, blue = boat-dependent, green = condition-independent).
 
-- Scroll (mouse wheel or two-finger swipe) over the main chart to zoom in
-- Drag the overview window to navigate
+### Interface controls
 
-### Selecting a range
+**Theme:** Click **Light Mode / Dark Mode** in the top bar to toggle between dark (default) and light themes. The route map always renders in dark mode.
 
-To analyse a specific section of the session:
+**Units bar:** Appears when a session is loaded. Controls:
 
-1. Click and drag on the main chart to select a stroke range — the selection turns blue
-1. The **stats panel** above the chart updates to show average metrics for the selection
-1. Tap **Pin selection** to add this selection as a curve group for comparison
+- **Pace:** /500m, /1km, km/h, /mi, mph — changes the pace display throughout the session view
+- **Distance:** km or mi — affects total distance and DPS display
+- **Oar Arc:** degrees or metres — changes the oar arc display unit
 
-Pinned selections appear as coloured lines in the Curve section and as columns in the Curve Stats table. You can pin multiple selections (different rates, laps, early vs late in a piece) and compare them side by side.
-
-### Laps table
-
-The laps table (left of the stroke data) shows each lap with distance, time, pace, rate, and key averages. Click a row to highlight those strokes in the chart.
-
-Lap boundaries are shown as dotted vertical lines on the main chart.
-
-### Curve section
-
-The Curve section shows averaged IMU catch-to-catch acceleration curves. Each pinned selection produces one curve. Compare curves to see:
-
-- Whether stroke shape is consistent between laps
-- How stroke shape changes at different rates
-- How drive timing (characteristic) varies
-
-The stats table below the curves shows sampled strokes, stroke rate, speed, check delta, stroke characteristic, drag efficiency, catch slope, and catch duration for each pinned group.
-
-### Stroke data table
-
-The full stroke-by-stroke table is at the bottom right. Columns include all metrics recorded per stroke. You can sort by any column. The table syncs with chart highlights — selecting a range highlights the corresponding rows.
+All units apply immediately across charts, cards, tables, and tooltips.
 
 -----
 
-## 8. Workout Benchmark Comparison
+## 8. Analyser App — Chart and Navigation
+
+### Main chart
+
+The main chart shows all stroke metrics plotted over the course of the session. Each metric is a separate series of dots, colour-coded:
+
+|Series     |Colour    |Description                    |
+|-----------|----------|-------------------------------|
+|Pace       |Green     |Boat speed                     |
+|Rate       |Yellow    |Stroke rate in spm             |
+|Catch Slope|Blue      |Catch sharpness                |
+|DPS        |Red       |Distance per stroke            |
+|Impulse    |Orange    |Drive impulse                  |
+|Run Loss   |Pink      |Recovery velocity drop         |
+|Char %     |Purple    |Drive characteristic position  |
+|Ratio      |Blue      |Stroke ratio (recovery ÷ drive)|
+|Oar Arc    |Teal      |Oar arc in degrees or metres   |
+|Check Delta|Steel blue|Speed swing within a stroke    |
+|Catch Dur  |Lavender  |Catch duration in ms           |
+
+**Toggling series:** Click any label in the legend to hide or show that series. Clicking a dimmed label restores it.
+
+**X-axis options:** Use the selector to switch between stroke number, distance (km/mi), and elapsed time (minutes).
+
+**EMA smoothing:** Apply exponential moving average smoothing to reduce noise. Options: 3, 5, 10, 15, 20, or 30 strokes. Affects the visible line only — underlying data is unchanged.
+
+**Zoom buttons:** Use + / − to zoom the X-axis, or scroll / two-finger swipe over the chart.
+
+### Overview strip
+
+The narrow strip below the main chart shows the entire session compressed into a miniature view. Drag the highlighted window to pan to a different part of the session. Drag the edges of the window to zoom in on a region.
+
+### Tooltip
+
+Hover (or tap on touch) over the chart to see a tooltip showing all metric values for the nearest stroke, including stroke number, pace, rate, catch slope, DPS, impulse, run loss, char %, ratio, oar arc, check delta, and catch duration.
+
+### Lap markers
+
+Lap boundaries appear as vertical dashed lines on the main chart. These align with the laps recorded during the session.
+
+### Laps table
+
+The laps table (left column of the lower section) lists each lap with:
+
+- Lap number
+- Distance
+- Time
+- Pace
+- Stroke rate
+- Avg HR and max HR (if HR data present)
+
+Click any lap row to highlight those strokes in the chart and automatically pan the overview window to that lap.
+
+### Stroke data table
+
+The full stroke-by-stroke table (right column of the lower section) lists every detected stroke with all recorded metrics. Click any column header to sort. The table syncs with chart selections — selecting a range on the chart highlights the corresponding rows.
+
+### Selecting a range
+
+1. Click and drag on the main chart to highlight a range of strokes — the selection turns blue
+1. A bar appears above the chart showing the number of strokes selected and the average metrics for that range
+1. Click **Pin Curve** to save this selection as a named curve group for comparison (see section 9)
+1. Click **Clear** to remove the selection
+
+-----
+
+## 9. Analyser App — Curve Analysis
+
+### What curve groups are
+
+When you pin a selection, the Analyser averages all the raw IMU catch-to-catch curves from those strokes into a single representative curve for that group. You can pin multiple groups — different laps, rate ranges, early vs late in a piece — and compare them side by side.
+
+### Pinning a group
+
+1. Drag a selection on the chart
+1. Click **Pin Curve** — the group is added with an auto-generated label (e.g. “S45–S78”) and assigned a colour
+1. The selection bar shows a chip for each pinned group
+
+Chips appear at the top of the curve section. Click a chip to re-focus the chart on that group’s strokes. Each group can be dragged or resized on the chart by dragging its chip or its edges.
+
+Click **Clear All** to remove all pinned groups.
+
+### Curve canvas
+
+Each pinned group produces an averaged catch-to-catch acceleration curve drawn in its assigned colour. All curves are overlaid on the same canvas, time-normalised so the drive and recovery phases align. A vertical dashed line marks the drive/recovery boundary.
+
+The fill shading is green above zero and red below, showing the drive impulse (positive acceleration) and the recovery deceleration clearly. The curve shape directly reflects stroke mechanics — peak position, sharpness, and symmetry are all visible.
+
+### Curve stats table
+
+Below the curve canvas, a stats table shows one column per pinned group:
+
+|Metric         |Description                              |
+|---------------|-----------------------------------------|
+|Sampled strokes|Number of strokes averaged into the curve|
+|Stroke rate    |Average spm for this group               |
+|Speed          |Average pace for this group              |
+|Check Delta    |Average speed swing within a stroke      |
+|Char %         |Average drive characteristic position    |
+|Catch Slope    |Average catch sharpness (m/s³)           |
+|Catch Duration |Average time from body stop to drive     |
+
+### Using curve comparison
+
+Compare curves to see:
+
+- Whether stroke shape is consistent between laps
+- How stroke shape changes at different rates
+- How catch timing and drive commitment have changed across a training block (when using workout benchmark — see section 11)
+
+A well-loaded front-end stroke shows a tall, sharp peak early in the drive, dropping smoothly through to the finish. A soft or late-loaded stroke shows a lower, broader peak shifted right. A rushed recovery compresses the time axis on the right side.
+
+-----
+
+## 10. Analyser App — Map, HR, and Export
+
+### Route map
+
+If the session contains GPS data, a **Route Map** panel appears in the lower section (left of the stroke data table). The full GPS track is drawn as a line. When curve groups are pinned, each group’s GPS segment is drawn in the group’s colour over the base track, making it easy to see where in the course each curve group was recorded.
+
+The map uses Leaflet.js with CartoDB dark tiles and always renders in dark mode regardless of the app theme.
+
+### Heart rate chart
+
+If a compatible HR monitor was connected during the session, an HR chart appears below the main stroke chart.
+
+- The HR trace is plotted as a line over time
+- Zone bands are drawn as coloured horizontal strips using the zone boundaries configured in Metrics (HOME → HR ZONES)
+- Average and max HR are shown in the panel label
+
+The HR chart shares the time axis with the main chart. HR data is also included in the summary cards and TCX export.
+
+### TCX export
+
+Click **⬇ Export TCX** (visible once a session is loaded) to download a `.tcx` file compatible with Garmin Connect and Strava.
+
+The TCX file contains:
+
+- Trackpoints with GPS coordinates, timestamp, and HR (if present)
+- Lap splits with distance, time, pace, average HR, and max HR
+- Activity type: Rowing
+
+This is the primary method for uploading sessions to Strava. Garmin Connect can also import TCX files directly.
+
+-----
+
+## 11. Workout Benchmark Comparison
 
 When you load a session that was recorded using a named workout, a **Workout Benchmark** section appears below the main chart.
 
 ### Reading the benchmark
 
-The benchmark shows a table for each work interval (Rep 1, Rep 2, etc.) with all recorded metrics for that interval:
+The benchmark shows one table per work interval (Rep 1, Rep 2, etc.) with all recorded metrics for that interval:
 
-|Metric  |Colour|What changing it means                         |
-|--------|------|-----------------------------------------------|
-|Pace    |🔴     |Faster = better fitness (conditions permitting)|
-|Rate spm|🟢     |Should match target for each rep               |
-|Catch   |🔵     |Higher = sharper, more aggressive entry        |
-|Impulse |🔵     |Higher = more force into the boat              |
-|Char %  |🟢     |Lower = more front-loaded drive                |
-|Ratio   |🟢     |Higher = longer recovery, more glide time      |
-|Run loss|🔴     |Lower = boat is gliding better                 |
-|Arc °   |🟢     |Should be consistent rep to rep                |
-|DPS     |🔴     |Higher = more distance per stroke              |
-|Consist.|🔵     |Lower = more repeatable catches                |
+|Metric   |Colour|What changing it means                         |
+|---------|------|-----------------------------------------------|
+|Pace     |🔴     |Faster = better fitness (conditions permitting)|
+|Rate spm |🟢     |Should match target for each rep               |
+|Catch    |🔵     |Higher = sharper, more aggressive entry        |
+|Impulse  |🔵     |Higher = more force into the boat              |
+|Char %   |🟢     |Lower = more front-loaded drive                |
+|Ratio    |🟢     |Higher = longer recovery, more glide time      |
+|Run loss |🔴     |Lower = boat is gliding better                 |
+|Arc °    |🟢     |Should be consistent rep to rep                |
+|DPS      |🔴     |Higher = more distance per stroke              |
+|Consist. |🔵     |Lower = more repeatable catches                |
+|Catch Dur|🔵     |Lower = quicker, more direct catch connection  |
 
 Below each rep’s metric table is an **IMU curve canvas** showing the averaged catch-to-catch acceleration profile for that interval.
 
 ### Comparing across sessions
 
-Tap **Compare via Drive ▾** to load all Drive sessions and find those recorded with the same workout. The app checks every Drive session — progress shows in the button. Matching sessions are added as columns to the table, newest first.
+Click **Compare via Drive ▾** to load all Drive sessions and find those recorded with the same workout. The app checks every Drive session — progress shows in the button. Matching sessions are added as columns to the table, newest first.
 
 The current session is highlighted in green (●). Each session gets a colour strip in the legend.
 
-**IMU curves are overlaid** in the canvas below each rep — all sessions in their assigned colours, current session drawn thicker. This makes it immediately visible if stroke shape has changed between sessions.
+IMU curves are overlaid in the canvas below each rep — all sessions in their assigned colours, current session drawn thicker. This makes it immediately visible if stroke shape has changed between sessions.
 
-**Tips for valid comparisons**
+### Tips for valid comparisons
 
-- Rate is the only reliable cross-session comparison metric in any conditions — if your rate was genuinely the same, technique metrics (catch, impulse, char, ratio, arc) are valid to compare
+- Rate is the only reliable cross-session comparison metric in any conditions — if your rate was genuinely the same, technique metrics (catch, impulse, char, ratio, arc, catch duration) are valid to compare
 - Pace comparison is only meaningful if you rowed the same section of water in the same direction on both occasions — tide and current shift pace significantly
 - The curve shape is condition-independent: if your drive profile has changed, you will see it in the overlaid curves even if pace numbers are incomparable
 
 -----
 
-## 9. Metrics Reference
+## 12. Metrics Reference
 
 Metrics are colour-coded by what influences them:
 
@@ -410,9 +546,9 @@ Metrics are colour-coded by what influences them:
 
 How long it takes to travel 500m at current speed. Lower is faster.
 
-Smoothed GPS speed over a sliding 12-second window, then expressed as mm:ss per 500m. Only shown when GPS accuracy is better than 25m.
+Smoothed GPS speed over a sliding 12-second window, expressed as mm:ss per 500m. Only shown when GPS accuracy is better than 25m.
 
-**Use:** Set targets for interval pieces (hold 2:05 for this rep). Compare lap to lap within a session. **Do not** use to compare sessions on different days or water unless conditions are matched.
+**Use:** Set targets for interval pieces (hold 2:05 for this rep). Compare lap to lap within a session. Do not use to compare sessions on different days or water unless conditions are matched.
 
 -----
 
@@ -466,7 +602,7 @@ Where in the drive phase the peak acceleration occurs. 0% = at catch entry, 100%
 
 ### 🟢 Arc — Scull / Sweep (degrees)
 
-The arc the oar sweeps through the water during the drive, in degrees. Derived from GPS distance during the drive phase and your configured oar geometry. A blade slip allowance (~10%) is applied. See section 10 for setup.
+The arc the oar sweeps through the water during the drive, in degrees. Derived from GPS distance during the drive phase and your configured oar geometry. A blade slip allowance (~10%) is applied. See section 13 for setup.
 
 **Use:** Consistent arc across strokes indicates full, repeatable drive length. A sudden drop mid-session signals a shortened or missed stroke. Low and variable arc together is a warning: the rower is not committing to the full drive.
 
@@ -494,6 +630,14 @@ Standard deviation of recent catch slope values. Lower = more repeatable catches
 
 -----
 
+### 🔵 Catch Duration (ms)
+
+Time from the deceleration spike at body stop and blade entry until drive force builds and the boat accelerates. Measured in milliseconds.
+
+**Use:** Shorter catch duration means a quicker, more direct connection between blade entry and load. A long catch duration indicates a pause, slack, or hesitation at the catch — the blade is in the water but not yet loaded. Compare catch duration against catch slope: high slope but long duration suggests an aggressive entry that isn’t immediately converting to drive force.
+
+-----
+
 ### 🔵 Drive Impulse
 
 Total positive acceleration delivered to the hull during the drive phase. Integral of the accelerometer signal across the drive. Higher = more sustained push per stroke.
@@ -518,7 +662,17 @@ IMU-derived: the app integrates accelerometer data across a 2-second window afte
 
 -----
 
-## 10. Arc Setup (Scull / Sweep)
+### 🔵 Check Delta (m/s)
+
+The total speed swing within a single stroke cycle — maximum velocity minus minimum velocity from catch to catch. Lower = smoother, more continuous boat run.
+
+IMU-derived from integrated accelerometer velocity.
+
+**Use:** A high check delta means the boat is accelerating and decelerating sharply within each stroke. This wastes energy overcoming inertia. Check delta should decrease as efficiency improves. It tends to be higher in single sculls than crew boats. Compare check delta against run loss — they often move together, but a high check delta with low run loss suggests a powerful but jerky drive rather than a disrupted recovery.
+
+-----
+
+## 13. Arc Setup (Scull / Sweep)
 
 Arc is calculated from GPS drive distance and your oar geometry. Set the correct values in HOME → SETTINGS.
 
@@ -553,7 +707,7 @@ A 10% blade slip fraction is subtracted from the drive distance before calculati
 
 -----
 
-## 11. HR Zones
+## 14. HR Zones
 
 Heart rate zones are configured in HOME → HR ZONES. Four zone models are available:
 
@@ -564,7 +718,7 @@ Heart rate zones are configured in HOME → HR ZONES. Four zone models are avail
 |% Max HR     |Percentage of max HR              |Simple, widely used                      |
 |Age-predicted|220 − age                         |No data needed; least accurate           |
 
-Set your Max HR, LTHR, Resting HR, and Age. The app computes zone boundaries and displays them in the HR chart in the Analyser.
+Set your Max HR, LTHR, Resting HR, and Age. The app computes zone boundaries and displays them as coloured band overlays in the HR chart in the Analyser.
 
 **Current zones (Friel model defaults)**
 
@@ -576,11 +730,11 @@ Set your Max HR, LTHR, Resting HR, and Age. The app computes zone boundaries and
 |Z4  |143 – 160 bpm|Threshold       |
 |Z5  |> 160 bpm    |VO2 max / sprint|
 
-HR data is recorded when a compatible HR monitor is connected. It appears as a banded chart in the Analyser below the main stroke chart.
+HR data is recorded when a compatible HR monitor is connected during the session. It appears as a line chart in the Analyser with zone bands behind it.
 
 -----
 
-## 12. Google Drive Sync
+## 15. Google Drive Sync
 
 Sessions sync automatically to a private app folder in your Google Drive. They are not visible in the regular Drive interface.
 
@@ -605,7 +759,7 @@ Sessions are listed by date. The list shows distance and duration for each sessi
 
 ### Benchmark comparison via Drive
 
-The Workout Benchmark (see section 8) also uses Drive. When you tap **Compare via Drive**, the Analyser fetches every session on Drive, identifies those recorded with the same workout, and loads their interval data for comparison. This checks sessions one at a time — a large Drive library may take 20–30 seconds to scan. Progress is shown in the button.
+The Workout Benchmark (see section 11) also uses Drive. When you click **Compare via Drive**, the Analyser fetches every session on Drive, identifies those recorded with the same workout, and loads their interval data for comparison. This checks sessions one at a time — a large Drive library may take 20–30 seconds to scan. Progress is shown in the button.
 
 -----
 
@@ -632,9 +786,20 @@ The Workout Benchmark (see section 8) also uses Drive. When you tap **Compare vi
 
 - Check you are signed into Drive (☁ button)
 - Sessions in the pending queue retry automatically on reconnect
-- If a session repeatedly fails to upload, export it as CSV from the session detail view as a backup
+- If a session repeatedly fails to upload, export it as a JSON file from the session detail view as a backup
 
 **Axis not locking**
 
 - The axis pill turns green after ~4 strokes are detected with consistent signal
 - If it stays orange, try rowing with more deliberate catch movements for the first few strokes to help the detector find the signal
+
+**Session loads in Analyser but chart is empty**
+
+- Check the metric legend — all series may be toggled off. Click any legend label to restore it.
+- Zoom out using the − button or drag the overview window edges to show the full session
+
+**TCX export not appearing on Strava**
+
+- Ensure the TCX file downloaded completely before uploading
+- On Strava, use Manual Upload → select the `.tcx` file → set activity type to Rowing
+- GPS data must be present in the session — sessions recorded without location permission will not produce a valid TCX track
