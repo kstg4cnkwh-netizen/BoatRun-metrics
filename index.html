@@ -57,7 +57,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .wkt-ctrl-btn.end{background:rgba(192,57,43,.15);color:#c0392b;}
 
 /* \u9472 \u9472  COUNTDOWN OVERLAY \u9472 \u9472  */
-.countdown-overlay{position:absolute;inset:0;background:rgba(0,0,0,.78);display:none;align-items:center;justify-content:center;z-index:200;flex-direction:column;gap:12px;pointer-events:none;}
+.countdown-overlay{position:absolute;inset:0;background:rgba(0,0,0,.93);display:none;align-items:center;justify-content:center;z-index:200;flex-direction:column;gap:16px;pointer-events:none;}
 .countdown-overlay.show{display:flex;}
 /* Lap split overlay */
 .lap-split-overlay{position:absolute;inset:0;background:rgba(0,0,0,.80);display:none;align-items:center;justify-content:center;z-index:190;flex-direction:column;cursor:pointer;}
@@ -70,9 +70,9 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .ls-lbl{font-size:9px;color:rgba(255,255,255,.45);letter-spacing:.1em;margin-top:3px;text-transform:uppercase;}
 .ls-bar{height:3px;background:rgba(255,255,255,.12);border-radius:2px;margin:16px 0 0;overflow:hidden;}
 .ls-bar-fill{height:100%;background:#27ae60;transform-origin:left;}
-.cdown-num{font-family:"Roboto Condensed",sans-serif;font-size:clamp(80px,28vw,220px);font-weight:700;color:#fff;line-height:1;text-shadow:0 4px 24px rgba(0,0,0,.6);}
-.cdown-num.go{color:#27ae60;}
-.cdown-sub{font-family:"Roboto Condensed",sans-serif;font-size:clamp(22px,6vw,58px);font-weight:700;color:rgba(255,255,255,.7);letter-spacing:.08em;text-align:center;padding:0 20px;}
+.cdown-num{font-family:"Roboto Condensed",sans-serif;font-size:clamp(100px,32vw,260px);font-weight:700;color:#fff;line-height:1;text-shadow:0 4px 32px rgba(0,0,0,.95);}
+.cdown-num.go{color:#00e64a;text-shadow:0 0 60px rgba(0,230,74,.35),0 4px 32px rgba(0,0,0,.9);}
+.cdown-sub{font-family:"Roboto Condensed",sans-serif;font-size:clamp(40px,11vw,110px);font-weight:700;color:#fff;letter-spacing:.06em;text-align:center;padding:0 20px;text-shadow:0 2px 16px rgba(0,0,0,.9);}
 .cdown-rest{font-size:clamp(36px,12vw,100px);color:#f39c12;}
 .cdown-warmup{font-size:clamp(24px,7vw,64px);color:#5dade2;}
 .cdown-cooldown{font-size:clamp(24px,7vw,64px);color:#8e44ad;}
