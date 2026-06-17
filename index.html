@@ -3214,7 +3214,7 @@ function showRestEndCountdown(n,nextStep){
   const hasGate=nextStep?.startWhenRowing;
   if(hasGate){subEl.textContent='Get ready to row';}
   else if(nextStep?.mode==='distance'){subEl.textContent=fmtStepDist(nextStep.value);}
-  else if(nextStep?.mode==='time'){subEl.textContent=fmt(nextStep.value);}
+  else if(nextStep?.mode==='time'){subEl.textContent=fmt(nextStep.value).replace(/^0/,'');}
   else{subEl.textContent='';}
 }
 function updateWorkoutBar(){
@@ -3326,7 +3326,7 @@ function showCountdownOverlay(mode,seconds,step,restSecs,autoResume){
   if(mode==='go'&&seconds>0){
     let n=seconds;
     const hint=stepTargetHint(step);
-    const dur=step?.mode==='time'?fmt(step.value)+'min':step?.mode==='distance'?fmtStepDist(step.value):'';
+    const dur=step?.mode==='time'?fmt(step.value).replace(/^0/,''):step?.mode==='distance'?fmtStepDist(step.value):'';
     numEl.textContent=n;numEl.className='cdown-num';subEl.textContent=dur;if(rateEl)rateEl.textContent=hint;
     _cdownTimer=setInterval(()=>{
       n--;
@@ -3334,7 +3334,7 @@ function showCountdownOverlay(mode,seconds,step,restSecs,autoResume){
       else{
         clearInterval(_cdownTimer);
         numEl.textContent='GO!';numEl.className='cdown-num go';
-        const details=step?.mode==='distance'?fmtStepDist(step.value):step?.mode==='time'?fmt(step.value):'';
+        const details=step?.mode==='distance'?fmtStepDist(step.value):step?.mode==='time'?fmt(step.value).replace(/^0/,''):'';
         subEl.textContent=details;if(rateEl)rateEl.textContent=hint;
         setTimeout(()=>{hideCountdownOverlay();if(autoResume)resumeSess();},800);
       }
@@ -3361,13 +3361,13 @@ function showCountdownOverlay(mode,seconds,step,restSecs,autoResume){
     _cdownTimer=setTimeout(()=>hideCountdownOverlay(),5000);
   }else if(mode==='go-brief'){
     numEl.textContent='GO!';numEl.className='cdown-num go';
-    const details=step?.mode==='distance'?fmtStepDist(step.value):step?.mode==='time'?fmt(step.value):'';
+    const dur=step?.mode==='time'?fmt(step.value).replace(/^0/,''):step?.mode==='distance'?fmtStepDist(step.value):'';
     const hint=stepTargetHint(step);
     subEl.textContent=details;if(rateEl)rateEl.textContent=hint;
     _cdownTimer=setTimeout(()=>hideCountdownOverlay(),2000);
   }else if(mode==='go-work2work'){
     numEl.textContent='GO';numEl.className='cdown-num go';
-    const dur=step?.mode==='time'?fmt(step.value)+'min':step?.mode==='distance'?fmtStepDist(step.value):'';
+    const dur=step?.mode==='time'?fmt(step.value).replace(/^0/,''):step?.mode==='distance'?fmtStepDist(step.value):'';
     const hint=stepTargetHint(step);
     subEl.textContent=dur;if(rateEl)rateEl.textContent=hint;
     _cdownTimer=setTimeout(()=>hideCountdownOverlay(),3000);
