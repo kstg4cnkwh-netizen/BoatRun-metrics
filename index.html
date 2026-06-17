@@ -1545,6 +1545,12 @@ function avgCurves(curves) {
     return { data: out, driveFrac: df / curves.length };
 }
 function onNewCatch(now) {
+    // Stroke-mean GPS speed: average of all 1 Hz fixes in the last catch-to-catch window.
+    // Eliminates intra-stroke phase bias vs. instantaneous gpsSpeedEma.
+    strokeMeanSpeed = strokeSpeedBuf.length >= 2
+        ? strokeSpeedBuf.reduce((a, b) => a + b, 0) / strokeSpeedBuf.length
+        : (gpsSpeedEma > 0 ? gpsSpeedEma : 0);
+    strokeSpeedBuf.length = 0;
     // Rolling boat-speed anchor over the last ~3 stroke cycles.
     let anchorV = 0;
     if (velocityWindow.length > 0) {
@@ -1558,19 +1564,23 @@ function onNewCatch(now) {
     }
     const winStartT = catchToCatchSamples.length ? catchToCatchSamples[0].t : null;
     const finishT = (bladeExitDetected && winStartT != null && bladeExitT > winStartT && bladeExitT < now) ? bladeExitT : null;
-    // Finalise IMU run loss from the recovery that just ended
+        // Finalise IMU run loss from the recovery that just ended
+    // Debug vars promoted so rlDebug block can record full computation.
+    let _rlMinDv = null, _rlMaxDv = null, _rlDv = null, _rlSampledS = null, _rlRawLoss = null, _rlAnchorV = null, _rlPct = null;
     if (imuRL && imuRL.nSamples >= 8 && imuRL.v0 !== null && gpsSpeedEma > CONFIG.gps.minSpeedForRecord) {
-        const dv       = Math.max(0, imuRL.maxDeltaV - imuRL.minDeltaV);
-        const sampledS = clamp(Math.min(CONFIG.runLoss.windowMs, Math.max(0, now - imuRL.driveEndT - CONFIG.runLoss.startAfterDriveMs)) / 1000, 0.3, 4.0);
-        const rawLoss  = +(dv * sampledS * 0.5).toFixed(4);
+        _rlMinDv = +imuRL.minDeltaV.toFixed(4);
+        _rlMaxDv = +imuRL.maxDeltaV.toFixed(4);
+        const dv       = Math.max(0, imuRL.maxDeltaV - imuRL.minDeltaV); _rlDv = +dv.toFixed(4);
+        const sampledS = clamp(Math.min(CONFIG.runLoss.windowMs, Math.max(0, now - imuRL.driveEndT - CONFIG.runLoss.startAfterDriveMs)) / 1000, 0.3, 4.0); _rlSampledS = +sampledS.toFixed(3);
+        const rawLoss  = +(dv * sampledS * 0.5).toFixed(4); _rlRawLoss = rawLoss;
         if (rawLoss >= 0 && rawLoss <= CONFIG.runLoss.maxLossM) {
             pushLimit(runLosses, rawLoss, CONFIG.runLoss.medianN);
             { const m = median(runLosses); runLossEma = runLossEma == null ? m : 0.5 * m + 0.5 * runLossEma; runLossM = runLossEma; }
             pushLimit(runLossMpsArr, dv, CONFIG.runLoss.medianN);
             runLossMps = median(runLossMpsArr);
-            const anchorPctV = (anchorV >= 1.0) ? anchorV : imuRL.v0;
+            const anchorPctV = (anchorV >= 1.0) ? anchorV : imuRL.v0; _rlAnchorV = +anchorPctV.toFixed(3);
             if (anchorPctV > 0) {
-                const pct = (dv / anchorPctV) * 100;
+                const pct = (dv / anchorPctV) * 100; _rlPct = +pct.toFixed(2);
                 pushLimit(runLossPcts, pct, CONFIG.runLoss.medianN);
                 const mp = median(runLossPcts); runLossPctEma = runLossPctEma == null ? mp : 0.5 * mp + 0.5 * runLossPctEma; runLossPct = runLossPctEma;
             }
@@ -1584,7 +1594,6 @@ function onNewCatch(now) {
     }
     // ── RL debug entry — built here so sprint strokes aren't missed ──────────
     {
-        const imuDv = imuRL ? +Math.max(0, imuRL.maxDeltaV).toFixed(4) : null;
         const imuN  = imuRL ? imuRL.nSamples : 0;
         const sN    = imuRL ? imuRL.strokeN  : null;
         const pRun  = (pendingRun && pendingRun.strokeN === sN) ? pendingRun : null;
@@ -1595,7 +1604,9 @@ function onNewCatch(now) {
                 strokeN: sN,
                 startSpeed: pRun?.startSpeed != null ? +pRun.startSpeed.toFixed(3) : null,
                 minSpeed:   pRun?.minSpeed   != null ? +pRun.minSpeed.toFixed(3)   : null,
-                dv: gpsDv, imuDv,
+                dv: gpsDv, imuMaxDv: _rlMaxDv, imuMinDv: _rlMinDv, imuSwingDv: _rlDv,
+                sampledS: _rlSampledS, rawLossM: _rlRawLoss,
+                anchorV: _rlAnchorV, rlPct: _rlPct,
                 medLoss: runLossM != null ? +runLossM.toFixed(4) : null,
                 nSamples: pRun?.nSamples || 0, imuN
             });
@@ -1632,8 +1643,11 @@ function onNewCatch(now) {
                 if (med != null) {
                     oarAngleEma = oarAngleEma == null ? med : 0.5 * med + 0.5 * oarAngleEma;
                     oarAngle = Math.round(oarAngleEma);
-                    if (sessStrokes[pendingOarStrokeIdx])
-                        sessStrokes[pendingOarStrokeIdx].oarAngle = oarAngle;
+                    if (sessStrokes[pendingOarStrokeIdx]) {
+                        sessStrokes[pendingOarStrokeIdx].oarAngle    = oarAngle;
+                        sessStrokes[pendingOarStrokeIdx].oarAngleRaw = +rawAngle.toFixed(1);
+                        sessStrokes[pendingOarStrokeIdx].oarVMean    = +vMean.toFixed(3);
+                    }
                 }
             }
         }
@@ -1967,7 +1981,7 @@ function onStrokeFinish(now, driveDur) {
     const intervalS = gapMs / 1000;
     if (intervalS > 0.8 && intervalS < 8 && prevStrokeDistT > 0) {
         const dD = distance - prevStrokeDist;
-        if (dD > 0.5 && dD < 25 && gpsSpeedEma >= 1.5 && (now - gpsResumeT) > 2000 && gpsAnchorOk) {
+        if (dD > 0.5 && dD < 25 && strokeMeanSpeed >= 1.5 && (now - gpsResumeT) > 2000 && gpsAnchorOk) {
             pushLimit(dpsValsArr, dD, CONFIG.stroke.dpsMedianN);
             distPerStroke = Math.round((median(dpsValsArr) ?? dD) * 10) / 10;
             if (distPerStroke > maxDPS) maxDPS = distPerStroke;
@@ -1996,7 +2010,7 @@ function onStrokeFinish(now, driveDur) {
     imuRL = {
         startAt:    now + CONFIG.runLoss.startAfterDriveMs,
         endAt:      now + CONFIG.runLoss.startAfterDriveMs + CONFIG.runLoss.windowMs,
-        v0:         gpsSpeedEma > 0.3 ? gpsSpeedEma : null,
+        v0:         strokeMeanSpeed > 0.3 ? strokeMeanSpeed : null,
         deltaV:     0,
         maxDeltaV:  0,
         minDeltaV:  0,
@@ -2008,7 +2022,7 @@ function onStrokeFinish(now, driveDur) {
     strokeCount++;
     sessStrokes.push({
         t: Date.now(), catchPeak: catchSlope, char: strokeChar,
-        rate: (rateToLog > 0 && gpsSpeedEma > CONFIG.gps.minSpeedForRecord) ? rateToLog : null, pace: pace > 0 ? pace : null,
+        rate: (rateToLog > 0 && strokeMeanSpeed > CONFIG.gps.minSpeedForRecord) ? rateToLog : null, pace: pace > 0 ? pace : null,
         dist: distance, dps: distPerStroke, runLossM: null,
         driveImpulse, catchConsistency, rdi, strokeRatio, oarAngle, checkDelta,
         catchDuration: catchDurMs,
@@ -2048,6 +2062,7 @@ function onStrokeFinish(now, driveDur) {
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // GPS HANDLER — speed EMA, pace window, haversine distance
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
+let strokeSpeedBuf = [], strokeMeanSpeed = 0;
 let pace = 0, gpsAccuracyM = null, gpsSpeedEma = -1, gpsLastValidT = 0, gpsLastFixT = 0, gpsWasStopped = false, gpsDeadWarned = false, gpsResumeT = -Infinity, gpsLowSpeedStreak = 0;
 const speedSamples = [], paceDistWindow = [], velocityWindow = [];
 let lastPos = null;
@@ -2104,7 +2119,7 @@ function pushVelocity(t, v) {
     const gapMs = gpsLastValidT > 0 ? t - gpsLastValidT : 0;
     // Cold start or long gap → reinitialise filter
     if (gpsSpeedEma < 0 || gapMs > CONFIG.gps.gapResetMs) {
-        gpsLastValidT = t; lastDistT = t; gpsWasStopped = false; gpsLowSpeedStreak = 0;
+        gpsLastValidT = t; lastDistT = t; gpsWasStopped = false; gpsLowSpeedStreak = 0; strokeSpeedBuf.length = 0;
         vFilter.reset(); gpsSpeedEma = vFilter.filter(v, t);
         if (gapMs > CONFIG.gps.gapResetMs) { paceDistWindow.length = 0; velocityWindow.length = 0; }
         return;
@@ -2113,7 +2128,7 @@ function pushVelocity(t, v) {
     if (gpsWasStopped && v > 0.5) {
         gpsLastValidT = t; lastDistT = t; gpsWasStopped = false; gpsLowSpeedStreak = 0;
         gpsResumeT = t;
-        gpsConvergeStreak = 0; gpsAnchorOk = false; havSpeedBuf.length = 0;
+        gpsConvergeStreak = 0; gpsAnchorOk = false; havSpeedBuf.length = 0; strokeSpeedBuf.length = 0;
         velocityWindow.length = 0;
         vFilter.reset(); gpsSpeedEma = vFilter.filter(v, t);
         if (gpsSpeedEma > 0.3) velocityWindow.push({ t, v: gpsSpeedEma });
@@ -2127,7 +2142,7 @@ function pushVelocity(t, v) {
             // declaring a genuine stop — a single GPS glitch (raw speed
             // reported as 0) must not wipe the DPS/oar-angle history.
             if (gpsLowSpeedStreak >= 3 && gpsSpeedEma < 0.5) {
-                gpsLastValidT = t; gpsWasStopped = true; vFilter.reset();
+                gpsLastValidT = t; gpsWasStopped = true; vFilter.reset(); strokeSpeedBuf.length = 0;
                 dpsValsArr.length = 0; distPerStroke = 0;   // clear corrupt DPS buffer
                 oarAngleRawArr.length = 0;                   // clear corrupt oar history
             }
@@ -2143,6 +2158,7 @@ function pushVelocity(t, v) {
     if (gpsSpeedEma > 1.0 && vIn > gpsSpeedEma + CONFIG.gps.spikeMarginMps)
         vIn = gpsSpeedEma + CONFIG.gps.spikeMarginMps;
     gpsSpeedEma = vFilter.filter(vIn, t);
+    if (gpsSpeedEma > 0.3) strokeSpeedBuf.push(gpsSpeedEma);
     // Distance from velocity integral — unbiased, no position-jitter inflation
     if (lastDistT > 0) {
         const dtD = (t - lastDistT) / 1000;
@@ -3407,7 +3423,7 @@ function resumeSess() {
     if (running) return;
     clearInterval(timerInt); clearInterval(autosaveInt);
     paused = false; running = true;
-    paceDistWindow.length = 0; velocityWindow.length = 0; gpsSpeedEma = -1; speedSamples.length = 0; headingEmaX = null; headingEmaY = null; vFilter.reset(); lastDistT = 0;
+    paceDistWindow.length = 0; velocityWindow.length = 0; gpsSpeedEma = -1; strokeSpeedBuf.length = 0; strokeMeanSpeed = 0; speedSamples.length = 0; headingEmaX = null; headingEmaY = null; vFilter.reset(); lastDistT = 0;
     if (wkt.active && wkt.waitingForRow) {
         wkt.readyPaused = true; // stay timer-frozen until wktBeginStep fires
     } else {
@@ -3517,7 +3533,7 @@ function resetSess() {
     sessGpsTrace.length = 0; sessGpsRawTrace.length = 0;
     strokeTs.length = 0; prevDriveDurMs = 0; prevFastSample = 0; paceDistWindow.length = 0; velocityWindow.length = 0;
     speedSamples.length = 0; prevStrokeDist = 0; prevStrokeDistT = 0;
-    gpsLastValidT = 0; gpsLastFixT = 0; gpsSpeedEma = -1; gpsWasStopped = false; gpsDeadWarned = false; gpsAccuracyM = null; headingEmaX = null; headingEmaY = null; vFilter.reset(); lastDistT = 0; gpsResumeT = -Infinity; gpsLowSpeedStreak = 0;
+    gpsLastValidT = 0; gpsLastFixT = 0; gpsSpeedEma = -1; gpsWasStopped = false; gpsDeadWarned = false; gpsAccuracyM = null; headingEmaX = null; headingEmaY = null; vFilter.reset(); lastDistT = 0; gpsResumeT = -Infinity; gpsLowSpeedStreak = 0; strokeSpeedBuf.length = 0; strokeMeanSpeed = 0;
     fsmState = FS.IDLE; catchPeakJerk = 0; driveMinJerk = 0; trigValsArr.length = 0; catchStartT = 0; lastCatchAbsT = 0; lastDriveEndT = 0; bladeExitT = 0; prevDriveStartT = 0; bladeExitDetected = false;
     strokesDetected = 0; jerkThreshActive = jerkThreshBase; adaptReady = false;
     acBuf.length = 0; acLastUpdate = 0; jerkBuf.length = 0; catchTsBuf.length = 0;
@@ -4672,8 +4688,8 @@ function exportDebugCSV(s){
   const t0=s.startTime;const el=t=>(+(t-t0)/1000).toFixed(2);const rows=[['##ENV'],['session_id',s.id,'start_utc',new Date(t0).toISOString()],['duration_s',n(s.duration),'distance_m',n(s.distance),'strokes',n(s.strokeCount)]];
   const cfg=s.config||{},rl=cfg.rl||{},gps=cfg.gps||{};
   rows.push(['rl_startAfterDriveMs',n(rl.startAfterDriveMs??CONFIG.runLoss.startAfterDriveMs),'rl_windowMs',n(rl.windowMs??CONFIG.runLoss.windowMs)]);rows.push(['gps_emaAlpha',n(gps.alpha??CONFIG.gps.speedEmaAlpha),'gps_medianN',n(gps.medN??CONFIG.gps.speedMedianN)]);rows.push([]);
-  rows.push(['##STR'],['n','elapsed_s','rate','catch_slope','stroke_char','consistency','dps','run_loss_m','impulse','ratio','catch_dur_ms']);(s.strokes||[]).forEach((r,i)=>{rows.push([i+1,el(r.t),n(r.rate),f2(r.catchPeak),n(r.char),f2(r.catchConsistency),f2(r.dps),f2(r.runLossM),r.driveImpulse!=null?Math.round(r.driveImpulse*100):'',f2(r.strokeRatio),n(r.catchDuration)]);});rows.push([]);
-  rows.push(['##RL'],['stroke_n','start_spd_ms','min_spd_ms','gps_dv_ms','imu_dv_ms','med_loss_m','gps_n','imu_n']);(s.rlDebug||[]).forEach(r=>rows.push([n(r.strokeN),f3(r.startSpeed),f3(r.minSpeed),f3(r.dv),f4(r.imuDv),f4(r.medLoss),n(r.nSamples),n(r.imuN)]));rows.push([]);
+  rows.push(['##STR'],['n','elapsed_s','rate','catch_slope','stroke_char','consistency','dps','run_loss_m','run_loss_pct','run_loss_mps','impulse','ratio','catch_dur_ms','oar_deg','oar_raw_deg','oar_vmean','check_delta','rdi','pace_s500','drive_dur_ms','interval_ms','jerk_raw','jerk_thresh','gps_ema_pace','dps_n']);(s.strokes||[]).forEach((r,i)=>{const d=r.dbg||{};rows.push([i+1,el(r.t),n(r.rate),f2(r.catchPeak),n(r.char),f2(r.catchConsistency),f2(r.dps),f2(r.runLossM),f2(r.runLossPct),f2(r.runLossMps),r.driveImpulse!=null?Math.round(r.driveImpulse*100):'',f2(r.strokeRatio),n(r.catchDuration),n(r.oarAngle),f2(r.oarAngleRaw),f3(r.oarVMean),f2(r.checkDelta),f2(r.rdi),f2(r.pace),n(d.driveDurMs),n(d.intervalMs),f2(d.catchJerkRaw),f2(d.jerkThresh),f2(d.gpsEma),n(d.dpsN)]);});rows.push([]);
+  rows.push(['##RL'],['stroke_n','start_spd_ms','min_spd_ms','gps_dv_ms','imu_max_dv','imu_min_dv','imu_swing_dv','sampled_s','raw_loss_m','anchor_v','raw_rl_pct','med_loss_m','gps_n','imu_n']);(s.rlDebug||[]).forEach(r=>rows.push([n(r.strokeN),f3(r.startSpeed),f3(r.minSpeed),f3(r.dv),f4(r.imuMaxDv),f4(r.imuMinDv),f4(r.imuSwingDv),f3(r.sampledS),f4(r.rawLossM),f3(r.anchorV),f2(r.rlPct),f4(r.medLoss),n(r.nSamples),n(r.imuN)]));rows.push([]);
   if(s.gpsRawTrace&&s.gpsRawTrace.length){rows.push(['##GPS'],['elapsed_s','gps_raw_ms','gps_ema_ms','acc_m','stroke_n','rl_phase']);s.gpsRawTrace.forEach(p=>rows.push([el(p.t),f3(p.rawSpd),f3(p.emaSpd),f2(p.acc),n(p.strokeN),p.rlPhase||'none']));rows.push([]);}
   if(s.hrTrace&&s.hrTrace.length){rows.push(['##HR'],['elapsed_s','hr_bpm']);s.hrTrace.forEach(h=>rows.push([el(h.t),h.hr]));rows.push([]);}
   const blob=new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);const d=new Date(s.startTime),pad=x=>String(x).padStart(2,'0');a.download='BoatRunDebug_'+d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes())+'.csv';a.click();toast('Debug CSV exported');
