@@ -59,6 +59,11 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 /* \u9472 \u9472  COUNTDOWN OVERLAY \u9472 \u9472  */
 .countdown-overlay{position:absolute;inset:0;background:rgba(0,0,0,.93);display:none;align-items:center;justify-content:center;z-index:200;flex-direction:column;gap:16px;pointer-events:none;}
 .countdown-overlay.show{display:flex;}
+.countdown-overlay.mode-go{background:rgba(70,210,60,.97);}
+.countdown-overlay.mode-rest{background:rgba(255,165,50,.97);}
+.countdown-overlay.mode-warmup{background:rgba(70,160,230,.97);}
+.countdown-overlay.mode-cooldown{background:rgba(175,100,220,.97);}
+.mode-go .cdown-num,.mode-go .cdown-sub,.mode-rest .cdown-num,.mode-rest .cdown-sub,.mode-warmup .cdown-num,.mode-warmup .cdown-sub,.mode-cooldown .cdown-num,.mode-cooldown .cdown-sub{color:#000!important;text-shadow:0 1px 4px rgba(255,255,255,.15)!important;}
 /* Lap split overlay */
 .lap-split-overlay{position:absolute;inset:0;background:rgba(0,0,0,.80);display:none;align-items:center;justify-content:center;z-index:190;flex-direction:column;cursor:pointer;}
 .lap-split-overlay.show{display:flex;}
@@ -70,12 +75,12 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .ls-lbl{font-size:9px;color:rgba(255,255,255,.45);letter-spacing:.1em;margin-top:3px;text-transform:uppercase;}
 .ls-bar{height:3px;background:rgba(255,255,255,.12);border-radius:2px;margin:16px 0 0;overflow:hidden;}
 .ls-bar-fill{height:100%;background:#27ae60;transform-origin:left;}
-.cdown-num{font-family:"Roboto Condensed",sans-serif;font-size:clamp(100px,32vw,260px);font-weight:700;color:#fff;line-height:1;text-shadow:0 4px 32px rgba(0,0,0,.95);}
-.cdown-num.go{color:#00e64a;text-shadow:0 0 60px rgba(0,230,74,.35),0 4px 32px rgba(0,0,0,.9);}
-.cdown-sub{font-family:"Roboto Condensed",sans-serif;font-size:clamp(40px,11vw,110px);font-weight:700;color:#fff;letter-spacing:.06em;text-align:center;padding:0 20px;text-shadow:0 2px 16px rgba(0,0,0,.9);}
-.cdown-rest{font-size:clamp(36px,12vw,100px);color:#f39c12;}
-.cdown-warmup{font-size:clamp(24px,7vw,64px);color:#5dade2;}
-.cdown-cooldown{font-size:clamp(24px,7vw,64px);color:#8e44ad;}
+.cdown-num{font-family:"Roboto Condensed",sans-serif;font-size:clamp(70px,18vw,160px);font-weight:700;color:#fff;line-height:1;text-shadow:0 4px 32px rgba(0,0,0,.95);}
+.cdown-num.go{color:#fff;}
+.cdown-sub{font-family:"Roboto Condensed",sans-serif;font-size:clamp(40px,11vw,110px);font-weight:700;color:#fff;letter-spacing:.06em;text-align:center;padding:0 20px;text-shadow:0 2px 16px rgba(0,0,0,.9);white-space:pre-line;line-height:1.2;}
+.cdown-rest{font-size:clamp(36px,12vw,100px);}
+.cdown-warmup{font-size:clamp(24px,7vw,64px);}
+.cdown-cooldown{font-size:clamp(24px,7vw,64px);}
 
 /* \u9472 \u9472  LIVE BODY & GRID \u9472 \u9472  */
 .live-body{flex:1;min-height:0;min-width:0;display:flex;flex-direction:row;position:relative;}
@@ -3315,7 +3320,7 @@ function showCountdownOverlay(mode,seconds,step,restSecs,autoResume){
   const numEl=document.getElementById('cdown-num');
   const subEl=document.getElementById('cdown-sub');
   if(!ov||!numEl||!subEl)return;
-  clearInterval(_cdownTimer);ov.classList.add('show');wkt.countdownActive=true;
+  clearInterval(_cdownTimer);ov.className='countdown-overlay show';if(mode==='go'||mode==='go-brief'||mode==='go-work2work')ov.classList.add('mode-go');else if(mode==='rest')ov.classList.add('mode-rest');else if(mode==='warmup'||mode==='ready')ov.classList.add('mode-warmup');else if(mode==='cooldown')ov.classList.add('mode-cooldown');wkt.countdownActive=true;
   if(mode==='go'&&seconds>0){
     let n=seconds;
     const hint=stepTargetHint(step);
@@ -3355,20 +3360,15 @@ function showCountdownOverlay(mode,seconds,step,restSecs,autoResume){
     _cdownTimer=setTimeout(()=>hideCountdownOverlay(),2000);
   }else if(mode==='go-work2work'){
     numEl.textContent='GO';numEl.className='cdown-num go';
-    // Build "go for XX min at XX SPM / XX /500m" message
-    const parts=[];
-    if(step?.mode==='time'){parts.push('go for '+fmt(step.value)+'min');}
-    else if(step?.mode==='distance'){parts.push('go for '+fmtStepDist(step.value));}
-    else{parts.push('go');}
+    const dur=step?.mode==='time'?fmt(step.value)+'min':step?.mode==='distance'?fmtStepDist(step.value):'';
     const hint=stepTargetHint(step);
-    if(hint)parts.push('at '+hint);
-    subEl.textContent=parts.join(' ');
+    subEl.textContent=[dur,hint].filter(Boolean).join('\n');
     _cdownTimer=setTimeout(()=>hideCountdownOverlay(),3000);
   }
 }
 function hideCountdownOverlay(){
   clearInterval(_cdownTimer);wkt.countdownActive=false;
-  const ov=document.getElementById('countdown-overlay');if(ov)ov.classList.remove('show');
+  const ov=document.getElementById('countdown-overlay');if(ov)ov.className='countdown-overlay';
 }
 
 /*
