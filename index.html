@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BoatRun"/>
 <meta name="theme-color" content="#1a5276"/>
@@ -402,7 +403,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div class="perm-title">METRICS</div>
 <div class="perm-body">Real-time GPS pace &amp; distance &middot; Stroke rate &middot; Catch slope<br/>DPS &middot; Impulse &middot; Run loss &middot; Recovery Index<br/>Custom layouts &middot; Workout intervals<br/><strong style="color:#fff">Landscape &amp; Portrait</strong></div>
 <button class="perm-btn" id="perm-btn">ENABLE SENSORS</button>
-<div class="perm-note">iOS: Settings &rarr; Safari &rarr; Motion &amp; Orientation Access<br/>Add to Home Screen for full-screen &middot; Works offline<br/><span style="color:rgba(255,255,255,.18)">v5.1 &middot; flexible layouts &middot; workout intervals</span><br/><span id="splash-version" style="color:rgba(255,255,255,.28);font-size:10px;letter-spacing:.06em"></span></div>
+<div id="perm-note" class="perm-note">Add to Home Screen for full-screen &middot; Works offline<br/><span style="color:rgba(255,255,255,.18)">v5.1 &middot; flexible layouts &middot; workout intervals</span><br/><span id="splash-version" style="color:rgba(255,255,255,.28);font-size:10px;letter-spacing:.06em"></span></div>
 </div>
 </div>
 
@@ -603,6 +604,9 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 
 <script>
 'use strict';
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)||
+              (navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const isAndroid = /Android/.test(navigator.userAgent);
 
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // STORAGE SHIMS — localStorage and sessionStorage with in-memory fallback
@@ -1251,7 +1255,10 @@ function handleMotion(e) {
     if (!motionStartedAt) motionStartedAt = now;
     lastMotionT = now;
     motionSamples++;
-    const raw = { x: Number(acc.x) || 0, y: Number(acc.y) || 0, z: Number(acc.z) || 0 };
+    // Android Chrome reports accelerationIncludingGravity with opposite sign to iOS Safari.
+    // Negate all axes on Android so the FSM sign convention (fast>0 at catch) is preserved.
+    const _as = isAndroid ? -1 : 1;
+    const raw = { x: _as*(Number(acc.x)||0), y: _as*(Number(acc.y)||0), z: _as*(Number(acc.z)||0) };
     updateAxes(raw, now);
     maybeDetectAxis(now);
     if (calRunning) return;
@@ -3696,8 +3703,8 @@ document.getElementById('perm-btn').addEventListener('click',async()=>{
       if(r!=='granted'){
         document.getElementById('perm-note').innerHTML=
           '<strong style="color:#ffcc00">Motion access denied.</strong><br/>'+
-          'iOS only allows one permission prompt per page load.<br/>'+
-          'Or: Settings &rarr; Safari &rarr; Motion &amp; Orientation Access';
+          'Reload the page and tap Enable again.<br/>'+
+          'Or: Settings \u2192 Safari \u2192 Motion &amp; Orientation Access';
         const btn=document.getElementById('perm-btn');
         btn.textContent='RELOAD PAGE';
         btn.onclick=()=>location.reload();
@@ -3712,6 +3719,7 @@ document.getElementById('perm-btn').addEventListener('click',async()=>{
       btn.onclick=()=>location.reload();
       return;
     }
+
   }
   window.addEventListener('devicemotion',handleMotion,{passive:true});
   document.getElementById('p-acc').className='pill pill-on';
@@ -4713,6 +4721,11 @@ checkAutosave();
 window.addEventListener('online',()=>{if(DriveSync.isSignedIn())flushQueue().catch(()=>{});});
 
 fetch('./sw.js?'+Date.now()).then(r=>r.text()).then(txt=>{const m=txt.match(/const C\s*=\s*['"]([^'"]+)['"]/);if(m){const el=document.getElementById('splash-version');if(el)el.textContent=m[1];}}).catch(()=>{});
+const _pn=document.getElementById('perm-note');
+if(_pn){
+  const _iosNote=isIOS?'iOS: Settings \u2192 Safari \u2192 Motion &amp; Orientation Access<br/>':'Android: Site Settings \u2192 Motion Sensors<br/>';
+  _pn.innerHTML=_iosNote+'Add to Home Screen for full-screen \u00b7 Works offline<br/><span style="color:rgba(255,255,255,.18)">v5.2 \u00b7 flexible layouts \u00b7 workout intervals</span><br/><span id="splash-version" style="color:rgba(255,255,255,.28);font-size:10px;letter-spacing:.06em"></span>';
+}
 
 </script>
 </body>
