@@ -692,7 +692,7 @@ const CONFIG = Object.freeze({
         startAfterDriveMs: 250,
         windowMs: 2000,
         maxLossM: 4.0,
-        medianN: 5
+        medianN: 7
     },
     ui: {
         autosaveMs: 30000
@@ -1362,22 +1362,27 @@ function runFSM(now, fast, jerk) {
         nominalMs = lastKnownPeriodMs;
     }
     const ref = Math.max(CONFIG.stroke.refractoryMinMs, nominalMs * 0.85);
-    // Strong-evidence bypass: a very sharp catch may arrive after only ~42% of
-    // the nominal period (abrupt rate jump / racing start) — prevents half-rate lock.
-    const refStrong = Math.max(CONFIG.stroke.refractoryMinMs, nominalMs * 0.42);
+    // Strong-evidence bypass: a genuine early catch (abrupt rate jump / racing
+    // start) may arrive after only ~half the nominal period — but the catch is
+    // always the LARGEST jerk per cycle. Anchor the bypass to the recent catch
+    // magnitude so the smaller blade-release jerk (~half-period away) can never
+    // qualify and fire a second "catch" inside one physical stroke.
+    const refStrong = Math.max(CONFIG.stroke.refractoryMinMs, nominalMs * 0.50);
+    const catchMag = trigValsArr.length >= 3
+        ? (median(trigValsArr) || jerkThreshActive * 2)
+        : jerkThreshActive * 2;
     switch (fsmState) {
         case FS.IDLE:
         case FS.RECOVERY: {
             const wasRecovery = (fsmState === FS.RECOVERY);
-            const strongCatch = jerk > jerkThreshActive * 1.8 && fast > accThreshBase * 1.5;
-            // Reject a "ghost" secondary trigger: a much weaker jerk peak
-            // arriving well inside the established stroke period (e.g. a
-            // finish/extraction jolt). Letting this through halves the
+            const strongCatch = jerk > catchMag * 0.75 && fast > accThreshBase * 1.5;
+            // Reject a "ghost" secondary trigger: a jerk smaller than a real
+            // catch arriving inside the established stroke period (the
+            // finish/blade-release jolt). Letting this through halves the
             // detected period and self-locks the FSM at ~2x the real rate.
             let weakSecondary = false;
-            if (trigValsArr.length >= 3 && tSinceCatch < lastKnownPeriodMs * 0.65) {
-                const avgTrigJerk = trigValsArr.reduce((a, b) => a + b, 0) / trigValsArr.length;
-                if (jerk < avgTrigJerk * 0.5) weakSecondary = true;
+            if (trigValsArr.length >= 3 && tSinceCatch < lastKnownPeriodMs * 0.75) {
+                if (jerk < catchMag * 0.55) weakSecondary = true;
             }
             if (!weakSecondary && jerk > jerkThreshActive && fastDt > accThreshBase
                     && tSinceCatch > (strongCatch ? refStrong : ref)
@@ -1534,6 +1539,21 @@ function avgCurves(curves) {
     return { data: out, driveFrac: df / curves.length };
 }
 function onNewCatch(now) {
+    // Rolling boat-speed anchor over the last ~3 stroke cycles (catch→catch
+    // endpoints, so intra-stroke surge cancels). Shared by run-loss % and oar
+    // angle so a single noisy GPS fix can't swing either.
+    let anchorV = 0;
+    if (velocityWindow.length > 0) {
+        let vCut = now - Math.min(6000, lastKnownPeriodMs * 2);
+        for (let i = 0; i < catchTsBuf.length; i++) {
+            if (catchTsBuf[i] >= now - lastKnownPeriodMs * 3.2) { vCut = catchTsBuf[i]; break; }
+        }
+        const vSlice = velocityWindow.filter(x => x.t >= vCut && x.t <= now);
+        const vSrc = vSlice.length >= 3 ? vSlice : velocityWindow.slice(-10);
+        anchorV = vSrc.reduce((s, x) => s + x.v, 0) / vSrc.length;
+    }
+    const winStartT = catchToCatchSamples.length ? catchToCatchSamples[0].t : null;
+    const finishT = (bladeExitDetected && winStartT != null && bladeExitT > winStartT && bladeExitT < now) ? bladeExitT : null;
     // Finalise IMU run loss from the recovery that just ended
     if (imuRL && imuRL.nSamples >= 8 && imuRL.v0 !== null && gpsSpeedEma > CONFIG.gps.minSpeedForRecord) {
         const dv       = Math.max(0, imuRL.maxDeltaV - imuRL.minDeltaV);
@@ -1541,13 +1561,14 @@ function onNewCatch(now) {
         const rawLoss  = +(dv * sampledS * 0.5).toFixed(4);
         if (rawLoss >= 0 && rawLoss <= CONFIG.runLoss.maxLossM) {
             pushLimit(runLosses, rawLoss, CONFIG.runLoss.medianN);
-            runLossM = median(runLosses);
+            { const m = median(runLosses); runLossEma = runLossEma == null ? m : 0.5 * m + 0.5 * runLossEma; runLossM = runLossEma; }
             pushLimit(runLossMpsArr, dv, CONFIG.runLoss.medianN);
             runLossMps = median(runLossMpsArr);
-            if (imuRL.v0 > 0) {
-                const pct = (dv / imuRL.v0) * 100;
+            const anchorPctV = (anchorV >= 1.0) ? anchorV : imuRL.v0;
+            if (anchorPctV > 0) {
+                const pct = (dv / anchorPctV) * 100;
                 pushLimit(runLossPcts, pct, CONFIG.runLoss.medianN);
-                runLossPct = median(runLossPcts);
+                const mp = median(runLossPcts); runLossPctEma = runLossPctEma == null ? mp : 0.5 * mp + 0.5 * runLossPctEma; runLossPct = runLossPctEma;
             }
             const idx = sessStrokes.findIndex(x => x._prlStroke === imuRL.strokeN);
             if (idx >= 0) {
@@ -1577,52 +1598,25 @@ function onNewCatch(now) {
         }
     }
     imuRL = null;
-    // ─── Oar angle: IMU integration anchored to smoothed average GPS speed ─────
+    // ─── Oar angle: IMU drive integration, scaled by the shared rolling speed
+    // anchor, finish boundary taken from the FSM's blade-exit time ─────────────
     {
-        // Average speed over WHOLE stroke cycles: window runs catch→catch
-        // (both endpoints at catch phase) so intra-stroke surge bias cancels.
-        let vMean = 0;
-        if (velocityWindow.length > 0) {
-            // Oldest catch within ~3 periods of now; fall back to time cut
-            let vCut = now - Math.min(6000, lastKnownPeriodMs * 2);
-            for (let i = 0; i < catchTsBuf.length; i++) {
-                if (catchTsBuf[i] >= now - lastKnownPeriodMs * 3.2) {
-                    vCut = catchTsBuf[i];
-                    break;
-                }
-            }
-            const vSlice = velocityWindow.filter(x => x.t >= vCut && x.t <= now);
-            const vSrc = vSlice.length >= 3 ? vSlice : velocityWindow.slice(-10);
-            vMean = vSrc.reduce((s, x) => s + x.v, 0) / vSrc.length;
-        }
+        const vMean = anchorV;
         if (pendingOarStrokeIdx >= 0 &&
             catchToCatchSamples.length >= 8 &&
             pendingCurveDriveCount >= 2 &&
-            vMean >= 1.5 && (now - gpsResumeT) > 10000) {
+            vMean >= 1.5 && (now - gpsResumeT) > 2000 && gpsAnchorOk) {
             const rawAngle = computeOarAngle(
-                catchToCatchSamples, pendingCurveDriveCount, vMean);
+                catchToCatchSamples, pendingCurveDriveCount, vMean, finishT);
             if (rawAngle !== null) {
-                pushLimit(oarAngleRawArr, rawAngle, 3);
-                const win  = oarAngleRawArr;
-                const mean = win.reduce((a, b) => a + b, 0) / win.length;
-                let smoothed;
-                if (win.length < 3) {
-                    smoothed = mean;
-                } else {
-                    const stdev = Math.sqrt(
-                        win.reduce((a, b) => a + (b - mean) ** 2, 0) / win.length);
-                    if (stdev / mean < 0.08) {
-                        smoothed = mean;
-                    } else {
-                        const filt = win.filter(v => Math.abs(v - mean) <= stdev);
-                        smoothed = filt.length >= 2
-                            ? filt.reduce((a, b) => a + b, 0) / filt.length
-                            : rawAngle;
-                    }
+                pushLimit(oarAngleRawArr, rawAngle, 7);
+                const med = median(oarAngleRawArr);
+                if (med != null) {
+                    oarAngleEma = oarAngleEma == null ? med : 0.5 * med + 0.5 * oarAngleEma;
+                    oarAngle = Math.round(oarAngleEma);
+                    if (sessStrokes[pendingOarStrokeIdx])
+                        sessStrokes[pendingOarStrokeIdx].oarAngle = oarAngle;
                 }
-                oarAngle = +smoothed.toFixed(0);
-                if (sessStrokes[pendingOarStrokeIdx])
-                    sessStrokes[pendingOarStrokeIdx].oarAngle = oarAngle;
             }
         }
         catchGpsDist = distance;
@@ -1632,26 +1626,14 @@ function onNewCatch(now) {
     if (catchToCatchSamples.length >= 8) {
         const rawCD = computeCheckDelta(catchToCatchSamples);
         if (rawCD !== null) {
-            pushLimit(checkDeltaRawArr, rawCD, 5);
-            const win = checkDeltaRawArr;
-            const mean = win.reduce((a, b) => a + b, 0) / win.length;
-            let smoothed;
-            if (win.length < 3) {
-                smoothed = mean;
-            } else {
-                const stdev = Math.sqrt(win.reduce((a, b) => a + (b - mean) ** 2, 0) / win.length);
-                if (stdev / mean < 0.10) {
-                    smoothed = mean;
-                } else {
-                    const filt = win.filter(v => Math.abs(v - mean) <= stdev);
-                    smoothed = filt.length >= 2
-                        ? filt.reduce((a, b) => a + b, 0) / filt.length
-                        : rawCD;
-                }
+            pushLimit(checkDeltaRawArr, rawCD, 7);
+            const med = median(checkDeltaRawArr);
+            if (med != null) {
+                checkDeltaEma = checkDeltaEma == null ? med : 0.5 * med + 0.5 * checkDeltaEma;
+                checkDelta = +checkDeltaEma.toFixed(3);
+                if (sessStrokes.length > 0)
+                    sessStrokes[sessStrokes.length - 1].checkDelta = checkDelta;
             }
-            checkDelta = +smoothed.toFixed(3);
-            if (sessStrokes.length > 0)
-                sessStrokes[sessStrokes.length - 1].checkDelta = checkDelta;
         }
     }
     if (catchToCatchSamples.length >= 20) {
@@ -1686,8 +1668,8 @@ const MAX_STROKE_TS = 4, strokeTs = [];
 const CATCH_TS_BUF = 5, catchTsBuf = [];
 let rdi = null, rdiValsArr = [];
 let strokeRatio = null, strokeRatioValsArr = [], prevDriveDurMs = 0;
-let oarAngle = null, oarAngleRawArr = [];
-let checkDelta = null, checkDeltaRawArr = [];
+let oarAngle = null, oarAngleRawArr = [], oarAngleEma = null;
+let checkDelta = null, checkDeltaRawArr = [], checkDeltaEma = null;
 let catchGpsDist = 0, pendingOarStrokeIdx = -1;
 function rateFromMedianIntervals() {
     if (catchTsBuf.length < 2) return 0;
@@ -1716,7 +1698,7 @@ function rateFromMedianIntervals() {
 // → vCatch = vMean − intDVFull / T   (intDVFull > 0 → vCatch < vMean ✓)
 //
 // Drive distance = ∫ v dt over drive portion → angle = 2·arcsin(dist / 2L)
-function computeOarAngle(samples, driveCount, vMean) {
+function computeOarAngle(samples, driveCount, vMean, finishT) {
     const OUTBOARD      = outboardLength();
     const R2D           = 180 / Math.PI;
     const SLIP_FRACTION = 0.10;
@@ -1770,18 +1752,29 @@ function computeOarAngle(samples, driveCount, vMean) {
         if (v[i - 1] >= 0) { catchIdx = i; break; }
     }
 
-    // Finish = first neg→pos crossing after the peak that STAYS ≥0 ~150ms
-    // (rejects inter-peak dips on double-hump drives)
-    let finishIdx = -1;
+    // Finish boundary: prefer the FSM's blade-exit time (computed once, with the
+    // same sustained-crossing logic) over re-detecting it here every stroke —
+    // that re-detection is what makes the angle wander at steady state.
     const finishCap = Math.round(n * 0.65);
-    for (let i = peakIdx + 1; i < finishCap; i++) {
-        if (v[i] >= 0) {
-            let sustained = true;
-            const tEnd = samples[i].t + 150;
-            for (let j = i + 1; j < n && samples[j].t <= tEnd; j++) {
-                if (v[j] < -0.05) { sustained = false; break; }
+    let finishIdx = -1;
+    if (finishT != null) {
+        let best = -1, bestDt = Infinity;
+        for (let i = catchIdx + 1; i < n; i++) {
+            const d = Math.abs(samples[i].t - finishT);
+            if (d < bestDt) { bestDt = d; best = i; }
+        }
+        if (best > catchIdx && bestDt <= 200) finishIdx = best;
+    }
+    if (finishIdx < 0) {
+        for (let i = peakIdx + 1; i < finishCap; i++) {
+            if (v[i] >= 0) {
+                let sustained = true;
+                const tEnd = samples[i].t + 150;
+                for (let j = i + 1; j < n && samples[j].t <= tEnd; j++) {
+                    if (v[j] < -0.05) { sustained = false; break; }
+                }
+                if (sustained) { finishIdx = i; break; }
             }
-            if (sustained) { finishIdx = i; break; }
         }
     }
     if (finishIdx < 0) finishIdx = Math.min(driveCount, finishCap);  // FSM fallback
@@ -1810,11 +1803,17 @@ function computeOarAngle(samples, driveCount, vMean) {
 function computeCheckDelta(samples) {
     const n = samples.length;
     if (n < 8) return null;
+    // Detrend: remove the per-cycle DC bias in axFast before integrating, so a
+    // slow baseline offset can't ramp the integral and inflate max−min. Matches
+    // computeOarAngle; this is the main source of steady-state check-delta drift.
+    let meanV = 0;
+    for (let i = 0; i < n; i++) meanV += samples[i].v;
+    meanV /= n;
     let cdv = 0, minDV = 0, maxDV = 0;
     for (let i = 1; i < n; i++) {
         const dt = (samples[i].t - samples[i - 1].t) / 1000;
         if (dt <= 0 || dt > 0.15) continue;
-        cdv += samples[i].v * dt;
+        cdv += (samples[i].v - meanV) * dt;
         if (cdv < minDV) minDV = cdv;
         if (cdv > maxDV) maxDV = cdv;
     }
@@ -1834,8 +1833,8 @@ function onStrokeFinish(now, driveDur) {
     // ── Rest-gap reset: check BEFORE touching catchTsBuf or strokeRate ──────
     const gapMs = prevCatchT > 0 ? driveStartT - prevCatchT : 0;
     if (gapMs / 1000 > CONFIG.stroke.restGapS) {
-        oarAngle = null; oarAngleRawArr.length = 0;
-        checkDelta = null; checkDeltaRawArr.length = 0;
+        oarAngle = null; oarAngleRawArr.length = 0; oarAngleEma = null;
+        checkDelta = null; checkDeltaRawArr.length = 0; checkDeltaEma = null;
         lastKnownPeriodMs = Math.max(lastKnownPeriodMs * 0.70, CONFIG.stroke.nominalFallbackMs);
         acBuf.length = 0; acConf = 0;
         catchTsBuf.length = 0;                // clear completely — seed happens below
@@ -1881,9 +1880,10 @@ function onStrokeFinish(now, driveDur) {
         const m = trigValsArr.reduce((a, b) => a + b, 0) / trigValsArr.length;
         const sd = Math.sqrt(trigValsArr.reduce((s, v) => s + (v - m) ** 2, 0) / trigValsArr.length);
         const lowerFloor = clamp((cal.noiseFloor || 1.6) * 2.5, 3.0, 10.0);
-        const tgt = Math.max(adaptReady ? lowerFloor : jerkThreshBase, m * 0.50 - sd * 0.35);
+        const magFloor = adaptReady ? Math.max(lowerFloor, m * 0.35) : lowerFloor;
+        const tgt = Math.max(adaptReady ? magFloor : jerkThreshBase, m * 0.50 - sd * 0.35);
         jerkThreshActive = adaptReady
-            ? Math.max(lowerFloor * 0.8, 0.80 * jerkThreshActive + 0.20 * tgt)
+            ? Math.max(magFloor * 0.8, 0.80 * jerkThreshActive + 0.20 * tgt)
             : Math.max(jerkThreshBase * 0.8, tgt);
         if (!adaptReady) {
             adaptReady = true;
@@ -1943,7 +1943,7 @@ function onStrokeFinish(now, driveDur) {
         const vWin = velocityWindow.filter(e => e.t >= prevCatchT && e.t < now);
         const meanV = vWin.length >= 2 ? vWin.reduce((s, e) => s + e.v, 0) / vWin.length : gpsSpeedEma;
         const dD = meanV * intervalS;
-        if (dD > 0.5 && dD < 25 && meanV >= 1.5 && (now - gpsResumeT) > 10000) {
+        if (dD > 0.5 && dD < 25 && meanV >= 1.5 && (now - gpsResumeT) > 2000 && gpsAnchorOk) {
             pushLimit(dpsValsArr, dD, CONFIG.stroke.dpsMedianN);
             distPerStroke = Math.round((median(dpsValsArr) ?? dD) * 10) / 10;
             if (distPerStroke > maxDPS) maxDPS = distPerStroke;
@@ -2025,7 +2025,7 @@ function onStrokeFinish(now, driveDur) {
 let pace = 0, gpsAccuracyM = null, gpsSpeedEma = -1, gpsLastValidT = 0, gpsLastFixT = 0, gpsWasStopped = false, gpsDeadWarned = false, gpsResumeT = -Infinity, gpsLowSpeedStreak = 0;
 const speedSamples = [], paceDistWindow = [], velocityWindow = [];
 let lastPos = null;
-let havSpeedBuf = [], dopplerLowStreak = 0;
+let havSpeedBuf = [], dopplerLowStreak = 0, gpsConvergeStreak = 0, gpsAnchorOk = false;
 let headingEmaX = null, headingEmaY = null;
 // ── Velocity engine: One-Euro adaptive filter on GPS Doppler speed ───────────
 // Smooth when pace is steady, low-lag when it changes (start / rate shifts).
@@ -2056,6 +2056,7 @@ const runLossMpsArr = [];
 let runLossM = null;
 let runLossPct = null;
 let runLossMps = null;
+let runLossEma = null, runLossPctEma = null;
 const rlDebug = [];
 let driveImpulseEma = null;
 const IMP_EMA_ALPHA = 0.35;   // effective ~3-stroke window for drive impulse smoothing
@@ -2079,16 +2080,22 @@ function pushVelocity(t, v) {
     // Cold start or long gap → reinitialise filter
     if (gpsSpeedEma < 0 || gapMs > CONFIG.gps.gapResetMs) {
         gpsLastValidT = t; lastDistT = t; gpsWasStopped = false; gpsLowSpeedStreak = 0;
+        gpsConvergeStreak = 0; gpsAnchorOk = false; havSpeedBuf.length = 0;
         vFilter.reset(); gpsSpeedEma = vFilter.filter(v, t);
         if (gapMs > CONFIG.gps.gapResetMs) { paceDistWindow.length = 0; velocityWindow.length = 0; }
+        if (gpsSpeedEma > 0.3) velocityWindow.push({ t, v: gpsSpeedEma });
         return;
     }
-    // Resuming from a stop
+    // Resuming from a stop — seed the filter AND publish the speed immediately so
+    // pace/distance pick up on this very fix. DPS/oar stay locked until the
+    // anchor-quality gate (handlePos) confirms Doppler↔haversine convergence.
     if (gpsWasStopped && v > 0.5) {
         gpsLastValidT = t; lastDistT = t; gpsWasStopped = false; gpsLowSpeedStreak = 0;
         gpsResumeT = t;
+        gpsConvergeStreak = 0; gpsAnchorOk = false; havSpeedBuf.length = 0;
         velocityWindow.length = 0;
         vFilter.reset(); gpsSpeedEma = vFilter.filter(v, t);
+        if (gpsSpeedEma > 0.3) velocityWindow.push({ t, v: gpsSpeedEma });
         return;
     }
     // Near-stationary
@@ -2171,6 +2178,17 @@ function handlePos(pos) {
             dopplerLowStreak = (gpsSpeedEma >= 0 && gpsSpeedEma < CONFIG.gps.dopplerStuckSpeed)
                 ? dopplerLowStreak + 1 : 0;
             const havMean = havSpeedBuf.reduce((a, b) => a + b, 0) / havSpeedBuf.length;
+            // Anchor-quality gate (consistency, NOT reported accuracy): Doppler and
+            // haversine speed agreeing, both above the DPS/oar floor, for several
+            // consecutive fixes ⇒ absolute GPS speed is trustworthy. Unlocks DPS /
+            // oar after a resume — replaces the fixed post-resume timer.
+            if (gpsSpeedEma >= 1.5 && havMean >= 1.5
+                    && Math.abs(gpsSpeedEma - havMean) <= Math.max(0.4, havMean * 0.25)) {
+                if (gpsConvergeStreak < 9) gpsConvergeStreak++;
+            } else {
+                gpsConvergeStreak = 0;
+            }
+            gpsAnchorOk = gpsConvergeStreak >= 3;
             const rowing = catchTsBuf.length >= 2 &&
                 (now - catchTsBuf[catchTsBuf.length - 1]) < lastKnownPeriodMs * 2.5;
             if (havSpeedBuf.length >= CONFIG.gps.havBufN
@@ -2181,6 +2199,7 @@ function handlePos(pos) {
                 gpsResumeT = now;
                 dopplerLowStreak = 0;
                 havSpeedBuf.length = 0;
+                gpsConvergeStreak = 0; gpsAnchorOk = false;
             }
         }
     }
@@ -3494,8 +3513,9 @@ function resetSess() {
     sessStart = null; lastStrokeCurve = null; strokeCurveHistory.length = 0;
     catchToCatchSamples = []; pendingCurveDriveCount = 0;
     motionSamples = 0; motionStartedAt = 0; lastMotionT = 0;
-    imuRL = null; driveImpulseEma = null; oarAngle = null; oarAngleRawArr.length = 0;
-    checkDelta = null; checkDeltaRawArr.length = 0;
+    imuRL = null; driveImpulseEma = null; oarAngle = null; oarAngleRawArr.length = 0; oarAngleEma = null;
+    checkDelta = null; checkDeltaRawArr.length = 0; checkDeltaEma = null; runLossEma = null; runLossPctEma = null;
+    gpsConvergeStreak = 0; gpsAnchorOk = false; havSpeedBuf.length = 0;
     catchGpsDist = 0; pendingOarStrokeIdx = -1;
     for (const k of AXES) { gravity[k] = 0; axFast[k] = 0; axSmooth[k] = 0; }
     wkt = { active: false, def: null, sequence: [], seqIdx: 0, startDist: 0, startElapsed: 0, lapMetrics: [], countdownActive: false, waitingForRow: false, waitStrokeCount: 0, fromRestCountdown: false, workToWork: false, _lastWasWork: false, readyPaused: false };
