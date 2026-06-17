@@ -402,7 +402,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div class="perm-title">METRICS</div>
 <div class="perm-body">Real-time GPS pace &amp; distance &middot; Stroke rate &middot; Catch slope<br/>DPS &middot; Impulse &middot; Run loss &middot; Recovery Index<br/>Custom layouts &middot; Workout intervals<br/><strong style="color:#fff">Landscape &amp; Portrait</strong></div>
 <button class="perm-btn" id="perm-btn">ENABLE SENSORS</button>
-<div class="perm-note">iOS: Settings &rarr; Safari &rarr; Motion &amp; Orientation Access<br/>Add to Home Screen for full-screen &middot; Works offline<br/><span style="color:rgba(255,255,255,.18)">v5.2 &middot; flexible layouts &middot; workout intervals</span><br/><span id="splash-version" style="color:rgba(255,255,255,.28);font-size:10px;letter-spacing:.06em"></span></div>
+<div class="perm-note">iOS: Settings &rarr; Safari &rarr; Motion &amp; Orientation Access<br/>Add to Home Screen for full-screen &middot; Works offline<br/><span style="color:rgba(255,255,255,.18)">v5.3 &middot; flexible layouts &middot; workout intervals</span><br/><span id="splash-version" style="color:rgba(255,255,255,.28);font-size:10px;letter-spacing:.06em"></span></div>
 </div>
 </div>
 
@@ -1362,16 +1362,14 @@ function runFSM(now, fast, jerk) {
         nominalMs = lastKnownPeriodMs;
     }
     const ref = Math.max(CONFIG.stroke.refractoryMinMs, nominalMs * 0.85);
-    // Strong-evidence bypass for genuine racing-start early catches only.
-    // Real early catches arrive at <35% of the nominal period.
-    // Blade-release jerk arrives at ~48-52% — keeping refStrong at 0.35 means
-    // blade-release can NEVER qualify for the bypass regardless of jerk magnitude,
-    // so the normal 85% refractory always blocks it.
-    const refStrong = Math.max(CONFIG.stroke.refractoryMinMs, nominalMs * 0.35);
-    // catchMag = median of recent confirmed-catch jerks. strongCatch requires the
-    // incoming jerk to be at least 75% of that — blade-release (~50-70% of catch
-    // jerk) is hard to satisfy, and even if it does, refStrong (35%) is below the
-    // blade-release timing (48-52%) so it still gets blocked by ref (85%).
+    // Strong-evidence bypass: sharp rate increase / sprint start only.
+    // refStrong = 0.60 creates a clean dead zone: blade-release always arrives
+    // at ~48-52% of the period — below refStrong — so it is always blocked by
+    // the normal 85% refractory regardless of jerk magnitude.
+    // Only genuine early catches (rate surge >25%) at 60-85% of the period can
+    // use the bypass, and those still need strongCatch (jerk ≥ 75% of the
+    // median confirmed-catch jerk).
+    const refStrong = Math.max(CONFIG.stroke.refractoryMinMs, nominalMs * 0.60);
     const catchMag = trigValsArr.length >= 3
         ? (median(trigValsArr) || jerkThreshActive * 2)
         : jerkThreshActive * 2;
@@ -1380,15 +1378,14 @@ function runFSM(now, fast, jerk) {
         case FS.RECOVERY: {
             const wasRecovery = (fsmState === FS.RECOVERY);
             const strongCatch = jerk > catchMag * 0.75 && fast > accThreshBase * 1.5;
-            // Reject a ghost secondary trigger: a jerk arriving well inside the
-            // established period with magnitude well below a real catch. This is a
-            // secondary guard for cases where adaptive threshold has drifted low.
+            // Secondary ghost guard: conservative 65% window — real catches that
+            // arrive slightly early (65-85%) still pass the normal ref path.
             let weakSecondary = false;
             if (trigValsArr.length >= 3 && tSinceCatch < lastKnownPeriodMs * 0.65) {
                 const avgTrigJerk = trigValsArr.reduce((a, b) => a + b, 0) / trigValsArr.length;
                 if (jerk < avgTrigJerk * 0.50) weakSecondary = true;
             }
-            if (!weakSecondary && jerk > jerkThreshActive && fastDt > accThreshBase
+          if (!weakSecondary && jerk > jerkThreshActive && fastDt > accThreshBase
                     && tSinceCatch > (strongCatch ? refStrong : ref)
                     && (now - lastDriveEndT) > CONFIG.stroke.postDriveLockoutMs
                     && (fsmState === FS.IDLE || bladeExitDetected)) {
