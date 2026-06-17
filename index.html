@@ -561,7 +561,6 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div id="settings-root"></div>
 <div id="hr-editor-root" style="margin-top:14px;"></div>
 </div>
-</div>
 <!-- ABOUT panel -->
 <div id="ht-about" class="home-panel">
 <div style="padding:6px 4px 16px;">
@@ -582,8 +581,13 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div style="padding:9px 0;border-bottom:1px solid #eee;"><div style="font-weight:600;font-size:12px;">Catch Dur</div><div style="font-size:11px;color:#777;line-height:1.5;margin-top:2px;">Time spent in the catch — from the deceleration spike at body stop and blade entry until drive force builds and the boat accelerates again. Shorter usually means a quicker, more direct connection at the catch.</div></div>
 <div style="padding:9px 0;border-bottom:1px solid #eee;"><div style="font-weight:600;font-size:12px;">Avg HR</div><div style="font-size:11px;color:#777;line-height:1.5;margin-top:2px;">Average heart rate during the session, in beats per minute.</div></div>
 </div>
+<div style="margin-top:18px;padding-top:10px;border-top:1px solid #eee;text-align:center;">
+<span style="font-size:10px;color:#bbb;letter-spacing:.08em;">BoatRun Metrics &nbsp;&middot;&nbsp; build <span id="about-version">—</span></span>
 </div>
 </div>
+</div>
+</div>
+
 <!-- Home screen nav tabs -->
 <div class="tab-bar">
 <button class="tab" id="tab-live-hm"><span class="tab-icon">&#x1F6A3;</span>LIVE</button>
@@ -4720,7 +4724,7 @@ DriveSync.init().then(async()=>{
 checkAutosave();
 window.addEventListener('online',()=>{if(DriveSync.isSignedIn())flushQueue().catch(()=>{});});
 
-fetch('./sw.js?'+Date.now()).then(r=>r.text()).then(txt=>{const m=txt.match(/const C\s*=\s*['"]([^'"]+)['"]/);if(m){const el=document.getElementById('splash-version');if(el)el.textContent=m[1];}}).catch(()=>{});
+fetch('./sw.js?'+Date.now()).then(r=>r.text()).then(txt=>{const m=txt.match(/const C\s*=\s*['"]([^'"]+)['"]/);if(m){const v=m[1];['splash-version','about-version'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=v;});}}).catch(()=>{});
 const _pn=document.getElementById('perm-note');
 if(_pn){
   const _iosNote=isIOS?'iOS: Settings \u2192 Safari \u2192 Motion &amp; Orientation Access<br/>':'Android: Site Settings \u2192 Motion Sensors<br/>';
