@@ -3349,9 +3349,8 @@ function showCountdownOverlay(mode,seconds,step,restSecs,autoResume){
     _cdownTimer=setTimeout(()=>hideCountdownOverlay(),3000);
   }else if(mode==='warmup'){
     numEl.textContent='WARMUP';numEl.className='cdown-warmup';
-    subEl.textContent='Press LAP when finished';
+    subEl.textContent='press lap button when ready';
     if(rateEl)rateEl.textContent='';
-    _cdownTimer=setTimeout(()=>hideCountdownOverlay(),5000);
   }else if(mode==='ready'){
     numEl.textContent='READY';numEl.className='cdown-num';
     subEl.textContent='Start rowing — 2 strokes to begin';
