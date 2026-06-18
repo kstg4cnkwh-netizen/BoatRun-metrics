@@ -3211,7 +3211,6 @@ function wktBeginStep(){
     clearInterval(timerInt);
     timerInt=setInterval(()=>{ elapsed++;wktCheckAuto();checkGpsAlive();updateUI();updateWorkoutBar(); },1000);
   }
-  wktTrill();
   hideCountdownOverlay();
   updateWorkoutBar(); updateUI();
 }
@@ -3220,10 +3219,7 @@ function wktCheckAuto(){
   const rem=wktGetRemaining();
   if(rem!==Infinity&&rem<=0){wktAdvance();return;}
   const s=wktCurrentStep();
-  if(s&&s.type==='work'&&rem!==Infinity&&rem>0&&rem<=5){
-    wktBeep();
-  }
-  if(s&&s.type==='rest'&&rem!==Infinity&&rem>0&&rem<=5){
+  if(s&&s.type==='rest'&&rem!==Infinity&&rem>0&&rem<=3){
     const nextStep=wkt.sequence[wkt.seqIdx+1]||null;
     showRestEndCountdown(Math.round(rem),nextStep);
   }
@@ -3236,7 +3232,6 @@ function showRestEndCountdown(n,nextStep){
   clearInterval(_cdownTimer);
   ov.classList.add('show');wkt.countdownActive=true;wkt.fromRestCountdown=true;
   numEl.textContent=n;numEl.className='cdown-num';
-  wktBeep();
   const hasGate=nextStep?.startWhenRowing;
   if(hasGate){subEl.textContent='Get ready to row';}
   else if(nextStep?.mode==='distance'){subEl.textContent=fmtStepDist(nextStep.value);}
@@ -3341,10 +3336,7 @@ function wireWorkoutBar(){
 COUNTDOWN OVERLAY (P2) 
 ¨T¨T
 */
-let _audioCtx=null;
-function _getAudioCtx(){if(!_audioCtx)_audioCtx=new(window.AudioContext||window.webkitAudioContext)();return _audioCtx;}
-function wktBeep(freq,dur,vol){freq=freq||880;dur=dur||0.12;vol=vol||0.45;try{const ctx=_getAudioCtx();if(ctx.state==='suspended')ctx.resume();const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.type='sine';o.frequency.value=freq;g.gain.setValueAtTime(vol,ctx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);o.start(ctx.currentTime);o.stop(ctx.currentTime+dur);}catch(e){}}
-function wktTrill(){[880,1100,880,1100,1320,1760].forEach((f,i)=>setTimeout(()=>wktBeep(f,0.09,0.5),i*65));}
+let _cdownTimer=null;
 function showCountdownOverlay(mode,seconds,step,restSecs,autoResume){
   const ov=document.getElementById('countdown-overlay');
   const numEl=document.getElementById('cdown-num');
@@ -3356,13 +3348,13 @@ function showCountdownOverlay(mode,seconds,step,restSecs,autoResume){
     let n=seconds;
     const hint=stepTargetHint(step);
     const dur=step?.mode==='time'?fmt(step.value).replace(/^0/,''):step?.mode==='distance'?fmtStepDist(step.value):'';
-    numEl.textContent=n;numEl.className='cdown-num';subEl.textContent=dur;if(rateEl)rateEl.textContent=hint;wktBeep();
+    numEl.textContent=n;numEl.className='cdown-num';subEl.textContent=dur;if(rateEl)rateEl.textContent=hint;
     _cdownTimer=setInterval(()=>{
       n--;
-      if(n>0){numEl.textContent=n;numEl.className='cdown-num';wktBeep();}
+      if(n>0){numEl.textContent=n;numEl.className='cdown-num';}
       else{
         clearInterval(_cdownTimer);
-        numEl.textContent='GO!';numEl.className='cdown-num go';wktTrill();
+        numEl.textContent='GO!';numEl.className='cdown-num go';
         const details=step?.mode==='distance'?fmtStepDist(step.value):step?.mode==='time'?fmt(step.value).replace(/^0/,''):'';
         subEl.textContent=details;if(rateEl)rateEl.textContent=hint;
         setTimeout(()=>{hideCountdownOverlay();if(autoResume)resumeSess();},800);
@@ -3389,13 +3381,13 @@ function showCountdownOverlay(mode,seconds,step,restSecs,autoResume){
     if(rateEl)rateEl.textContent='';
     _cdownTimer=setTimeout(()=>hideCountdownOverlay(),5000);
   }else if(mode==='go-brief'){
-    numEl.textContent='GO!';numEl.className='cdown-num go';wktTrill();
+    numEl.textContent='GO!';numEl.className='cdown-num go';
     const dur=step?.mode==='time'?fmt(step.value).replace(/^0/,''):step?.mode==='distance'?fmtStepDist(step.value):'';
     const hint=stepTargetHint(step);
     subEl.textContent=details;if(rateEl)rateEl.textContent=hint;
     _cdownTimer=setTimeout(()=>hideCountdownOverlay(),2000);
   }else if(mode==='go-work2work'){
-    numEl.textContent='GO';numEl.className='cdown-num go';wktTrill();
+    numEl.textContent='GO';numEl.className='cdown-num go';
     const dur=step?.mode==='time'?fmt(step.value).replace(/^0/,''):step?.mode==='distance'?fmtStepDist(step.value):'';
     const hint=stepTargetHint(step);
     subEl.textContent=dur;if(rateEl)rateEl.textContent=hint;
