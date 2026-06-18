@@ -3602,6 +3602,7 @@ function enterSessionReady() {
     sessStart = Date.now();
     lapStartDist = distance; lapStartTime = 0;
     running = true; paused = false; sessionReady = true;
+    if(wkt.active){const _ws=wktCurrentStep();if(_ws?.type==='warmup')showCountdownOverlay('warmup',null,_ws);}
     requestAnimationFrame(renderCtrl);
 }
 function exitSessionReady() {
