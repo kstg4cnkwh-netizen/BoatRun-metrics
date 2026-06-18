@@ -3239,6 +3239,7 @@ function wktBeginStep(){
     clearInterval(timerInt);
     timerInt=setInterval(()=>{ elapsed++;wktCheckAuto();checkGpsAlive();updateUI();updateWorkoutBar(); },1000);
   }
+  wktTrill();
   hideCountdownOverlay();
   updateWorkoutBar(); updateUI();
 }
@@ -3414,12 +3415,12 @@ function showCountdownOverlay(mode,seconds,step,restSecs,autoResume){
       }
     },1000);
   }else if(mode==='rest'){
-    numEl.textContent='REST';numEl.className='cdown-rest';
+    numEl.textContent='REST';numEl.className='cdown-rest';wktTrill();
     subEl.textContent=restSecs&&isFinite(restSecs)?fmt(restSecs)+' min':'Press LAP when ready';
     if(rateEl)rateEl.textContent='';
     _cdownTimer=setTimeout(()=>hideCountdownOverlay(),3000);
   }else if(mode==='warmup'){
-    numEl.textContent='WARMUP';numEl.className='cdown-warmup';
+    numEl.textContent='WARMUP';numEl.className='cdown-warmup';wktTrill();
     subEl.textContent='press lap button when ready';
     if(rateEl)rateEl.textContent='';
     _cdownTimer=setTimeout(()=>hideCountdownOverlay(),5000);
@@ -3429,18 +3430,18 @@ function showCountdownOverlay(mode,seconds,step,restSecs,autoResume){
     if(rateEl)rateEl.textContent='';
     _cdownTimer=setTimeout(()=>hideCountdownOverlay(),5000);
   }else if(mode==='cooldown'){
-    numEl.textContent='COOLDOWN';numEl.className='cdown-cooldown';
+    numEl.textContent='COOLDOWN';numEl.className='cdown-cooldown';wktTrill();
     subEl.textContent='Workout complete — easy paddling';
     if(rateEl)rateEl.textContent='';
     _cdownTimer=setTimeout(()=>hideCountdownOverlay(),5000);
   }else if(mode==='go-brief'){
-    numEl.textContent='GO!';numEl.className='cdown-num go';
+    numEl.textContent='GO!';numEl.className='cdown-num go';wktTrill();
     const dur=step?.mode==='time'?fmt(step.value).replace(/^0/,''):step?.mode==='distance'?fmtStepDist(step.value):'';
     const hint=stepTargetHint(step);
     subEl.textContent=details;if(rateEl)rateEl.textContent=hint;
     _cdownTimer=setTimeout(()=>hideCountdownOverlay(),2000);
   }else if(mode==='go-work2work'){
-    numEl.textContent='GO';numEl.className='cdown-num go';
+    numEl.textContent='GO';numEl.className='cdown-num go';wktTrill();
     const dur=step?.mode==='time'?fmt(step.value).replace(/^0/,''):step?.mode==='distance'?fmtStepDist(step.value):'';
     const hint=stepTargetHint(step);
     subEl.textContent=dur;if(rateEl)rateEl.textContent=hint;
