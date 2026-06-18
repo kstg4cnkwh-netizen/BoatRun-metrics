@@ -3427,7 +3427,7 @@ function showCountdownOverlay(mode,seconds,step,restSecs,autoResume){
     subEl.textContent=details;if(rateEl)rateEl.textContent=hint;
     _cdownTimer=setTimeout(()=>hideCountdownOverlay(),2000);
   }else if(mode==='go-work2work'){
-    numEl.textContent='GO';numEl.className='cdown-num go';wktTrill();
+    numEl.textContent='GO';numEl.className='cdown-num go';
     const dur=step?.mode==='time'?fmt(step.value).replace(/^0/,''):step?.mode==='distance'?fmtStepDist(step.value):'';
     const hint=stepTargetHint(step);
     subEl.textContent=dur;if(rateEl)rateEl.textContent=hint;
