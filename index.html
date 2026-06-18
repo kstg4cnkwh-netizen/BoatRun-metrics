@@ -1229,6 +1229,7 @@ function scoreAxis(ax) {
 }
 function maybeDetectAxis(now) {
     if (axisLocked || now - lastAxisCheck < 4000) return;
+    if (strokesDetected < 3) return;   // wait for rowing signal to dominate axBuf before committing
     lastAxisCheck = now;
     let bAx = selAxis, bSc = -1;
     for (const ax of AXES) {
@@ -2055,6 +2056,8 @@ function onStrokeFinish(now, driveDur) {
         lapReady = false;
         lapStartDist = distance;
         lapStartTime = elapsed;
+        velocityWindow.length = 0;
+        gpsConvergeStreak = 0; gpsAnchorOk = false;
         requestAnimationFrame(renderCtrl);
     }
     if (sessionReady && running) { exitSessionReady(); return; }
@@ -2243,7 +2246,7 @@ function handlePos(pos) {
     lastPos = cur;
     // Pace straight from the One-Euro filtered Doppler velocity
     if (running && !paused && !sessionReady) {
-        if (gpsSpeedEma > CONFIG.gps.minSpeedForPace) {
+        if (gpsSpeedEma > CONFIG.gps.minSpeedForPace && gpsAnchorOk) {
              // Average over whole stroke cycles (catch→catch endpoints) so
             // intra-stroke surge bias cancels. Falls back to time window.
             let tEnd = now, tStart = now - CONFIG.gps.paceAvgMs;
@@ -4697,7 +4700,7 @@ function exportDebugCSV(s){
   const t0=s.startTime;const el=t=>(+(t-t0)/1000).toFixed(2);const rows=[['##ENV'],['session_id',s.id,'start_utc',new Date(t0).toISOString()],['duration_s',n(s.duration),'distance_m',n(s.distance),'strokes',n(s.strokeCount)]];
   const cfg=s.config||{},rl=cfg.rl||{},gps=cfg.gps||{};
   rows.push(['rl_startAfterDriveMs',n(rl.startAfterDriveMs??CONFIG.runLoss.startAfterDriveMs),'rl_windowMs',n(rl.windowMs??CONFIG.runLoss.windowMs)]);rows.push(['gps_emaAlpha',n(gps.alpha??CONFIG.gps.speedEmaAlpha),'gps_medianN',n(gps.medN??CONFIG.gps.speedMedianN)]);rows.push([]);
-  rows.push(['##STR'],['n','elapsed_s','rate','catch_slope','stroke_char','consistency','dps','run_loss_m','run_loss_pct','run_loss_mps','impulse','ratio','catch_dur_ms','oar_deg','oar_raw_deg','oar_vmean','check_delta','rdi','pace_s500','drive_dur_ms','interval_ms','jerk_raw','jerk_thresh','gps_ema_pace','dps_n']);(s.strokes||[]).forEach((r,i)=>{const d=r.dbg||{};rows.push([i+1,el(r.t),n(r.rate),f2(r.catchPeak),n(r.char),f2(r.catchConsistency),f2(r.dps),f2(r.runLossM),f2(r.runLossPct),f2(r.runLossMps),r.driveImpulse!=null?Math.round(r.driveImpulse*100):'',f2(r.strokeRatio),n(r.catchDuration),n(r.oarAngle),f2(r.oarAngleRaw),f3(r.oarVMean),f2(r.checkDelta),f2(r.rdi),f2(r.pace),n(d.driveDurMs),n(d.intervalMs),f2(d.catchJerkRaw),f2(d.jerkThresh),f2(d.gpsEma),n(d.dpsN)]);});rows.push([]);
+  rows.push(['##STR'],['n','elapsed_s','rate','catch_slope','stroke_char','consistency','dps','run_loss_m','run_loss_pct','run_loss_mps','impulse','ratio','catch_dur_ms','oar_deg','oar_raw_deg','oar_vmean','check_delta','rdi','pace_s500','drive_dur_ms','interval_ms','jerk_raw','jerk_thresh','gps_ema_pace','dps_n','sel_axis','axis_locked']);(s.strokes||[]).forEach((r,i)=>{const d=r.dbg||{};rows.push([i+1,el(r.t),n(r.rate),f2(r.catchPeak),n(r.char),f2(r.catchConsistency),f2(r.dps),f2(r.runLossM),f2(r.runLossPct),f2(r.runLossMps),r.driveImpulse!=null?Math.round(r.driveImpulse*100):'',f2(r.strokeRatio),n(r.catchDuration),n(r.oarAngle),f2(r.oarAngleRaw),f3(r.oarVMean),f2(r.checkDelta),f2(r.rdi),f2(r.pace),n(d.driveDurMs),n(d.intervalMs),f2(d.catchJerkRaw),f2(d.jerkThresh),f2(d.gpsEma),n(d.dpsN),d.selAxis||'',d.axisLocked?'1':'0']);});rows.push([]);
   rows.push(['##RL'],['stroke_n','start_spd_ms','min_spd_ms','gps_dv_ms','imu_max_dv','imu_min_dv','imu_swing_dv','sampled_s','raw_loss_m','anchor_v','raw_rl_pct','med_loss_m','gps_n','imu_n']);(s.rlDebug||[]).forEach(r=>rows.push([n(r.strokeN),f3(r.startSpeed),f3(r.minSpeed),f3(r.dv),f4(r.imuMaxDv),f4(r.imuMinDv),f4(r.imuSwingDv),f3(r.sampledS),f4(r.rawLossM),f3(r.anchorV),f2(r.rlPct),f4(r.medLoss),n(r.nSamples),n(r.imuN)]));rows.push([]);
   if(s.gpsRawTrace&&s.gpsRawTrace.length){rows.push(['##GPS'],['elapsed_s','gps_raw_ms','gps_ema_ms','acc_m','stroke_n','rl_phase']);s.gpsRawTrace.forEach(p=>rows.push([el(p.t),f3(p.rawSpd),f3(p.emaSpd),f2(p.acc),n(p.strokeN),p.rlPhase||'none']));rows.push([]);}
   if(s.hrTrace&&s.hrTrace.length){rows.push(['##HR'],['elapsed_s','hr_bpm']);s.hrTrace.forEach(h=>rows.push([el(h.t),h.hr]));rows.push([]);}
