@@ -2730,9 +2730,9 @@ function toggleSessLock() {
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // CURVE TAB — tile cycling, value readout, sub-tab state
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
-const CURVE_TILE_OPTIONS = ['pace','stroke-rate','catch-slope','catch-dur','dps','impulse','run-loss','char','stroke-ratio','check-delta','oar-angle'];
-const CURVE_TILE_LABELS  = { 'stroke-rate':'rate','catch-slope':'slope','dps':'DPS','impulse':'Impulse','run-loss':'Run loss','char':'Char %','pace':'Pace','stroke-ratio':'ratio','check-delta':'Check Δ','oar-angle':'angle','catch-dur':'Catch dur' };
-const CURVE_TILE_SUBS    = { 'stroke-rate':'','catch-slope':'','dps':'','impulse':'','run-loss':'','char':'','pace':'','check-delta':'','oar-angle':'','catch-dur':'' };
+const CURVE_TILE_OPTIONS = ['pace','stroke-rate','catch-slope','catch-dur','dps','impulse','run-loss','char','stroke-ratio','check-delta','oar-angle','workout'];
+const CURVE_TILE_LABELS  = { 'stroke-rate':'rate','catch-slope':'slope','dps':'DPS','impulse':'Impulse','run-loss':'Run loss','char':'Char %','pace':'Pace','stroke-ratio':'ratio','check-delta':'Check Δ','oar-angle':'angle','catch-dur':'Catch dur','workout':'Workout' };
+const CURVE_TILE_SUBS    = { 'stroke-rate':'','catch-slope':'','dps':'','impulse':'','run-loss':'','char':'','pace':'','check-delta':'','oar-angle':'','catch-dur':'','workout':'' };
 let curveTileKeys = (() => {
     try {
         const s = JSON.parse(_LS.getItem('scull_ctiles') || 'null');
@@ -2808,6 +2808,24 @@ function curveTileValue(key) {
             return { val: ok ? catchDurLast : '--', dim: !ok, sub: 'ms',
                 qlabel: ok ? (catchDurValsArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
                 qcls: ok ? (catchDurValsArr.length >= 3 ? 'g' : 'w') : '' };
+        }
+        case 'workout': {
+            if (!wkt.active) return { val: '--', dim: true, sub: 'no workout', qlabel: 'OFF', qcls: '' };
+            if (wkt.waitingForRow) return { val: 'WAIT', dim: false, sub: 'start rowing', qlabel: 'READY', qcls: 'g' };
+            const _ws = wktCurrentStep();
+            const _type = _ws ? _ws.type : 'done';
+            const _rem = wktGetRemaining();
+            const _prog = `${wkt.seqIdx + 1}/${wkt.sequence.length}`;
+            const _isRace = _type === 'work' && _ws?.startWhenRowing;
+            let _display;
+            if (_isRace) _display = fmt(elapsed - wkt.startElapsed);
+            else if (_ws && _ws.mode === 'distance') _display = appSettings.distUnit === 'mi' ? Math.max(0,_rem/1609.34).toFixed(1)+'mi' : Math.max(0,Math.round(_rem))+'m';
+            else if (isFinite(_rem)) _display = fmt(Math.max(0, _rem));
+            else _display = 'LAP >';
+            return { val: _display, dim: _type === 'done',
+                sub: _isRace ? (appSettings.distUnit==='mi' ? Math.max(0,_rem/1609.34).toFixed(1)+'mi' : Math.max(0,Math.round(_rem))+'m to go · '+_prog) : _prog,
+                qlabel: _isRace ? 'RACE' : _type === 'work' ? 'WORK' : _type === 'warmup' ? 'WARM' : _type === 'cooldown' ? 'COOL' : _type.toUpperCase(),
+                qcls: _isRace ? 'g' : _type === 'work' ? 'w' : '' };
         }
         default: return { val: '--', dim: true, sub: '', qlabel: '', qcls: '' };
     }
