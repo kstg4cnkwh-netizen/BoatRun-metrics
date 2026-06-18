@@ -3229,6 +3229,19 @@ function showRestEndCountdown(n,nextStep){
   else if(nextStep?.mode==='time'){subEl.textContent=fmt(nextStep.value).replace(/^0/,'');}
   else{subEl.textContent='';}
 }
+function wktBeginStep(){
+  wkt.waitingForRow=false; wkt.waitStrokeCount=0;
+  wkt.startDist=distance; wkt.startElapsed=elapsed;
+  wkt.startStrokeIdx=sessStrokes.length;
+  lapStartDist=distance; lapStartTime=elapsed; // backdate lap start to actual rowing start
+  if(wkt.readyPaused){
+    wkt.readyPaused=false;
+    clearInterval(timerInt);
+    timerInt=setInterval(()=>{ elapsed++;wktCheckAuto();checkGpsAlive();updateUI();updateWorkoutBar(); },1000);
+  }
+  hideCountdownOverlay();
+  updateWorkoutBar(); updateUI();
+}
 function wktCheckAuto(){
   if(!wkt.active||!running||paused||wkt.waitingForRow)return;
   const rem=wktGetRemaining();
@@ -3421,7 +3434,7 @@ function showCountdownOverlay(mode,seconds,step,restSecs,autoResume){
     if(rateEl)rateEl.textContent='';
     _cdownTimer=setTimeout(()=>hideCountdownOverlay(),5000);
   }else if(mode==='go-brief'){
-    numEl.textContent='GO!';numEl.className='cdown-num go';wktTrill();
+    numEl.textContent='GO!';numEl.className='cdown-num go';
     const dur=step?.mode==='time'?fmt(step.value).replace(/^0/,''):step?.mode==='distance'?fmtStepDist(step.value):'';
     const hint=stepTargetHint(step);
     subEl.textContent=details;if(rateEl)rateEl.textContent=hint;
