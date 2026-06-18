@@ -46,7 +46,7 @@ function walk(srcDir, outDir) {
       fs.writeFileSync(outPath, processHtml(html));
     } else if (entry.name.toLowerCase().endsWith('.js')) {
       const js = fs.readFileSync(srcPath, 'utf8');
-      fs.writeFileSync(outPath, obfuscate(js));
+      fs.writeFileSync(outPath, entry.name === 'sw.js' ? js : obfuscate(js));
     } else {
       fs.copyFileSync(srcPath, outPath);
     }
