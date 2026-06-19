@@ -537,7 +537,6 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 </div>
 <!-- LAYOUTS panel -->
 <div id="ht-layouts" class="home-panel">
-<div class="restore-bar" id="restore-bar-layouts" style="display:none;"><button class="restore-drive-btn" onclick="showDriveRestorePanel()">☁ Restore from Drive</button></div>
 <div id="profile-list-container"></div>
 <button class="profile-btn new-p" style="width:100%;margin-top:4px;" id="new-profile-btn">+ NEW PROFILE</button>
 <div id="new-profile-form" class="new-profile-form" style="display:none;margin-top:8px;">
@@ -547,7 +546,6 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 </div>
 <!-- WORKOUTS panel (P2 — new builder) -->
 <div id="ht-workouts" class="home-panel">
-<div class="restore-bar" id="restore-bar-workouts" style="display:none;"><button class="restore-drive-btn" onclick="showDriveRestorePanel()">☁ Restore from Drive</button></div>
 <div id="workout-list-container"></div>
 <button class="wkt-btn new-w" style="width:100%;margin-top:4px;" id="new-wkt-btn">+ NEW WORKOUT</button>
 <!-- Builder (used for both new and edit) -->
@@ -606,8 +604,8 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div id="ht-restore-panel" style="display:none;padding:10px;"><div class="rp-hdr"><button class="dback" id="restore-back-btn">← Back</button><span class="rp-title">RESTORE FROM DRIVE</span></div><div id="restore-list" class="rp-body"></div></div>
 </div>
 
-<!-- Home screen nav tabs (hidden — navigate via session start/finish) -->
-<div class="tab-bar" style="display:none;">
+<!-- Home screen nav tabs -->
+<div class="tab-bar">
 <button class="tab" id="tab-live-hm"><span class="tab-icon">&#x1F6A3;</span>LIVE</button>
 <button class="tab active" id="tab-home-hm"><span class="tab-icon">&#x1F3E0;</span>HOME</button>
 </div>
