@@ -279,7 +279,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .del-btn{width:100%;padding:12px;border-radius:3px;background:#fff;color:#c0392b;border:1px solid #e0e0e0;font-family:"Roboto",sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;margin-top:4px;}
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1a5276;color:#fff;padding:7px 18px;border-radius:18px;font-size:11px;letter-spacing:.08em;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:nowrap;}
 .toast.show{opacity:1}
-.restore-bar{padding:6px 8px 4px;}
+.restore-bar{padding:0 0 8px;}
 .restore-drive-btn{width:100%;padding:7px;border-radius:3px;background:#fff;color:#1a5276;border:1px solid #c0d4e0;font-family:"Roboto",sans-serif;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;touch-action:manipulation;}
 .restore-drive-btn:active{background:#eef5f9;}
 .dcard{background:#fff;border-radius:4px;padding:11px 14px;cursor:pointer;border-left:4px solid #2980b9;box-shadow:0 1px 3px rgba(0,0,0,.07);margin-bottom:6px;}
@@ -288,7 +288,6 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .dcard-stats{display:flex;gap:14px;}
 .rp-hdr{display:flex;align-items:center;padding:0 0 8px;gap:8px;}
 .rp-title{font-size:10px;font-weight:700;letter-spacing:.12em;color:#555;}
-.rp-body{padding:0;}
 .restore-empty{text-align:center;padding:40px 24px;color:#ccc;font-size:13px;line-height:2;}
 
 /* \u9472 \u9472  HOME SCREEN (was SETUP) \u9472 \u9472  */
@@ -510,10 +509,10 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 </div>
 <!-- Tabs: bottom in portrait, right column in landscape -->
 <div class="tab-bar" id="live-tabs">
-<button class="tab active" id="tab-live-ls"><span class="tab-icon">&#x1F6A3;</span><span class="tab-txt">LIVE</span></button>
+<button class="tab active" id="tab-live-ls" style="display:none"><span class="tab-icon">&#x1F6A3;</span><span class="tab-txt">LIVE</span></button>
 <button class="tab" id="tab-curve-ls"><span class="tab-icon">&#x1F4C8;</span><span class="tab-txt">CURVE</span></button>
 <button class="tab" id="tab-int-ls"><span class="tab-icon">&#x1F3C1;</span><span class="tab-txt">INTERVALS</span></button>
-<button class="tab" id="tab-home-ls"><span class="tab-icon">&#x1F3E0;</span><span class="tab-txt">HOME</span></button>
+<button class="tab" id="tab-home-ls" style="display:none"><span class="tab-icon">&#x1F3E0;</span><span class="tab-txt">HOME</span></button>
 </div>
 </div>
 </div>
@@ -533,13 +532,14 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 </div>
 <div class="home-body">
 <!-- LOG panel (P3 — session list now lives here) -->
-<div id="ht-log-list"><div class="restore-bar" id="restore-bar" style="display:none;"><button class="restore-drive-btn" onclick="showDriveRestorePanel()">☁ Restore from Drive</button></div><div class="slist" id="slist"><div class="no-sess" id="no-sess">No sessions yet.<br/>Start rowing to record your first session.</div></div></div>
+<div id="ht-log-list"><div class="restore-bar" id="restore-bar-log" style="display:none;"><button class="restore-drive-btn" onclick="showDriveRestorePanel()">☁ Restore from Drive</button></div><div class="slist" id="slist"><div class="no-sess" id="no-sess">No sessions yet.<br/>Start rowing to record your first session.</div></div></div>
 <div id="ht-log-detail" style="display:none;padding:10px 10px 20px;" id="detail-content-wrap"><div id="detail-content"></div></div>
 <div id="ht-restore-panel" style="display:none;"><div class="rp-hdr"><button class="dback" id="restore-back-btn">← Log</button><span class="rp-title">RESTORE FROM DRIVE</span></div><div id="restore-list" class="rp-body"></div></div>
 <div id="ht-log-detail" style="display:none;padding:10px 10px 20px;" id="detail-content-wrap"><div id="detail-content"></div></div>
 </div>
 <!-- LAYOUTS panel -->
 <div id="ht-layouts" class="home-panel">
+<div class="restore-bar" id="restore-bar-layouts" style="display:none;"><button class="restore-drive-btn" onclick="showDriveRestorePanel()">☁ Restore from Drive</button></div>
 <div id="profile-list-container"></div>
 <button class="profile-btn new-p" style="width:100%;margin-top:4px;" id="new-profile-btn">+ NEW PROFILE</button>
 <div id="new-profile-form" class="new-profile-form" style="display:none;margin-top:8px;">
@@ -549,6 +549,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 </div>
 <!-- WORKOUTS panel (P2 — new builder) -->
 <div id="ht-workouts" class="home-panel">
+<div class="restore-bar" id="restore-bar-workouts" style="display:none;"><button class="restore-drive-btn" onclick="showDriveRestorePanel()">☁ Restore from Drive</button></div>
 <div id="workout-list-container"></div>
 <button class="wkt-btn new-w" style="width:100%;margin-top:4px;" id="new-wkt-btn">+ NEW WORKOUT</button>
 <!-- Builder (used for both new and edit) -->
@@ -604,14 +605,16 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 </div>
 </div>
 </div>
+<div id="ht-restore-panel" style="display:none;padding:10px;"><div class="rp-hdr"><button class="dback" id="restore-back-btn">← Back</button><span class="rp-title">RESTORE FROM DRIVE</span></div><div id="restore-list" class="rp-body"></div></div>
 </div>
 
-<!-- Home screen nav tabs -->
-<div class="tab-bar">
+<!-- Home screen nav tabs (hidden — navigate via session start/finish) -->
+<div class="tab-bar" style="display:none;">
 <button class="tab" id="tab-live-hm"><span class="tab-icon">&#x1F6A3;</span>LIVE</button>
 <button class="tab active" id="tab-home-hm"><span class="tab-icon">&#x1F3E0;</span>HOME</button>
 </div>
 </div>
+
 
 <!-- Metric picker modal -->
 <div class="modal-overlay" id="metric-picker" style="display:none;">
@@ -3916,16 +3919,14 @@ function renderHomeScreen(){
   // Wire home tabs
   document.querySelectorAll('.htab').forEach(btn=>{
     btn.onclick=()=>{
+      const rp=document.getElementById('ht-restore-panel');if(rp)rp.style.display='none';
       document.querySelectorAll('.htab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
       document.querySelectorAll('.home-panel').forEach(p=>p.classList.remove('active'));
       const panel=document.getElementById('ht-'+btn.dataset.ht);if(panel)panel.classList.add('active');
-      // Tapping LOG while in detail view goes back to the list
       if(btn.dataset.ht==='log'){
         const dw=document.getElementById('ht-log-detail');
         const ll=document.getElementById('ht-log-list');
-        const rp=document.getElementById('ht-restore-panel');
-        if(rp&&rp.style.display!=='none'){rp.style.display='none';ll.style.display='block';const hb=document.querySelector('.home-body');if(hb)hb.scrollTop=0;}
-        else if(dw&&ll&&dw.style.display!=='none'){dw.style.display='none';ll.style.display='block';const hb=document.querySelector('.home-body');if(hb)hb.scrollTop=0;renderSessionList();}
+        if(dw&&ll&&dw.style.display!=='none'){dw.style.display='none';ll.style.display='block';const hb=document.querySelector('.home-body');if(hb)hb.scrollTop=0;renderSessionList();}
       }
     };
   });
@@ -4006,13 +4007,16 @@ function attachSwipeDelete(cardEl,sessionId){
 }
 async function showDriveRestorePanel() {
   if (!DriveSync.isSignedIn()) { toast('Link Drive first'); return; }
-  const ll = document.getElementById('ht-log-list');
+  const prevPanel = document.querySelector('.home-panel.active');
+  document.querySelectorAll('.home-panel').forEach(p => p.classList.remove('active'));
   const panel = document.getElementById('ht-restore-panel');
-  ll.style.display = 'none';
   panel.style.display = 'block';
   const listEl = document.getElementById('restore-list');
   listEl.innerHTML = '<div class="restore-empty">Loading Drive sessions\u2026</div>';
-  document.getElementById('restore-back-btn').onclick = () => { panel.style.display = 'none'; ll.style.display = 'block'; };
+  document.getElementById('restore-back-btn').onclick = () => {
+    panel.style.display = 'none';
+    if (prevPanel) prevPanel.classList.add('active');
+  };
   try {
     const files = await DriveSync.listSessions();
     if (!files.length) { listEl.innerHTML = '<div class="restore-empty">No sessions on Drive.</div>'; return; }
@@ -4052,42 +4056,29 @@ async function doRestoreSession(fileId, cardEl, alreadyLocal) {
   try {
     const s = await DriveSync.downloadSession(fileId);
     const local = loadSess();
-    if (local.find(x => x.id === s.id)) {
-      toast('Already on phone');
-      cardEl.style.opacity = '1'; cardEl.style.pointerEvents = ''; return;
-    }
-    // Try full restore
+    if (local.find(x => x.id === s.id)) { toast('Already on phone'); cardEl.style.opacity='1'; cardEl.style.pointerEvents=''; return; }
     let ok = false;
     try { _LS.setItem(DB, JSON.stringify([s, ...local])); if (loadSess().find(x => x.id === s.id)) ok = true; } catch (_) {}
     if (ok) {
-      markSynced(s.id);
-      toast('Session restored');
+      markSynced(s.id); toast('Session restored');
       cardEl.innerHTML += ' <span class="sync-badge">\u2713 restored</span>';
       cardEl.style.borderLeftColor = '#27ae60'; cardEl.style.opacity = '1';
       return;
     }
-    // Full save failed — offer stripped
     cardEl.style.opacity = '1'; cardEl.style.pointerEvents = '';
     if (!confirm('Not enough storage for full session.\n\nOK \u2192 Restore without debug data\nCancel \u2192 Don\u2019t restore')) return;
-    const slim = { ...s,
-      strokes: s.strokes ? s.strokes.map(({ dbg, ...r }) => r) : s.strokes,
-      gpsRawTrace: undefined, rlDebug: undefined
-    };
+    const slim = { ...s, strokes: s.strokes ? s.strokes.map(({ dbg, ...r }) => r) : s.strokes, gpsRawTrace: undefined, rlDebug: undefined };
     try {
       _LS.setItem(DB, JSON.stringify([slim, ...local]));
       if (loadSess().find(x => x.id === slim.id)) {
-        markSynced(slim.id);
-        toast('Restored (debug data excluded)');
+        markSynced(slim.id); toast('Restored (debug data excluded)');
         cardEl.innerHTML += ' <span class="sync-badge">\u2713 restored</span>';
         cardEl.style.borderLeftColor = '#27ae60'; cardEl.style.pointerEvents = 'none';
         return;
       }
     } catch (_) {}
     toast('Insufficient storage \u2014 delete old sessions first');
-  } catch (e) {
-    toast('Restore failed: ' + e.message);
-    cardEl.style.opacity = '1'; cardEl.style.pointerEvents = '';
-  }
+  } catch (e) { toast('Restore failed: ' + e.message); cardEl.style.opacity='1'; cardEl.style.pointerEvents=''; }
 }
 function showDetail(id){
   const s=loadSess().find(x=>x.id===id);if(!s)return;
@@ -4893,7 +4884,7 @@ DRIVE SYNC HELPERS
 ¨T¨T
 */
 function handleDriveBtnTap(){if(DriveSync.isSignedIn()){if(confirm('Unlink Google Drive?')){DriveSync.signOut();updateDriveBtn();toast('Drive unlinked');}}else driveSignIn();}
-function updateDriveBtn(){const btn=document.getElementById('drive-btn');if(!btn)return;const linked=DriveSync.isSignedIn();linked?(btn.textContent='Linked',btn.classList.add('drive-linked')):(btn.textContent='Drive',btn.classList.remove('drive-linked'));const rb=document.getElementById('restore-bar');if(rb)rb.style.display=linked?'block':'none';}
+function updateDriveBtn(){const btn=document.getElementById('drive-btn');if(!btn)return;const linked=DriveSync.isSignedIn();linked?(btn.textContent='Linked',btn.classList.add('drive-linked')):(btn.textContent='Drive',btn.classList.remove('drive-linked'));['restore-bar-log','restore-bar-layouts','restore-bar-workouts'].forEach(id=>{const rb=document.getElementById(id);if(rb)rb.style.display=linked?'block':'none';});}
 async function checkOAuthReturn(){
   let pending=window._scullOAuth||null;window._scullOAuth=null;
   if(!pending){const raw=_SS.getItem('_oauth_token');if(!raw){
