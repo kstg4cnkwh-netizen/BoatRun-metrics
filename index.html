@@ -1201,7 +1201,7 @@ function enterLive() {
 // AXIS SELECTION — per-axis autocorrelation scoring & lock
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 const AXES = ['x', 'y', 'z'];
-let selAxis = 'x', axisLocked = false, axisAutoDetected = false, lastAxisCheck = 0;
+let selAxis = 'x', selSign = 1, axisLocked = false, axisAutoDetected = false, lastAxisCheck = 0;
 // Direction detection — auto-detect cox (phone faces fwd) vs rower (phone faces back)
 
 const gravity = { x: 0, y: 0, z: 0 };
@@ -1244,7 +1244,8 @@ function scoreAxis(ax) {
 }
 function maybeDetectAxis(now) {
     if (axisLocked || now - lastAxisCheck < 4000) return;
-    if (strokesDetected < 3) return;   // wait for rowing signal to dominate axBuf before committing
+    // No strokesDetected gate — sign detection reads axBuf directly (FSM-independent),
+    // so it works even when wrong sign has prevented catch detection (catch-22 fix).
     lastAxisCheck = now;
     let bAx = selAxis, bSc = -1;
     for (const ax of AXES) {
@@ -1252,11 +1253,21 @@ function maybeDetectAxis(now) {
         if (sc > bSc) { bSc = sc; bAx = ax; }
     }
     if (bSc > 0.03) {
-        if (bAx !== selAxis) {
+        // Detect sign from axBuf asymmetry: drive (longer phase) dominates the
+        // negative side in correct orientation (phone faces stern, drive = bow direction = -X).
+        // If posSum > negSum the signal is inverted -> selSign = -1 to flip it back.
+        let posSum = 0, negSum = 0;
+        for (const s of axBuf[bAx]) {
+            if (s.v > 0) posSum += s.v; else negSum -= s.v;
+        }
+        const newSign = (posSum > negSum) ? -1 : 1;
+        if (bAx !== selAxis || newSign !== selSign) {
             selAxis = bAx;
+            selSign = newSign;
             acBuf.length = 0;
             fsmState = FS.IDLE;
             jerkBuf.length = 0;
+            fastBaseline = 0;
             jerkThreshActive = jerkThreshBase;
             catchValsArr.length = 0;
             adaptReady = false;
@@ -1265,7 +1276,7 @@ function maybeDetectAxis(now) {
     }
     const p = document.getElementById('p-axis');
     if (!p) return;
-    p.textContent = axisAutoDetected ? 'AX:' + selAxis.toUpperCase() : 'AX:?';
+    p.textContent = axisAutoDetected ? 'AX:' + (selSign < 0 ? '-' : '') + selAxis.toUpperCase() : 'AX:?';
     p.className = axisAutoDetected ? (axisLocked ? 'pill pill-on' : 'pill pill-warn') : 'pill pill-off';
 }
 
@@ -1288,7 +1299,7 @@ function handleMotion(e) {
     updateAxes(raw, now);
     maybeDetectAxis(now);
     if (calRunning) return;
-    const fast = axFast[selAxis];
+    const fast = selSign * axFast[selAxis];
     jerkBuf.push({ t: now, v: fast });
     if (jerkBuf.length > CONFIG.motion.jerkHistN) jerkBuf.shift();
     let jerk = 0;
@@ -1305,7 +1316,7 @@ function handleMotion(e) {
     }
     runFSM(now, fast, jerk);
     if (running && !paused) {
-        catchToCatchSamples.push({ t: now, v: axFast[selAxis] });
+        catchToCatchSamples.push({ t: now, v: selSign * axFast[selAxis] });
     }
 }
 
@@ -1952,7 +1963,7 @@ function onStrokeFinish(now, driveDur) {
             if (strokesDetected >= 4) {
                 axisLocked = true;
                 const p = document.getElementById('p-axis');
-                if (p) { p.textContent = 'AX:' + selAxis.toUpperCase(); p.className = 'pill pill-on'; }
+                if (p) { p.textContent = 'AX:' + (selSign < 0 ? '-' : '') + selAxis.toUpperCase(); p.className = 'pill pill-on'; }
             }
         }
     }
@@ -2061,7 +2072,7 @@ function onStrokeFinish(now, driveDur) {
             dpsN: dpsValsArr.length,
             prlStartMs: Math.round(CONFIG.runLoss.startAfterDriveMs),
             prlWindowMs: CONFIG.runLoss.windowMs,
-            selAxis, axisLocked
+            selAxis, selSign, axisLocked
         }
     });
     pendingOarStrokeIdx = sessStrokes.length - 1;
@@ -3587,7 +3598,7 @@ function stopSess() {
                 workoutLapMetrics: wkt.lapMetrics.length ? wkt.lapMetrics.slice() : null,
                 workoutName:    wkt.def?.name || null,
                 workoutId:      wkt.def?.id   || null,
-                calNoiseFloor:  cal.noiseFloor, calThresh: cal.jerkThresh, detectedAxis: selAxis,
+                calNoiseFloor:  cal.noiseFloor, calThresh: cal.jerkThresh, detectedAxis: (selSign < 0 ? '-' : '') + selAxis,
                 config: { rl: CONFIG.runLoss, gps: { alpha: CONFIG.gps.speedEmaAlpha, medN: CONFIG.gps.speedMedianN, spike: CONFIG.gps.spikeMarginMps } },
                 settings: { ...appSettings },
             };
@@ -3631,7 +3642,7 @@ function resetSess() {
     fsmState = FS.IDLE; catchPeakJerk = 0; driveMinJerk = 0; trigValsArr.length = 0; catchStartT = 0; lastCatchAbsT = 0; lastDriveEndT = 0; bladeExitT = 0; prevDriveStartT = 0; bladeExitDetected = false;
     strokesDetected = 0; jerkThreshActive = jerkThreshBase; adaptReady = false;
     acBuf.length = 0; acLastUpdate = 0; jerkBuf.length = 0; catchTsBuf.length = 0;
-    axisLocked = false; axisAutoDetected = false; lastAxisCheck = 0;
+    axisLocked = false; axisAutoDetected = false; lastAxisCheck = 0; selSign = 1;
     sessStart = null; lastStrokeCurve = null; strokeCurveHistory.length = 0;
     catchToCatchSamples = []; pendingCurveDriveCount = 0;
     motionSamples = 0; motionStartedAt = 0; lastMotionT = 0;
