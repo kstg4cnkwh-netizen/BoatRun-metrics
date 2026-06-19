@@ -3168,7 +3168,7 @@ function wktAdvance(){
     avgCheckDelta:ist.avgCheckDelta??checkDelta??null,
     avgChar:ist.avgChar??null,avgRatio:ist.avgRatio??null,avgConsistency:ist.avgConsistency??null,
     curve:ist.curve??null,curveDriveFrac:ist.curveDriveFrac??null};
-  snap.lapPace=snap.dist>5&&snap.time>0?(snap.time/snap.dist)*500:0;
+  snap.lapPace=(distance-wkt.startDist)>5&&snap.time>0?(snap.time/(distance-wkt.startDist))*500:0;
   wkt.lapMetrics.push(snap);
   wkt.startStrokeIdx=sessStrokes.length;
   // Detect work→work transition before seqIdx advances so recordLap can suppress lap summary
@@ -3540,16 +3540,15 @@ function stopSess() {
                 avgChar: ist.avgChar ?? null, avgRatio: ist.avgRatio ?? null,
                 avgConsistency: ist.avgConsistency ?? null,
                 curve: ist.curve ?? null, curveDriveFrac: ist.curveDriveFrac ?? null };
-            snap.lapPace = snap.dist > 5 && snap.time > 0 ? (snap.time / snap.dist) * 500 : 0;
+            snap.lapPace = (distance - wkt.startDist) > 5 && snap.time > 0 ? (snap.time / (distance - wkt.startDist)) * 500 : 0;
             wkt.lapMetrics.push(snap);
         }
         wktEnd();
     }
     if (elapsed > 10 && sessStrokes.length > 0 && !sessSaved) {
         try {
-            const ap  = sessPaceTrace.length > 0 ? Math.round(sessPaceTrace.reduce((a, b) => a + b, 0) / sessPaceTrace.length) : 0;
-            const movingPaceVals = sessPaceTrace.filter(v => v != null && v > 0);
-            const amp = movingPaceVals.length ? Math.round(movingPaceVals.reduce((a, b) => a + b, 0) / movingPaceVals.length) : 0;
+            const ap  = distance > 5 && elapsed > 0 ? Math.round((elapsed / distance) * 500) : 0;
+            const amp = sessPaceTrace.length > 0 ? Math.round(sessPaceTrace.reduce((a, b) => a + b, 0) / sessPaceTrace.length) : 0;
             const rateVals = sessStrokes.map(x => x.rate).filter(v => v != null && v > 0);
             const ar      = rateVals.length ? Math.round(rateVals.reduce((a, b) => a + b, 0) / rateVals.length) : 0;
             const maxRate = rateVals.length ? rateVals.reduce((m, v) => v > m ? v : m, 0) : 0;
@@ -3658,7 +3657,7 @@ function hideLapSplit() {
 function recordLap() {
     if (!running || paused) return;
     if (wkt.active && wkt.waitingForRow) return;
-    const d = Math.round(distance - lapStartDist), t = elapsed - lapStartTime, p = d > 5 && t > 0 ? (t / d) * 500 : 0;
+    const distRaw = distance - lapStartDist, d = Math.round(distRaw), t = elapsed - lapStartTime, p = distRaw > 5 && t > 0 ? (t / distRaw) * 500 : 0;
     const avgC = catchValsArr.length ? Math.round(catchValsArr.reduce((a, b) => a + b, 0) / catchValsArr.length) : null;
     const avgI = sessStrokes.length > 0 ? sessStrokes[sessStrokes.length - 1].driveImpulse : null;
     laps.push({ n: laps.length + 1, dist: d, time: t, pace: p, rate: strokeRate, avgCatch: avgC, avgDPS: distPerStroke || null, avgImpulse: avgI, avgRunLoss: runLossM, avgRdi: rdi, avgOarAngle: oarAngle || null, avgCheckDelta: checkDelta || null });
