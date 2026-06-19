@@ -517,7 +517,6 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 </div>
 </div>
 
-
 <!-- HOME SCREEN (was SETUP — P3) -->
 <div id="screen-home" class="screen">
 <div class="ahdr"><span class="ahdr-title">HOME</span>
@@ -532,9 +531,8 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 </div>
 <div class="home-body">
 <!-- LOG panel (P3 — session list now lives here) -->
+<div id="ht-log" class="home-panel active">
 <div id="ht-log-list"><div class="restore-bar" id="restore-bar-log" style="display:none;"><button class="restore-drive-btn" onclick="showDriveRestorePanel()">☁ Restore from Drive</button></div><div class="slist" id="slist"><div class="no-sess" id="no-sess">No sessions yet.<br/>Start rowing to record your first session.</div></div></div>
-<div id="ht-log-detail" style="display:none;padding:10px 10px 20px;" id="detail-content-wrap"><div id="detail-content"></div></div>
-<div id="ht-restore-panel" style="display:none;"><div class="rp-hdr"><button class="dback" id="restore-back-btn">← Log</button><span class="rp-title">RESTORE FROM DRIVE</span></div><div id="restore-list" class="rp-body"></div></div>
 <div id="ht-log-detail" style="display:none;padding:10px 10px 20px;" id="detail-content-wrap"><div id="detail-content"></div></div>
 </div>
 <!-- LAYOUTS panel -->
@@ -614,7 +612,6 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <button class="tab active" id="tab-home-hm"><span class="tab-icon">&#x1F3E0;</span>HOME</button>
 </div>
 </div>
-
 
 <!-- Metric picker modal -->
 <div class="modal-overlay" id="metric-picker" style="display:none;">
@@ -4883,7 +4880,7 @@ function exportSessionJSON(s){
 DRIVE SYNC HELPERS 
 ¨T¨T
 */
-function handleDriveBtnTap(){if(DriveSync.isSignedIn()){if(confirm('Unlink Google Drive?')){DriveSync.signOut();updateDriveBtn();toast('Drive unlinked');}}else driveSignIn();}
+function handleDriveBtnTap(){if(DriveSync.isSignedIn()){const choice=confirm('Drive linked.\n\nOK = Sync from Drive now\nCancel = Unlink Drive');if(choice){toast('Syncing from Drive…');DriveSync.syncFromDrive().then(()=>{if(typeof renderHomeScreen==='function')renderHomeScreen();}).catch(e=>toast('Sync failed: '+e.message));}else{if(confirm('Unlink Google Drive?')){DriveSync.signOut();updateDriveBtn();toast('Drive unlinked');}}}else driveSignIn();}
 function updateDriveBtn(){const btn=document.getElementById('drive-btn');if(!btn)return;const linked=DriveSync.isSignedIn();linked?(btn.textContent='Linked',btn.classList.add('drive-linked')):(btn.textContent='Drive',btn.classList.remove('drive-linked'));['restore-bar-log','restore-bar-layouts','restore-bar-workouts'].forEach(id=>{const rb=document.getElementById(id);if(rb)rb.style.display=linked?'block':'none';});}
 async function checkOAuthReturn(){
   let pending=window._scullOAuth||null;window._scullOAuth=null;
