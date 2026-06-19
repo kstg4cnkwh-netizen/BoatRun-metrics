@@ -2133,15 +2133,13 @@ function pushVelocity(t, v) {
         if (gapMs > CONFIG.gps.gapResetMs) { paceDistWindow.length = 0; velocityWindow.length = 0; }
         return;
     }
-    // Resuming from a stop — seed filter now so pace/distance recover on this fix
+    // Resuming from a stop — clear state but let One-Euro filter fall through;
+    // large elapsed dt causes it to snap immediately to the new speed.
     if (gpsWasStopped && v > 0.5) {
-        gpsLastValidT = t; lastDistT = t; gpsWasStopped = false; gpsLowSpeedStreak = 0;
-        gpsResumeT = t;
-        gpsConvergeStreak = 0; gpsAnchorOk = false; havSpeedBuf.length = 0; strokeSpeedBuf.length = 0;
-        velocityWindow.length = 0;
-        vFilter.reset(); gpsSpeedEma = vFilter.filter(v, t);
-        if (gpsSpeedEma > 0.3) velocityWindow.push({ t, v: gpsSpeedEma });
-        return;
+        gpsWasStopped = false; gpsLowSpeedStreak = 0; gpsResumeT = t;
+        gpsConvergeStreak = 0; gpsAnchorOk = false;
+        havSpeedBuf.length = 0; strokeSpeedBuf.length = 0; velocityWindow.length = 0;
+        // fall through to normal filter path below
     }
     // Near-stationary
     if (v < 0.3) {
@@ -2151,7 +2149,7 @@ function pushVelocity(t, v) {
             // declaring a genuine stop — a single GPS glitch (raw speed
             // reported as 0) must not wipe the DPS/oar-angle history.
             if (gpsLowSpeedStreak >= 3 && gpsSpeedEma < 0.5) {
-                gpsLastValidT = t; gpsWasStopped = true; vFilter.reset(); strokeSpeedBuf.length = 0;
+                gpsLastValidT = t; gpsWasStopped = true; strokeSpeedBuf.length = 0;
                 dpsValsArr.length = 0; distPerStroke = 0;   // clear corrupt DPS buffer
                 oarAngleRawArr.length = 0;                   // clear corrupt oar history
             }
@@ -2246,7 +2244,7 @@ function handlePos(pos) {
     lastPos = cur;
     // Pace straight from the One-Euro filtered Doppler velocity
     if (running && !paused && !sessionReady) {
-        if (gpsSpeedEma > CONFIG.gps.minSpeedForPace && gpsAnchorOk) {
+        if (gpsSpeedEma > CONFIG.gps.minSpeedForPace) {
              // Average over whole stroke cycles (catch→catch endpoints) so
             // intra-stroke surge bias cancels. Falls back to time window.
             let tEnd = now, tStart = now - CONFIG.gps.paceAvgMs;
