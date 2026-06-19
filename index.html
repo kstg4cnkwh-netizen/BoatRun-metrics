@@ -1202,6 +1202,7 @@ function enterLive() {
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 const AXES = ['x', 'y', 'z'];
 let selAxis = 'x', selSign = 1, axisLocked = false, axisAutoDetected = false, lastAxisCheck = 0;
+let useProjAxis = false, projX = 1, projY = 0;
 // Direction detection — auto-detect cox (phone faces fwd) vs rower (phone faces back)
 
 const gravity = { x: 0, y: 0, z: 0 };
@@ -1242,41 +1243,110 @@ function scoreAxis(ax) {
     }
     return Math.max(0, best) * Math.sqrt(r0);
 }
+function resetAxisState() {
+    acBuf.length = 0;
+    fsmState = FS.IDLE;
+    jerkBuf.length = 0;
+    fastBaseline = 0;
+    jerkThreshActive = jerkThreshBase;
+    catchValsArr.length = 0;
+    adaptReady = false;
+}
+// Autocorrelation score for an arbitrary zero-mean series (same scale as scoreAxis).
+function autocorrScore(vals, dtMs) {
+    const n = vals.length;
+    if (n < 80) return 0;
+    const mu = vals.reduce((a, b) => a + b, 0) / n;
+    const x = vals.map(v => v - mu);
+    const r0 = x.reduce((s, v) => s + v * v, 0) / n;
+    if (r0 < 0.02) return 0;
+    const minL = Math.max(2, Math.floor(CONFIG.stroke.periodMinMs / dtMs));
+    const maxL = Math.min(Math.floor(CONFIG.stroke.periodMaxMs / dtMs), Math.floor(n * 0.6));
+    if (minL >= maxL) return 0;
+    let best = 0;
+    for (let lag = minL; lag <= maxL; lag++) {
+        let s = 0; const len = n - lag;
+        for (let i = 0; i < len; i++) s += x[i] * x[i + lag];
+        const r = s / (len * r0);
+        if (r > best) best = r;
+    }
+    return Math.max(0, best) * Math.sqrt(r0);
+}
+// Principal horizontal motion direction (PCA on X/Y of axBuf) — recovers the
+// boat's fore-aft axis when the phone lies flat at ANY yaw angle.
+function horizontalPrincipalAxis() {
+    const bx = axBuf.x, by = axBuf.y, n = Math.min(bx.length, by.length);
+    if (n < 80) return null;
+    let mx = 0, my = 0;
+    for (let i = 0; i < n; i++) { mx += bx[i].v; my += by[i].v; }
+    mx /= n; my /= n;
+    let sxx = 0, syy = 0, sxy = 0;
+    for (let i = 0; i < n; i++) {
+        const dx = bx[i].v - mx, dy = by[i].v - my;
+        sxx += dx * dx; syy += dy * dy; sxy += dx * dy;
+    }
+    sxx /= n; syy /= n; sxy /= n;
+    const tr = sxx + syy, det = sxx * syy - sxy * sxy;
+    const l1 = tr / 2 + Math.sqrt(Math.max(0, tr * tr / 4 - det));   // larger eigenvalue
+    let ex, ey;
+    if (Math.abs(sxy) > 1e-9) { ex = l1 - syy; ey = sxy; }
+    else { ex = (sxx >= syy) ? 1 : 0; ey = (sxx >= syy) ? 0 : 1; }
+    const mag = Math.hypot(ex, ey) || 1, ux = ex / mag, uy = ey / mag;
+    const dtMs = (bx[n - 1].t - bx[0].t) / Math.max(1, n - 1);
+    const proj = new Array(n);
+    for (let i = 0; i < n; i++) proj[i] = ux * bx[i].v + uy * by[i].v;
+    return { ux, uy, score: autocorrScore(proj, dtMs) };
+}
+// Sign for the projected axis: drive (longer phase) must dominate the negative
+// side so fast>0 at the catch — same convention as the single-axis path.
+function projectedSign(ux, uy) {
+    const bx = axBuf.x, by = axBuf.y, n = Math.min(bx.length, by.length);
+    let posSum = 0, negSum = 0;
+    for (let i = 0; i < n; i++) {
+        const p = ux * bx[i].v + uy * by[i].v;
+        if (p > 0) posSum += p; else negSum -= p;
+    }
+    return (posSum > negSum) ? -1 : 1;
+}
 function maybeDetectAxis(now) {
     if (axisLocked || now - lastAxisCheck < 4000) return;
-    // No strokesDetected gate — sign detection reads axBuf directly (FSM-independent),
-    // so it works even when wrong sign has prevented catch detection (catch-22 fix).
     lastAxisCheck = now;
+    // Best single axis by autocorrelation
     let bAx = selAxis, bSc = -1;
     for (const ax of AXES) {
         const sc = scoreAxis(ax);
         if (sc > bSc) { bSc = sc; bAx = ax; }
     }
-    if (bSc > 0.03) {
-        // Detect sign from axBuf asymmetry: drive (longer phase) dominates the
-        // negative side in correct orientation (phone faces stern, drive = bow direction = -X).
-        // If posSum > negSum the signal is inverted -> selSign = -1 to flip it back.
-        let posSum = 0, negSum = 0;
-        for (const s of axBuf[bAx]) {
-            if (s.v > 0) posSum += s.v; else negSum -= s.v;
+    // Flat-mount (screen up): project X/Y onto the boat's fore-aft axis so any
+    // yaw rotation works. Only adopt it when it clearly beats the best single
+    // axis (i.e. surge is split across X and Y); an aligned mount keeps single-axis.
+    let proj = null;
+    const gMag = Math.hypot(gravity.x, gravity.y, gravity.z) || 1;
+    const flat = Math.abs(gravity.z) / gMag > 0.80;
+    if (flat) proj = horizontalPrincipalAxis();
+    const useProj = !!proj && proj.score > 0.03 && proj.score > bSc * 1.15;
+    if (useProj) {
+        const sgn = projectedSign(proj.ux, proj.uy);
+        if (!useProjAxis || sgn !== selSign
+                || Math.abs(proj.ux - projX) > 0.08 || Math.abs(proj.uy - projY) > 0.08) {
+            useProjAxis = true; projX = proj.ux; projY = proj.uy; selSign = sgn;
+            resetAxisState();
         }
+        axisAutoDetected = true;
+    } else if (bSc > 0.03) {
+        let posSum = 0, negSum = 0;
+        for (const s of axBuf[bAx]) { if (s.v > 0) posSum += s.v; else negSum -= s.v; }
         const newSign = (posSum > negSum) ? -1 : 1;
-        if (bAx !== selAxis || newSign !== selSign) {
-            selAxis = bAx;
-            selSign = newSign;
-            acBuf.length = 0;
-            fsmState = FS.IDLE;
-            jerkBuf.length = 0;
-            fastBaseline = 0;
-            jerkThreshActive = jerkThreshBase;
-            catchValsArr.length = 0;
-            adaptReady = false;
+        if (useProjAxis || bAx !== selAxis || newSign !== selSign) {
+            useProjAxis = false; selAxis = bAx; selSign = newSign;
+            resetAxisState();
         }
         axisAutoDetected = true;
     }
     const p = document.getElementById('p-axis');
     if (!p) return;
-    p.textContent = axisAutoDetected ? 'AX:' + (selSign < 0 ? '-' : '') + selAxis.toUpperCase() : 'AX:?';
+    const lbl = useProjAxis ? 'P' + Math.round(Math.atan2(projY, projX) * 57.3) : selAxis.toUpperCase();
+    p.textContent = axisAutoDetected ? 'AX:' + (selSign < 0 ? '-' : '') + lbl : 'AX:?';
     p.className = axisAutoDetected ? (axisLocked ? 'pill pill-on' : 'pill pill-warn') : 'pill pill-off';
 }
 
@@ -1299,7 +1369,9 @@ function handleMotion(e) {
     updateAxes(raw, now);
     maybeDetectAxis(now);
     if (calRunning) return;
-    const fast = selSign * axFast[selAxis];
+    // Surge = single axis, or the horizontal projection when flat-mounted at an angle.
+    const surge = useProjAxis ? (projX * axFast.x + projY * axFast.y) : axFast[selAxis];
+    const fast = selSign * surge;
     jerkBuf.push({ t: now, v: fast });
     if (jerkBuf.length > CONFIG.motion.jerkHistN) jerkBuf.shift();
     let jerk = 0;
@@ -1308,7 +1380,8 @@ function handleMotion(e) {
         if (dtJ > 0.005) jerk = (jerkBuf[jerkBuf.length - 1].v - jerkBuf[0].v) / dtJ;
         jerk = clamp(jerk, -CONFIG.motion.jerkClamp, CONFIG.motion.jerkClamp);
     }
-    acBuf.push({ t: now, v: axSmooth[selAxis] });
+    const smooth = useProjAxis ? (projX * axSmooth.x + projY * axSmooth.y) : axSmooth[selAxis];
+    acBuf.push({ t: now, v: smooth });
     const acCut = now - CONFIG.motion.acBufMs;
     while (acBuf.length > 1 && acBuf[0].t < acCut) acBuf.shift();
     if (running && !paused) {
@@ -1316,7 +1389,7 @@ function handleMotion(e) {
     }
     runFSM(now, fast, jerk);
     if (running && !paused) {
-        catchToCatchSamples.push({ t: now, v: selSign * axFast[selAxis] });
+        catchToCatchSamples.push({ t: now, v: fast });
     }
 }
 
@@ -2159,13 +2232,21 @@ function pushVelocity(t, v) {
         if (gapMs > CONFIG.gps.gapResetMs) { paceDistWindow.length = 0; velocityWindow.length = 0; }
         return;
     }
-    // Resuming from a stop — clear state but let One-Euro filter fall through;
-    // large elapsed dt causes it to snap immediately to the new speed.
-    if (gpsWasStopped && v > 0.5) {
+    // Resuming from a stop (or a long near-stationary streak): the frozen EMA
+    // would otherwise lag for several fixes. Reset the filter so it SNAPS to the
+    // new speed, clear stale windows and reseed — fixes "pace fails to restart".
+    if ((gpsWasStopped || gpsLowSpeedStreak >= 3) && v > 0.5) {
         gpsWasStopped = false; gpsLowSpeedStreak = 0; gpsResumeT = t;
         gpsConvergeStreak = 0; gpsAnchorOk = false;
         havSpeedBuf.length = 0; strokeSpeedBuf.length = 0; velocityWindow.length = 0;
-        // fall through to normal filter path below
+        gpsLastValidT = t; lastDistT = t;
+        vFilter.reset();
+        gpsSpeedEma = vFilter.filter(v, t);   // fresh filter returns v directly → instant snap
+        if (gpsSpeedEma > 0.3) {
+            strokeSpeedBuf.push(gpsSpeedEma);
+            velocityWindow.push({ t, v: gpsSpeedEma });
+        }
+        return;
     }
     // Near-stationary
     if (v < 0.3) {
@@ -2270,7 +2351,7 @@ function handlePos(pos) {
     lastPos = cur;
     // Pace straight from the One-Euro filtered Doppler velocity
     if (running && !paused && !sessionReady) {
-        if (gpsSpeedEma > CONFIG.gps.minSpeedForPace) {
+        if (gpsSpeedEma > CONFIG.gps.minSpeedForPace && !gpsWasStopped && gpsLowSpeedStreak < 3) {
              // Average over whole stroke cycles (catch→catch endpoints) so
             // intra-stroke surge bias cancels. Falls back to time window.
             let tEnd = now, tStart = now - CONFIG.gps.paceAvgMs;
@@ -2314,6 +2395,14 @@ function handleGpsErr(err) {
 function checkGpsAlive() {
     if (!running || paused) return;
     const now = performance.now();
+    // Kill a stale pace during long breaks. gpsSpeedEma freezes when raw speed
+    // drops below threshold, so without this the last pace would display forever.
+    // Runs on the 1 s timer, independent of GPS-fix arrival (covers true silence).
+    if ((gpsLastFixT > 0 && (now - gpsLastFixT) > 5000)   // GPS gone silent
+            || gpsWasStopped                              // confirmed stop
+            || gpsLowSpeedStreak >= 3) {                  // ~3 s near-stationary
+        pace = 0;
+    }
     // gpsLastValidT is 0 if no fix has ever arrived, otherwise the last good fix time.
     const stale = gpsLastValidT === 0
         ? elapsed > 30                          // never got a fix this session
