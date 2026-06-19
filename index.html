@@ -3707,7 +3707,12 @@ function toggleSessLock() {
 }
 function saveInProgress() {
     if (!running || !sessStart || sessStrokes.length === 0) return;
-    try { const snap = { id: sessStart.toString(), startTime: sessStart, duration: elapsed, distance: Math.round(distance), strokeCount, catchPeakSess, catchAvg8, laps, strokes: sessStrokes, paceTrace: sessPaceTrace, gpsTrace: sessGpsTrace, _autosave: true, _savedAt: Date.now() }; _LS.setItem(AUTOSAVE_DB, JSON.stringify(snap)); } catch {}
+    try {
+        const gpsStep = Math.max(1, Math.round(sessGpsTrace.length / 300));
+        const gpsSlim = gpsStep <= 1 ? sessGpsTrace : sessGpsTrace.filter((_, i) => i % gpsStep === 0);
+        const snap = { id: sessStart.toString(), startTime: sessStart, duration: elapsed, distance: Math.round(distance), strokeCount, catchPeakSess, catchAvg8, laps, strokes: sessStrokes, paceTrace: sessPaceTrace, gpsTrace: gpsSlim, _autosave: true, _savedAt: Date.now() };
+        _LS.setItem(AUTOSAVE_DB, JSON.stringify(snap));
+    } catch { toast('⚠️ Storage full — session data not saving! Delete old sessions from LOG.'); }
 }
 function checkAutosave() {
     try {
