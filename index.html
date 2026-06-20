@@ -1510,7 +1510,7 @@ let fsmState = FS.IDLE,
     driveStartT = 0, driveAccSamples = [], drivePeakAcc = 0, drivePeakAccT = 0,
     lastDriveEndT = 0, lastCatchAbsT = 0,
     driveMinJerk = 0,
-    bladeExitT = 0, prevDriveStartT = 0, prevFastSample = 0, bladeExitDetected = false, posRunStartT = 0, fastBaseline = 0,
+    bladeExitT = 0, prevDriveStartT = 0, prevFastSample = 0, bladeExitDetected = false, posRunStartT = 0, fastBaseline = 0, driveForceT = 0, prevDriveForceT = 0,
     drvPeakNeg = 0, drvPeakNegT = 0, drvImpAcc = 0, drvImpLastT = -1,
     prevDrvImp = null, prevDrvPeakT = 0, prevCatchEndT = 0;
 let jerkThreshBase = cal.jerkThresh || 8.0,
@@ -1540,6 +1540,13 @@ function runFSM(now, fast, jerk) {
     // Strong-evidence bypass: a very sharp catch may arrive after only ~42% of
     // the nominal period (abrupt rate jump / racing start) — prevents half-rate lock.
     const refStrong = Math.max(CONFIG.stroke.refractoryMinMs, nominalMs * 0.42);
+    // Drive-force onset: first sample where `fast` actually goes negative
+    // (hull accelerating) after the catch trigger. The catch trigger itself
+    // fires on the check spike (fast>0, boat decelerating), which the FSM
+    // counts as the start of "drive" — inflating measured drive duration and
+    // pulling the catch-slope window onto the check transition instead of
+    // the main load. driveForceT is the true boundary for ratio/catch_slope.
+    if ((fsmState === FS.CATCH || fsmState === FS.DRIVE) && driveForceT === 0 && prevFastSample >= 0 && fast < 0) driveForceT = now;
     switch (fsmState) {
         case FS.IDLE:
         case FS.RECOVERY: {
@@ -1561,7 +1568,7 @@ function runFSM(now, fast, jerk) {
                 onNewCatch(now);
                 fsmState = FS.CATCH;
                 catchStartT = now; catchPeakJerk = jerk;
-                driveMinJerk = 0; prevDriveStartT = driveStartT; bladeExitDetected = false; posRunStartT = 0;
+                driveMinJerk = 0; prevDriveStartT = driveStartT; bladeExitDetected = false; posRunStartT = 0; prevDriveForceT = driveForceT; driveForceT = 0;
                 // Hand the finished stroke's drive-phase peak & impulse to onStrokeFinish
                 prevDrvImp = drvImpAcc; prevDrvPeakT = drvPeakNegT;
                 prevCatchEndT = lastDriveEndT;
@@ -1648,7 +1655,7 @@ function runFSM(now, fast, jerk) {
             if (fast > drivePeakAcc) { drivePeakAcc = fast; drivePeakAccT = now; }
             {
                 const dd = now - driveStartT;
-                if (dd < 500 && jerk < driveMinJerk) driveMinJerk = jerk;
+                if (driveForceT > 0 && (now - driveForceT) < 400 && jerk < driveMinJerk) driveMinJerk = jerk;
                 if ((fastDt < 0 && dd > CONFIG.stroke.minDriveMs) || dd > CONFIG.stroke.maxDriveMs) {
                     onStrokeFinish(now, dd);
                     lastDriveEndT = now;
@@ -1878,6 +1885,7 @@ const MAX_STROKE_TS = 4, strokeTs = [];
 const CATCH_TS_BUF = 5, catchTsBuf = [];
 let rdi = null, rdiValsArr = [];
 let strokeRatio = null, strokeRatioValsArr = [], prevDriveDurMs = 0;
+let dbgDpsRaw = null;
 let oarAngle = null, oarAngleRawArr = [], oarAngleEma = null;
 let checkDelta = null, checkDeltaRawArr = [], checkDeltaEma = null;
 let catchGpsDist = 0, pendingOarStrokeIdx = -1;
@@ -2042,7 +2050,7 @@ function onStrokeFinish(now, driveDur) {
         lastKnownPeriodMs = Math.max(lastKnownPeriodMs * 0.70, CONFIG.stroke.nominalFallbackMs);
         acBuf.length = 0; acConf = 0;
         catchTsBuf.length = 0;                // clear completely — seed happens below
-        strokeRate = 0; catchToCatchSamples = []; pendingCurveDriveCount = 0; strokeTs.length = 0; prevDriveDurMs = 0; bladeExitT = 0; prevDriveStartT = 0; bladeExitDetected = false; posRunStartT = 0; fastBaseline = 0;
+        strokeRate = 0; catchToCatchSamples = []; pendingCurveDriveCount = 0; strokeTs.length = 0; prevDriveDurMs = 0; bladeExitT = 0; prevDriveStartT = 0; bladeExitDetected = false; posRunStartT = 0; fastBaseline = 0; driveForceT = 0; prevDriveForceT = 0;
         drvImpAcc = 0; drvImpLastT = -1; drvPeakNeg = 0; drvPeakNegT = 0;
         prevDrvImp = null; prevDrvPeakT = 0; prevCatchEndT = 0;
     }
@@ -2111,9 +2119,9 @@ function onStrokeFinish(now, driveDur) {
     if (strokeTs.length > MAX_STROKE_TS) strokeTs.shift();
     rdi = null;
     strokeRatio = null;
-    if (bladeExitT > prevDriveStartT + 100 && bladeExitT < driveStartT) {
-        const physDrv = (bladeExitT - prevDriveStartT) / 1000;
-        const physRec = (driveStartT - bladeExitT) / 1000;
+    if (driveForceT > 0 && prevDriveForceT > 0 && bladeExitT > prevDriveForceT + 100 && bladeExitT < driveForceT) {
+        const physDrv = (bladeExitT - prevDriveForceT) / 1000;
+        const physRec = (driveForceT - bladeExitT) / 1000;
         if (physDrv > 0.3 && physRec > 0.3) {
             const rv = (physRec - physDrv) / (physRec + physDrv);
             rdiValsArr.push(rv);
@@ -2141,13 +2149,17 @@ function onStrokeFinish(now, driveDur) {
     // Computed in onNewCatch (next catch). Value persists on display until the
     // next valid computation — only cleared on rest gap (boat stopped).
     const rateToLog = strokeRate;
-    // ── DPS (GPS only) ───────────────────────────────────────────────────────
-    const intervalS = gapMs / 1000;
-    if (intervalS > 0.8 && intervalS < 8 && prevStrokeDistT > 0) {
-        const dD = distance - prevStrokeDist;
-        if (dD > 0.5 && dD < 25 && strokeMeanSpeed >= 1.5 && (now - gpsResumeT) > 2000 && gpsAnchorOk) {
-            pushLimit(dpsValsArr, dD, CONFIG.stroke.dpsMedianN);
-            distPerStroke = Math.round((median(dpsValsArr) ?? dD) * 10) / 10;
+    // ── DPS (GPS only) — distance per stroke = mean catch-to-catch GPS speed ×
+    // cadence period. Using the SMOOTHED rate (not the raw interval) makes a
+    // missed/merged catch contribute ONE stroke's distance, not two, and avoids
+    // the boundary-differencing noise of subtracting quantised distance.
+    dbgDpsRaw = null;
+    if (strokeRate > 0 && strokeMeanSpeed >= 1.5 && (now - gpsResumeT) > 2000 && gpsAnchorOk) {
+        const dps1 = strokeMeanSpeed * (60 / strokeRate);
+        dbgDpsRaw = +dps1.toFixed(2);
+        if (dps1 > 0.5 && dps1 < 25) {
+            pushLimit(dpsValsArr, dps1, CONFIG.stroke.dpsMedianN);
+            distPerStroke = Math.round((median(dpsValsArr) ?? dps1) * 10) / 10;
             if (distPerStroke > maxDPS) maxDPS = distPerStroke;
         }
     }
@@ -2203,7 +2215,12 @@ function onStrokeFinish(now, driveDur) {
             dpsN: dpsValsArr.length,
             prlStartMs: Math.round(CONFIG.runLoss.startAfterDriveMs),
             prlWindowMs: CONFIG.runLoss.windowMs,
-            selAxis, selSign, axisLocked
+            selAxis, selSign, axisLocked,
+            physDrvMs: bladeExitT > 0 ? Math.round(bladeExitT - prevDriveStartT) : null,
+            physRecMs: bladeExitT > 0 ? Math.round(driveStartT - bladeExitT) : null,
+            driveMinJerk: +driveMinJerk.toFixed(1),
+            drvPeakMs: (prevDrvPeakT > prevCatchEndT) ? Math.round(prevDrvPeakT - prevCatchEndT) : null,
+            dpsRaw: dbgDpsRaw
         }
     });
     pendingOarStrokeIdx = sessStrokes.length - 1;
@@ -3805,7 +3822,7 @@ function resetSess() {
     strokeTs.length = 0; prevDriveDurMs = 0; prevFastSample = 0; paceDistWindow.length = 0; velocityWindow.length = 0;
     speedSamples.length = 0; prevStrokeDist = 0; prevStrokeDistT = 0;
     gpsLastValidT = 0; gpsLastFixT = 0; gpsSpeedEma = -1; gpsWasStopped = false; gpsDeadWarned = false; gpsAccuracyM = null; headingEmaX = null; headingEmaY = null; vFilter.reset(); lastDistT = 0; gpsResumeT = -Infinity; gpsLowSpeedStreak = 0; strokeSpeedBuf.length = 0; strokeMeanSpeed = 0;
-    fsmState = FS.IDLE; catchPeakJerk = 0; driveMinJerk = 0; trigValsArr.length = 0; catchStartT = 0; lastCatchAbsT = 0; lastDriveEndT = 0; bladeExitT = 0; prevDriveStartT = 0; bladeExitDetected = false;
+    fsmState = FS.IDLE; catchPeakJerk = 0; driveMinJerk = 0; trigValsArr.length = 0; catchStartT = 0; lastCatchAbsT = 0; lastDriveEndT = 0; bladeExitT = 0; prevDriveStartT = 0; bladeExitDetected = false; driveForceT = 0; prevDriveForceT = 0;
     strokesDetected = 0; jerkThreshActive = jerkThreshBase; adaptReady = false;
     acBuf.length = 0; acLastUpdate = 0; jerkBuf.length = 0; catchTsBuf.length = 0;
     axisLocked = false; axisAutoDetected = false; lastAxisCheck = 0; selSign = 1;
@@ -5041,7 +5058,7 @@ function exportDebugCSV(s){
   const t0=s.startTime;const el=t=>(+(t-t0)/1000).toFixed(2);const rows=[['##ENV'],['session_id',s.id,'start_utc',new Date(t0).toISOString()],['duration_s',n(s.duration),'distance_m',n(s.distance),'strokes',n(s.strokeCount)]];
   const cfg=s.config||{},rl=cfg.rl||{},gps=cfg.gps||{};
   rows.push(['rl_startAfterDriveMs',n(rl.startAfterDriveMs??CONFIG.runLoss.startAfterDriveMs),'rl_windowMs',n(rl.windowMs??CONFIG.runLoss.windowMs)]);rows.push(['gps_emaAlpha',n(gps.alpha??CONFIG.gps.speedEmaAlpha),'gps_medianN',n(gps.medN??CONFIG.gps.speedMedianN)]);rows.push([]);
-  rows.push(['##STR'],['n','elapsed_s','rate','catch_slope','stroke_char','consistency','dps','run_loss_m','run_loss_pct','run_loss_mps','impulse','ratio','catch_dur_ms','oar_deg','oar_raw_deg','oar_vmean','check_delta','rdi','pace_s500','drive_dur_ms','interval_ms','jerk_raw','jerk_thresh','gps_ema_pace','dps_n','sel_axis','sel_sign','axis_locked']);(s.strokes||[]).forEach((r,i)=>{const d=r.dbg||{};rows.push([i+1,el(r.t),n(r.rate),f2(r.catchPeak),n(r.char),f2(r.catchConsistency),f2(r.dps),f2(r.runLossM),f2(r.runLossPct),f2(r.runLossMps),r.driveImpulse!=null?Math.round(r.driveImpulse*100):'',f2(r.strokeRatio),n(r.catchDuration),n(r.oarAngle),f2(r.oarAngleRaw),f3(r.oarVMean),f2(r.checkDelta),f2(r.rdi),f2(r.pace),n(d.driveDurMs),n(d.intervalMs),f2(d.catchJerkRaw),f2(d.jerkThresh),f2(d.gpsEma),n(d.dpsN),d.selAxis||'',(d.selSign==null?'':d.selSign),d.axisLocked?'1':'0']);});rows.push([]);
+  rows.push(['##STR'],['n','elapsed_s','rate','catch_slope','stroke_char','consistency','dps','run_loss_m','run_loss_pct','run_loss_mps','impulse','ratio','catch_dur_ms','oar_deg','oar_raw_deg','oar_vmean','check_delta','rdi','pace_s500','drive_dur_ms','interval_ms','jerk_raw','jerk_thresh','gps_ema_pace','dps_n','sel_axis','sel_sign','axis_locked','phys_drv_ms','phys_rec_ms','drive_min_jerk','drv_peak_ms','dps_raw_m']);(s.strokes||[]).forEach((r,i)=>{const d=r.dbg||{};rows.push([i+1,el(r.t),n(r.rate),f2(r.catchPeak),n(r.char),f2(r.catchConsistency),f2(r.dps),f2(r.runLossM),f2(r.runLossPct),f2(r.runLossMps),r.driveImpulse!=null?Math.round(r.driveImpulse*100):'',f2(r.strokeRatio),n(r.catchDuration),n(r.oarAngle),f2(r.oarAngleRaw),f3(r.oarVMean),f2(r.checkDelta),f2(r.rdi),f2(r.pace),n(d.driveDurMs),n(d.intervalMs),f2(d.catchJerkRaw),f2(d.jerkThresh),f2(d.gpsEma),n(d.dpsN),d.selAxis||'',(d.selSign==null?'':d.selSign),d.axisLocked?'1':'0',n(d.physDrvMs),n(d.physRecMs),f2(d.driveMinJerk),n(d.drvPeakMs),f2(d.dpsRaw)]);});rows.push([]);
   rows.push(['##RL'],['stroke_n','start_spd_ms','min_spd_ms','gps_dv_ms','imu_max_dv','imu_min_dv','imu_swing_dv','sampled_s','raw_loss_m','anchor_v','raw_rl_pct','med_loss_m','gps_n','imu_n']);(s.rlDebug||[]).forEach(r=>rows.push([n(r.strokeN),f3(r.startSpeed),f3(r.minSpeed),f3(r.dv),f4(r.imuMaxDv),f4(r.imuMinDv),f4(r.imuSwingDv),f3(r.sampledS),f4(r.rawLossM),f3(r.anchorV),f2(r.rlPct),f4(r.medLoss),n(r.nSamples),n(r.imuN)]));rows.push([]);
   if(s.gpsRawTrace&&s.gpsRawTrace.length){rows.push(['##GPS'],['elapsed_s','gps_raw_ms','gps_ema_ms','acc_m','stroke_n','rl_phase']);s.gpsRawTrace.forEach(p=>rows.push([el(p.t),f3(p.rawSpd),f3(p.emaSpd),f2(p.acc),n(p.strokeN),p.rlPhase||'none']));rows.push([]);}
   if(s.hrTrace&&s.hrTrace.length){rows.push(['##HR'],['elapsed_s','hr_bpm']);s.hrTrace.forEach(h=>rows.push([el(h.t),h.hr]));rows.push([]);}
