@@ -1297,19 +1297,35 @@ function horizontalPrincipalAxis() {
     for (let i = 0; i < n; i++) proj[i] = ux * bx[i].v + uy * by[i].v;
     return { ux, uy, score: autocorrScore(proj, dtMs) };
 }
-// Sign for the projected axis: drive (longer phase) must dominate the negative
-// side so fast>0 at the catch — same convention as the single-axis path.
+// Surge-axis sign from distribution skewness. The drive is a brief, high-amplitude
+// phase and the recovery a long, low-amplitude one, so the acceleration distribution
+// is skewed toward the drive side. Skewness (3rd moment) finds the drive side far
+// more reliably than summed magnitudes, whose impulses nearly cancel each stroke and
+// flip on tiny asymmetries. Choose the sign that puts the drive on the NEGATIVE side
+// (fast<0 in drive, fast>0 at the catch / recovery).
+function driveSign(vals) {
+    const n = vals.length;
+    if (n < 8) return selSign;
+    let mu = 0;
+    for (let i = 0; i < n; i++) mu += vals[i];
+    mu /= n;
+    let m2 = 0, m3 = 0;
+    for (let i = 0; i < n; i++) { const d = vals[i] - mu; m2 += d * d; m3 += d * d * d; }
+    m2 /= n; m3 /= n;
+    if (m2 < 1e-9) return selSign;
+    const skew = m3 / Math.pow(m2, 1.5);
+    return (skew > 0) ? -1 : 1;
+}
+// Sign for the projected axis — same skewness criterion as the single-axis path.
 function projectedSign(ux, uy) {
     const bx = axBuf.x, by = axBuf.y, n = Math.min(bx.length, by.length);
-    let posSum = 0, negSum = 0;
-    for (let i = 0; i < n; i++) {
-        const p = ux * bx[i].v + uy * by[i].v;
-        if (p > 0) posSum += p; else negSum -= p;
-    }
-    return (posSum > negSum) ? -1 : 1;
+    const proj = new Array(n);
+    for (let i = 0; i < n; i++) proj[i] = ux * bx[i].v + uy * by[i].v;
+    return driveSign(proj);
 }
 function maybeDetectAxis(now) {
-    if (axisLocked || now - lastAxisCheck < 4000) return;
+    if (axisLocked) { maybeRevalidateSign(now); return; }
+    if (now - lastAxisCheck < 4000) return;
     lastAxisCheck = now;
     // Best single axis by autocorrelation
     let bAx = selAxis, bSc = -1;
@@ -1334,9 +1350,7 @@ function maybeDetectAxis(now) {
         }
         axisAutoDetected = true;
     } else if (bSc > 0.03) {
-        let posSum = 0, negSum = 0;
-        for (const s of axBuf[bAx]) { if (s.v > 0) posSum += s.v; else negSum -= s.v; }
-        const newSign = (posSum > negSum) ? -1 : 1;
+        const newSign = driveSign(axBuf[bAx].map(s => s.v));
         if (useProjAxis || bAx !== selAxis || newSign !== selSign) {
             useProjAxis = false; selAxis = bAx; selSign = newSign;
             resetAxisState();
@@ -1348,6 +1362,50 @@ function maybeDetectAxis(now) {
     const lbl = useProjAxis ? 'P' + Math.round(Math.atan2(projY, projX) * 57.3) : selAxis.toUpperCase();
     p.textContent = axisAutoDetected ? 'AX:' + (selSign < 0 ? '-' : '') + lbl : 'AX:?';
     p.className = axisAutoDetected ? (axisLocked ? 'pill pill-on' : 'pill pill-warn') : 'pill pill-off';
+}
+
+let lastSignCheck = 0, signFlipStreak = 0;
+function signedSkew(vals) {
+    const n = vals.length;
+    if (n < 40) return 0;
+    let mu = 0; for (let i = 0; i < n; i++) mu += vals[i]; mu /= n;
+    let m2 = 0, m3 = 0;
+    for (let i = 0; i < n; i++) { const d = vals[i] - mu; m2 += d * d; m3 += d * d * d; }
+    m2 /= n; m3 /= n;
+    if (m2 < 1e-9) return 0;
+    return m3 / Math.pow(m2, 1.5);
+}
+// Post-lock sign re-validation. The early lock (first ~4 strokes) can capture the
+// wrong sign if those strokes were light, paddled, or backing. axBuf holds raw
+// (pre-selSign) samples, so the surge skewness is a fixed property of the physical
+// signal — re-derive the correct sign and auto-flip after several consecutive
+// confident disagreements (hysteresis stops thrashing). Also re-corrects if the
+// phone is physically flipped mid-session.
+function maybeRevalidateSign(now) {
+    if (!axisAutoDetected || now - lastSignCheck < 4000) return;
+    lastSignCheck = now;
+    if (strokesDetected < 6 || acRate <= 0) return;   // require real, periodic rowing
+    let vals;
+    if (useProjAxis) {
+        const bx = axBuf.x, by = axBuf.y, m = Math.min(bx.length, by.length);
+        vals = new Array(m);
+        for (let i = 0; i < m; i++) vals[i] = projX * bx[i].v + projY * by[i].v;
+    } else {
+        vals = axBuf[selAxis].map(s => s.v);
+    }
+    const skew = signedSkew(vals);
+    if (Math.abs(skew) < 0.20) return;                // asymmetry too weak to trust
+    const correctSign = (skew > 0) ? -1 : 1;
+    if (correctSign === selSign) { signFlipStreak = 0; return; }
+    if (++signFlipStreak < 3) return;                 // sustained disagreement only
+    selSign = correctSign; signFlipStreak = 0;
+    resetAxisState();
+    if (typeof toast === 'function') toast('Axis sign auto-corrected');
+    const p = document.getElementById('p-axis');
+    if (p) {
+        const lbl = useProjAxis ? 'P' + Math.round(Math.atan2(projY, projX) * 57.3) : selAxis.toUpperCase();
+        p.textContent = 'AX:' + (selSign < 0 ? '-' : '') + lbl; p.className = 'pill pill-on';
+    }
 }
 
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
@@ -2172,6 +2230,13 @@ function onStrokeFinish(now, driveDur) {
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 let strokeSpeedBuf = [], strokeMeanSpeed = 0;
 let pace = 0, gpsAccuracyM = null, gpsSpeedEma = -1, gpsLastValidT = 0, gpsLastFixT = 0, gpsWasStopped = false, gpsDeadWarned = false, gpsResumeT = -Infinity, gpsLowSpeedStreak = 0;
+let gpsSpeedHist = [], gpsRejectStreak = 0;
+function gpsSpeedMedian() {
+    const n = gpsSpeedHist.length;
+    if (n < 3) return 0;
+    const s = gpsSpeedHist.slice().sort((a, b) => a - b);
+    return s[n >> 1];
+}
 const speedSamples = [], paceDistWindow = [], velocityWindow = [];
 let lastPos = null;
 let havSpeedBuf = [], dopplerLowStreak = 0, gpsConvergeStreak = 0, gpsAnchorOk = false;
@@ -2227,7 +2292,7 @@ function pushVelocity(t, v) {
     const gapMs = gpsLastValidT > 0 ? t - gpsLastValidT : 0;
     // Cold start or long gap → reinitialise filter
     if (gpsSpeedEma < 0 || gapMs > CONFIG.gps.gapResetMs) {
-        gpsLastValidT = t; lastDistT = t; gpsWasStopped = false; gpsLowSpeedStreak = 0; strokeSpeedBuf.length = 0;
+        gpsLastValidT = t; lastDistT = t; gpsWasStopped = false; gpsLowSpeedStreak = 0; strokeSpeedBuf.length = 0; gpsSpeedHist.length = 0; gpsRejectStreak = 0;
         vFilter.reset(); gpsSpeedEma = vFilter.filter(v, t);
         if (gapMs > CONFIG.gps.gapResetMs) { paceDistWindow.length = 0; velocityWindow.length = 0; }
         return;
@@ -2238,7 +2303,7 @@ function pushVelocity(t, v) {
     if ((gpsWasStopped || gpsLowSpeedStreak >= 3) && v > 0.5) {
         gpsWasStopped = false; gpsLowSpeedStreak = 0; gpsResumeT = t;
         gpsConvergeStreak = 0; gpsAnchorOk = false;
-        havSpeedBuf.length = 0; strokeSpeedBuf.length = 0; velocityWindow.length = 0;
+        havSpeedBuf.length = 0; strokeSpeedBuf.length = 0; velocityWindow.length = 0; gpsSpeedHist.length = 0; gpsRejectStreak = 0;
         gpsLastValidT = t; lastDistT = t;
         vFilter.reset();
         gpsSpeedEma = vFilter.filter(v, t);   // fresh filter returns v directly → instant snap
@@ -2256,7 +2321,7 @@ function pushVelocity(t, v) {
             // declaring a genuine stop — a single GPS glitch (raw speed
             // reported as 0) must not wipe the DPS/oar-angle history.
             if (gpsLowSpeedStreak >= 3 && gpsSpeedEma < 0.5) {
-                gpsLastValidT = t; gpsWasStopped = true; strokeSpeedBuf.length = 0;
+                gpsLastValidT = t; gpsWasStopped = true; strokeSpeedBuf.length = 0; gpsSpeedHist.length = 0; gpsRejectStreak = 0;
                 dpsValsArr.length = 0; distPerStroke = 0;   // clear corrupt DPS buffer
                 oarAngleRawArr.length = 0;                   // clear corrupt oar history
             }
@@ -2267,11 +2332,23 @@ function pushVelocity(t, v) {
     }
     gpsLowSpeedStreak = 0;
     gpsLastValidT = t;
+    // Reject an isolated Doppler collapse: a fix far below the recent median
+    // (>40%) is a GPS speed glitch, not a real slowdown (which is gradual and
+    // sustained). Drop it so it can't poison the filter / pace. Three lows in a
+    // row is treated as a genuine sustained change and adopted immediately.
+    const gMed = gpsSpeedMedian();
+    if (gMed > 1.0 && v < gMed * 0.60) {
+        if (gpsRejectStreak < 3) { gpsRejectStreak++; return; }
+        gpsSpeedHist.length = 0;
+    }
+    gpsRejectStreak = 0;
     // Light spike clamp, then One-Euro filter on the Doppler speed
     let vIn = v;
     if (gpsSpeedEma > 1.0 && vIn > gpsSpeedEma + CONFIG.gps.spikeMarginMps)
         vIn = gpsSpeedEma + CONFIG.gps.spikeMarginMps;
-    gpsSpeedEma = vFilter.filter(vIn, t);
+    gpsSpeedHist.push(vIn);
+    if (gpsSpeedHist.length > 7) gpsSpeedHist.shift();
+   gpsSpeedEma = vFilter.filter(vIn, t);
     if (gpsSpeedEma > 0.3) strokeSpeedBuf.push(gpsSpeedEma);
     // Distance from velocity integral — unbiased, no position-jitter inflation
     if (lastDistT > 0) {
@@ -4964,7 +5041,7 @@ function exportDebugCSV(s){
   const t0=s.startTime;const el=t=>(+(t-t0)/1000).toFixed(2);const rows=[['##ENV'],['session_id',s.id,'start_utc',new Date(t0).toISOString()],['duration_s',n(s.duration),'distance_m',n(s.distance),'strokes',n(s.strokeCount)]];
   const cfg=s.config||{},rl=cfg.rl||{},gps=cfg.gps||{};
   rows.push(['rl_startAfterDriveMs',n(rl.startAfterDriveMs??CONFIG.runLoss.startAfterDriveMs),'rl_windowMs',n(rl.windowMs??CONFIG.runLoss.windowMs)]);rows.push(['gps_emaAlpha',n(gps.alpha??CONFIG.gps.speedEmaAlpha),'gps_medianN',n(gps.medN??CONFIG.gps.speedMedianN)]);rows.push([]);
-  rows.push(['##STR'],['n','elapsed_s','rate','catch_slope','stroke_char','consistency','dps','run_loss_m','run_loss_pct','run_loss_mps','impulse','ratio','catch_dur_ms','oar_deg','oar_raw_deg','oar_vmean','check_delta','rdi','pace_s500','drive_dur_ms','interval_ms','jerk_raw','jerk_thresh','gps_ema_pace','dps_n','sel_axis','axis_locked']);(s.strokes||[]).forEach((r,i)=>{const d=r.dbg||{};rows.push([i+1,el(r.t),n(r.rate),f2(r.catchPeak),n(r.char),f2(r.catchConsistency),f2(r.dps),f2(r.runLossM),f2(r.runLossPct),f2(r.runLossMps),r.driveImpulse!=null?Math.round(r.driveImpulse*100):'',f2(r.strokeRatio),n(r.catchDuration),n(r.oarAngle),f2(r.oarAngleRaw),f3(r.oarVMean),f2(r.checkDelta),f2(r.rdi),f2(r.pace),n(d.driveDurMs),n(d.intervalMs),f2(d.catchJerkRaw),f2(d.jerkThresh),f2(d.gpsEma),n(d.dpsN),d.selAxis||'',d.axisLocked?'1':'0']);});rows.push([]);
+  rows.push(['##STR'],['n','elapsed_s','rate','catch_slope','stroke_char','consistency','dps','run_loss_m','run_loss_pct','run_loss_mps','impulse','ratio','catch_dur_ms','oar_deg','oar_raw_deg','oar_vmean','check_delta','rdi','pace_s500','drive_dur_ms','interval_ms','jerk_raw','jerk_thresh','gps_ema_pace','dps_n','sel_axis','sel_sign','axis_locked']);(s.strokes||[]).forEach((r,i)=>{const d=r.dbg||{};rows.push([i+1,el(r.t),n(r.rate),f2(r.catchPeak),n(r.char),f2(r.catchConsistency),f2(r.dps),f2(r.runLossM),f2(r.runLossPct),f2(r.runLossMps),r.driveImpulse!=null?Math.round(r.driveImpulse*100):'',f2(r.strokeRatio),n(r.catchDuration),n(r.oarAngle),f2(r.oarAngleRaw),f3(r.oarVMean),f2(r.checkDelta),f2(r.rdi),f2(r.pace),n(d.driveDurMs),n(d.intervalMs),f2(d.catchJerkRaw),f2(d.jerkThresh),f2(d.gpsEma),n(d.dpsN),d.selAxis||'',(d.selSign==null?'':d.selSign),d.axisLocked?'1':'0']);});rows.push([]);
   rows.push(['##RL'],['stroke_n','start_spd_ms','min_spd_ms','gps_dv_ms','imu_max_dv','imu_min_dv','imu_swing_dv','sampled_s','raw_loss_m','anchor_v','raw_rl_pct','med_loss_m','gps_n','imu_n']);(s.rlDebug||[]).forEach(r=>rows.push([n(r.strokeN),f3(r.startSpeed),f3(r.minSpeed),f3(r.dv),f4(r.imuMaxDv),f4(r.imuMinDv),f4(r.imuSwingDv),f3(r.sampledS),f4(r.rawLossM),f3(r.anchorV),f2(r.rlPct),f4(r.medLoss),n(r.nSamples),n(r.imuN)]));rows.push([]);
   if(s.gpsRawTrace&&s.gpsRawTrace.length){rows.push(['##GPS'],['elapsed_s','gps_raw_ms','gps_ema_ms','acc_m','stroke_n','rl_phase']);s.gpsRawTrace.forEach(p=>rows.push([el(p.t),f3(p.rawSpd),f3(p.emaSpd),f2(p.acc),n(p.strokeN),p.rlPhase||'none']));rows.push([]);}
   if(s.hrTrace&&s.hrTrace.length){rows.push(['##HR'],['elapsed_s','hr_bpm']);s.hrTrace.forEach(h=>rows.push([el(h.t),h.hr]));rows.push([]);}
