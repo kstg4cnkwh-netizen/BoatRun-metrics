@@ -1088,6 +1088,76 @@ const DriveSync = (() => {
     };
 })();
 
+// ──────────────────────────────────────────────────────────────────────────
+// SQUAD SYNC — live broadcast + remote lap/workout commands (BoatRun-coach)
+// ──────────────────────────────────────────────────────────────────────────
+const SQUAD_DB_URL = 'https://boatrun-default-rtdb.asia-southeast1.firebasedatabase.app';
+function getDeviceId() {
+    try {
+        let id = _LS.getItem('_squad_device_id');
+        if (!id) { id = 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); _LS.setItem('_squad_device_id', id); }
+        return id;
+    } catch { return 'r' + Math.random().toString(36).slice(2, 8); }
+}
+function getSquadCode() { try { return _LS.getItem('_squad_code') || ''; } catch { return ''; } }
+function setSquadCode(c) { try { _LS.setItem('_squad_code', (c || '').trim().toUpperCase()); } catch {} }
+function getRowerName() { try { return _LS.getItem('_squad_rower_name') || ''; } catch { return ''; } }
+function setRowerName(n) { try { _LS.setItem('_squad_rower_name', (n || '').trim()); } catch {} }
+function remoteLapTrigger() {
+    if (!running || paused) return;
+    handleLapBtn();
+}
+function applyRemoteWorkout(def) {
+    if (!def || !def.steps) return;
+    if (!enterLive._done) return;
+    if ((running || paused || elapsed > 0) && !confirm('Coach pushed workout "' + def.name + '". Load it now?\n\nExisting laps are kept. Lap timing resets to this point.')) return;
+    if (wkt.active) wktEnd();
+    detachBuilder(); _wktEditId = null; _wktSteps = []; _wktSelectedSteps = new Set(); _wktOriginalSnapshot = null;
+    wktStart(def); showTab('live');
+}
+const SquadSync = (() => {
+    let _es = null, _lastBroadcastT = 0, _lastLapT = 0;
+    return {
+        isConnected() { return !!_es; },
+        async maybeBroadcast() {
+            const code = getSquadCode(); if (!code) return;
+            const now = Date.now();
+            if (now - _lastBroadcastT < 3000) return;
+            _lastBroadcastT = now;
+            const body = {
+                name: getRowerName() || 'Rower', rate: Math.round(strokeRate || 0),
+                dist: Math.round(distance || 0), strokes: strokeCount || 0,
+                laps: laps.length, elapsed: elapsed || 0,
+                live: !!(running && !paused), t: now
+            };
+            try {
+                await fetch(SQUAD_DB_URL + '/squads/' + code + '/rowers/' + getDeviceId() + '/live.json', { method: 'PUT', body: JSON.stringify(body) });
+            } catch {}
+        },
+        listen() {
+            const code = getSquadCode();
+            this.stop();
+            if (!code || typeof EventSource === 'undefined') return;
+            const seenKey = '_squad_seen_wkt_t_' + code;
+            let seenWktT = 0; try { seenWktT = parseInt(_LS.getItem(seenKey) || '0'); } catch {}
+            _es = new EventSource(SQUAD_DB_URL + '/squads/' + code + '/commands.json');
+            const handle = raw => {
+                let msg; try { msg = JSON.parse(raw); } catch { return; }
+                if (!msg || !msg.data) return;
+                const lap = msg.path === '/lap' ? msg.data : (msg.path === '/' ? msg.data.lap : null);
+                const wkt2 = msg.path === '/workout' ? msg.data : (msg.path === '/' ? msg.data.workout : null);
+                if (lap && lap.t && lap.t !== _lastLapT && (Date.now() - lap.t) < 5000) { _lastLapT = lap.t; remoteLapTrigger(); }
+                if (wkt2 && wkt2.t && wkt2.t !== seenWktT) { seenWktT = wkt2.t; try { _LS.setItem(seenKey, String(wkt2.t)); } catch {} applyRemoteWorkout(wkt2); }
+            };
+            _es.addEventListener('put', e => handle(e.data));
+            _es.addEventListener('patch', e => handle(e.data));
+            _es.onerror = () => {};
+        },
+        stop() { if (_es) { _es.close(); _es = null; } }
+    };
+})();
+function bootSquadSync() { if (getSquadCode()) SquadSync.listen(); }
+
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // OAUTH — Google sign-in flow (popup + redirect fallback)
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
@@ -2922,6 +2992,7 @@ function updateUI() {
     cells.forEach((key, i) => renderMetricSlot(i, key));
     updateWorkoutBar();
     if (curveTabActive()) updateCurveTiles();
+    SquadSync.maybeBroadcast();
 }
 function toggleSessLock() {
     sessLocked = !sessLocked;
@@ -4096,7 +4167,20 @@ function renderSettingsPanel() {
         ${row('DISTANCE UNIT', 'distUnit', [['km','km'],['mi','miles']])}
         <div style="height:10px;"></div>
         ${row('SUB UNITS (DPS / RUN LOSS)', 'dpsUnit', [['m','m'],['ft','ft'],['in','in']])}
+        <div style="height:18px;"></div>
+        <div class="setup-section">COACH SQUAD ${SquadSync.isConnected()?'<span style="color:#27ae60;">● connected</span>':''}</div>
+        <input id="squad-code-input" type="text" placeholder="Squad code (e.g. RC7K)" value="${getSquadCode()}" style="width:100%;padding:10px;font-size:14px;border:1px solid #ccc;border-radius:4px;margin-top:6px;text-transform:uppercase;box-sizing:border-box;" maxlength="8"/>
+        <input id="squad-name-input" type="text" placeholder="Your name (shown to coach)" value="${getRowerName()}" style="width:100%;padding:10px;font-size:14px;border:1px solid #ccc;border-radius:4px;margin-top:8px;box-sizing:border-box;" maxlength="24"/>
+        <button onclick="saveSquadSettings()" style="width:100%;padding:10px;font-size:13px;font-weight:700;letter-spacing:.08em;margin-top:8px;background:#1a5276;color:#fff;border:none;border-radius:4px;">SAVE &amp; CONNECT</button>
     </div>`;
+}
+function saveSquadSettings() {
+    const codeEl = document.getElementById('squad-code-input'), nameEl = document.getElementById('squad-name-input');
+    const code = codeEl ? codeEl.value : '', name = nameEl ? nameEl.value : '';
+    setSquadCode(code); setRowerName(name);
+    SquadSync.listen();
+    renderSettingsPanel();
+    toast(code.trim() ? 'Connected to squad ' + code.trim().toUpperCase() : 'Squad code cleared');
 }
 
 /* 
@@ -5108,6 +5192,7 @@ DriveSync.init().then(async()=>{
   if(!hadOAuth){try{if(localStorage.getItem('scull_setup_v1')==='1')showTab('home');}catch{}}
 }).catch(()=>{});
 checkAutosave();
+bootSquadSync();
 window.addEventListener('online',()=>{if(DriveSync.isSignedIn())flushQueue().catch(()=>{});});
 
 fetch('./sw.js?'+Date.now()).then(r=>r.text()).then(txt=>{const m=txt.match(/const C\s*=\s*([^;\n]+)/);if(m){const v=m[1].replace(/['"\s+]/g,'');if(v){['splash-version','about-version'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=v;});}}}).catch(()=>{});
