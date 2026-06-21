@@ -1116,10 +1116,11 @@ function applyRemoteWorkout(def) {
     wktStart(def); showTab('live');
 }
 const SquadSync = (() => {
-    let _es = null, _lastBroadcastT = 0, _lastLapT = 0;
+    let _es = null, _lastBroadcastT = 0, _lastLapT = 0, _coachName = null;
     return {
         isConnected() { return !!_es && _es.readyState === 1; },
-        async maybeBroadcast() {
+        coachName() { return _coachName; },
+                async maybeBroadcast() {
             const code = getSquadCode(); if (!code) return;
             const now = Date.now();
             if (now - _lastBroadcastT < 2000) return;
@@ -1180,8 +1181,10 @@ const SquadSync = (() => {
                 if (!msg || !msg.data) return;
                 const lap = msg.path === '/lap' ? msg.data : (msg.path === '/' ? msg.data.lap : null);
                 const wkt2 = msg.path === '/workout' ? msg.data : (msg.path === '/' ? msg.data.workout : null);
+                const cn = msg.path === '/coachName' ? msg.data : (msg.path === '/' ? msg.data.coachName : null);
                 if (lap && lap.t && lap.t !== _lastLapT && (Date.now() - lap.t) < 5000) { _lastLapT = lap.t; remoteLapTrigger(); }
                 if (wkt2 && wkt2.t && wkt2.t !== seenWktT) { seenWktT = wkt2.t; try { _LS.setItem(seenKey, String(wkt2.t)); } catch {} applyRemoteWorkout(wkt2); }
+                if (cn && cn.name && cn.name !== _coachName) { _coachName = cn.name; updateSquadPill(); }
             };
             _es.addEventListener('put', e => handle(e.data));
             _es.addEventListener('patch', e => handle(e.data));
@@ -1189,16 +1192,27 @@ const SquadSync = (() => {
             _es.onerror = () => updateSquadPill();
             updateSquadPill();
         },
-        stop() { if (_es) { _es.close(); _es = null; } updateSquadPill(); }
+        stop() { if (_es) { _es.close(); _es = null; } _coachName = null; updateSquadPill(); }
     };
 })();
 function bootSquadSync() { if (getSquadCode()) SquadSync.listen(); }
 function updateSquadPill() {
-    const p = document.getElementById('p-squad'); if (!p) return;
-    if (!getSquadCode()) { p.style.display = 'none'; return; }
-    p.style.display = 'inline-block';
-    p.className = 'pill ' + (SquadSync.isConnected() ? 'pill-on' : 'pill-off');
-    p.textContent = SquadSync.isConnected() ? 'SQ' : 'SQ\u2026';
+    const p = document.getElementById('p-squad');
+    if (p) {
+        if (!getSquadCode()) { p.style.display = 'none'; }
+        else { p.style.display = 'inline-block'; p.className = 'pill ' + (SquadSync.isConnected() ? 'pill-on' : 'pill-off'); p.textContent = SquadSync.isConnected() ? 'SQ' : 'SQ\u2026'; }
+    }
+    const st = document.getElementById('squad-status-text');
+    if (st) {
+        if (SquadSync.isConnected()) {
+            const cn = SquadSync.coachName();
+            st.innerHTML = '<span style="color:#27ae60;">\u25cf Connected' + (cn ? ' to ' + cn : '') + '</span>';
+        } else if (getSquadCode()) {
+            st.innerHTML = '<span style="color:#f39c12;">\u25cf connecting\u2026</span>';
+        } else {
+            st.innerHTML = '';
+        }
+    }
 }
 function disconnectSquad() {
     setSquadCode('');
@@ -1206,7 +1220,6 @@ function disconnectSquad() {
     const codeEl = document.getElementById('squad-code-input');
     if (codeEl) codeEl.value = '';
     renderSettingsPanel();
-    updateSquadPill();
     toast('Disconnected from squad');
 }
 
@@ -4220,7 +4233,7 @@ function renderSettingsPanel() {
         <div style="height:10px;"></div>
         ${row('SUB UNITS (DPS / RUN LOSS)', 'dpsUnit', [['m','m'],['ft','ft'],['in','in']])}
         <div style="height:18px;"></div>
-        <div class="setup-section">COACH SQUAD ${SquadSync.isConnected()?'<span style="color:#27ae60;">\u25cf connected</span>':(getSquadCode()?'<span style="color:#f39c12;">\u25cf connecting\u2026</span>':'')}</div>
+        <div class="setup-section">COACH SQUAD <span id="squad-status-text">${SquadSync.isConnected()?'<span style="color:#27ae60;">\u25cf Connected'+(SquadSync.coachName()?' to '+SquadSync.coachName():'')+'</span>':(getSquadCode()?'<span style="color:#f39c12;">\u25cf connecting\u2026</span>':'')}</span></div>
         <input id="squad-code-input" type="text" placeholder="Squad code (e.g. RC7K)" value="${getSquadCode()}" style="width:100%;padding:10px;font-size:14px;border:1px solid #ccc;border-radius:4px;margin-top:6px;text-transform:uppercase;box-sizing:border-box;" maxlength="8"/>
         <input id="squad-name-input" type="text" placeholder="Your name (shown to coach)" value="${getRowerName()}" style="width:100%;padding:10px;font-size:14px;border:1px solid #ccc;border-radius:4px;margin-top:8px;box-sizing:border-box;" maxlength="24"/>
         <div style="display:flex;gap:8px;margin-top:8px;">
@@ -4235,7 +4248,7 @@ function saveSquadSettings() {
     setSquadCode(code); setRowerName(name);
     SquadSync.listen();
     renderSettingsPanel();
-    toast(code.trim() ? 'Connected to squad ' + code.trim().toUpperCase() : 'Squad code cleared');
+    toast(code.trim() ? 'Connecting to squad ' + code.trim().toUpperCase() + '\u2026' : 'Squad code cleared');
 }
 
 /* 
