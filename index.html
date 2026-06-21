@@ -890,9 +890,6 @@ const delSess = async id => {
     saveSess(loadSess().filter(s => s.id !== id));
     try { const s = loadSynced(); s.delete(id); _LS.setItem(SYNCED_DB, JSON.stringify([...s])); } catch {}
     markDeleted(id);
-    if (DriveSync.isSignedIn()) {
-        try { await DriveSync.delete(id); } catch {}
-    }
 };
 function saveSess(a) {
     try { _LS.setItem(DB, JSON.stringify(a)); }
@@ -1016,32 +1013,46 @@ const DriveSync = (() => {
             if (!this.isSignedIn()) throw new Error('Not signed in');
             let parents = [];
             try { parents = [await this._ensureFolder()]; } catch {}
+            const d = new Date(parseInt(session.id));
+            const base = `RowSess_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}_${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
+            let existingId = null;
+            try {
+                const q = encodeURIComponent(`name contains '${base}' and trashed=false`);
+                const fr = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id)`, {
+                    headers: { Authorization: `Bearer ${_tok}` }
+                });
+                if (fr.ok) { const fd = await fr.json(); if (fd.files && fd.files.length) existingId = fd.files[0].id; }
+            } catch {}
             const meta = {
                 name: formatSessionFilename(session.id, session),
                 mimeType: 'application/json',
-                ...(parents.length ? { parents } : {})
+                ...((!existingId && parents.length) ? { parents } : {})
             };
             const form = new FormData();
             form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
             form.append('file', new Blob([JSON.stringify(session)], { type: 'application/json' }));
-            const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-                method: 'POST',
+            const url = existingId
+                ? `https://www.googleapis.com/upload/drive/v3/files/${existingId}?uploadType=multipart`
+                : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+            const r = await fetch(url, {
+                method: existingId ? 'PATCH' : 'POST',
                 headers: { Authorization: `Bearer ${_tok}` },
                 body: form
             });
             if (!r.ok) throw new Error(`Upload failed ${r.status}`);
         },
-        async delete(sessionId) {
+            async delete(sessionId) {
             if (!this.isSignedIn()) throw new Error('Not signed in');
-            const fn = formatSessionFilename(sessionId);
-            const q = encodeURIComponent(`name='${fn}' and trashed=false`);
+            const d = new Date(parseInt(sessionId));
+            const base = `RowSess_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}_${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
+            const q = encodeURIComponent(`name contains '${base}' and trashed=false`);
             const r = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id)`, {
                 headers: { Authorization: `Bearer ${_tok}` }
             });
             if (!r.ok) return;
-            const d = await r.json();
-            if (d.files && d.files.length) {
-                await fetch(`https://www.googleapis.com/drive/v3/files/${d.files[0].id}`, {
+            const found = await r.json();
+            if (found.files && found.files.length) {
+                await fetch(`https://www.googleapis.com/drive/v3/files/${found.files[0].id}`, {
                     method: 'DELETE',
                     headers: { Authorization: `Bearer ${_tok}` }
                 });
@@ -1076,7 +1087,6 @@ const DriveSync = (() => {
                     try {
                         const s = await this.downloadSession(f.id);
                         if (deleted.has(s.id)) {
-                            try { await this.delete(s.id); } catch {}
                             continue;
                         }
                         const local = loadSess();
@@ -4495,10 +4505,14 @@ function showDetail(id){
     +'<div style="height:20px"></div>';
   requestAnimationFrame(()=>{
     document.getElementById('dback-btn').addEventListener('click',()=>{dw.style.display='none';document.getElementById('ht-log-list').style.display='block';const hb=document.querySelector('.home-body');if(hb)hb.scrollTop=0;renderSessionList();});
-    document.getElementById('rename-btn').addEventListener('click',()=>{
+    document.getElementById('rename-btn').addEventListener('click',async ()=>{
       const nn=prompt('Session name:',s.name||'');
       if(nn===null)return;
       renameSess(s.id,nn.trim()||null);
+      if(DriveSync.isSignedIn()&&isSynced(s.id)){
+        try{const updated=loadSess().find(x=>x.id===s.id);await DriveSync.upload(updated);toast('Renamed & synced to Drive');}
+        catch(e){toast('Renamed locally - Drive sync failed');}
+      }
       showDetail(s.id);
     });
     document.getElementById('analyser-btn').addEventListener('click',()=>{
