@@ -2,7 +2,7 @@
   "name": "BoatRun Metrics",
   "short_name": "BoatRun",
   "description": "On-water rowing metrics — real-time pace, rate, catch, and stroke analysis",
-  "start_url": "./",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
