@@ -252,6 +252,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 .scard:active{background:#f5f5f5}
 .scard-date{font-size:10px;color:#999;margin-bottom:6px;letter-spacing:.04em;display:flex;align-items:center;gap:4px;flex-wrap:wrap;}
 .scard-stats{display:flex;gap:14px}
+.scard-name{font-size:13px;font-weight:700;color:#222;margin-bottom:3px;}
 .scs-v{font-size:19px;font-weight:400;color:#000;display:block}
 .scs-l{font-size:8px;color:#333;letter-spacing:.1em;text-transform:uppercase;display:block}
 .no-sess{text-align:center;padding:60px 24px;color:#ccc;font-size:13px;line-height:2}
@@ -928,6 +929,18 @@ function addSess(s) {
     }
     return saved;
 }
+function renameSess(id, name) {
+    try {
+        const a = loadSess();
+        const idx = a.findIndex(x => x.id === id);
+        if (idx < 0) return false;
+        a[idx].name = name || null;
+        saveSess(a);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
 function queuePending(id) {
     try {
         const q = JSON.parse(_LS.getItem(PENDING_KEY) || '[]');
@@ -962,6 +975,7 @@ function formatSessionFilename(sessionId, session) {
         if (session.strokeCount) extra += `_${session.strokeCount}str`;
         if (session.detectedAxis) extra += `_AX${session.detectedAxis.toUpperCase()}`;
         if (session.workoutName) extra += `_WKT${session.workoutName.replace(/\s+/g,'-').replace(/[^a-zA-Z0-9\-]/g,'').slice(0,24)}`;
+        if (session.name) extra += `_NAME${session.name.replace(/\s+/g,'-').replace(/[^a-zA-Z0-9\-]/g,'').slice(0,30)}`;
         return `${base}_${Math.round(session.distance)}m_${hh}h${mm}m${ss}s${extra}.json`;
     }
     return `${base}.json`;
@@ -2649,6 +2663,7 @@ let running = false, paused = false, elapsed = 0, sessionReady = false, lapReady
 let distance = 0, lapStartDist = 0, lapStartTime = 0;
 let laps = [], sessStart = null, sessStrokes = [], sessPaceTrace = [];
 let sessSaved = false, timerInt = null, autosaveInt = null, wakeLock = null, sessLocked = false;
+let pendingSessName = '';
 
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // METRIC & LAYOUT DEFINITIONS — tile catalogue, profile schemas
@@ -3862,6 +3877,12 @@ function finishSess() {
         ? 'Finish session?\n' + sessStrokes.length + ' strokes · ' + Math.round(distance) + 'm · ' + fmt(elapsed)
         : 'Finish session?';
     if (!confirm(msg)) return;
+    if (elapsed > 10 && sessStrokes.length > 0) {
+        const nn = prompt('Name this session (optional):', '');
+        pendingSessName = nn ? nn.trim() : '';
+    } else {
+        pendingSessName = '';
+    }
     if (running || paused) stopSess();
     resetSess();
 }
@@ -3900,6 +3921,7 @@ function stopSess() {
             const avg = (arr, k) => { const v = arr.map(x => x[k]).filter(v => v != null && !isNaN(v) && v !== 0); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
             const ac  = (() => { const v = sessStrokes.map(x => x.catchConsistency).filter(v => v != null && !isNaN(v) && v !== 0); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; })();
             const sessObj = {
+                name: pendingSessName || null,
                 id: sessStart.toString(), startTime: sessStart, endTime: Date.now(), duration: elapsed,
                 distance: Math.round(distance), avgPace: ap, avgMovingPace: amp, avgRate: ar, maxRate,
                 catchPeakSess, catchAvg8, strokeCount,
@@ -4305,7 +4327,7 @@ function renderSessionList(){
   sessions.forEach(s=>{
     const synced=isSynced(s.id),el=document.createElement('div');el.className='scard';
     const hasFit=!!(s.garminLaps&&s.garminLaps.length)||(s.garminSpeedTrace&&s.garminSpeedTrace.length);
-    el.innerHTML='<div class="scard-date"><span>'+fmtDate(s.startTime)+'</span>'+(s.hrTrace?'<span>HR</span>':'')+(hasFit?'<span class="fit-badge">FIT</span>':'')+(s.detectedAxis?'<span>AX:'+s.detectedAxis.toUpperCase()+'</span>':'')+(s.workoutName?'<span>'+s.workoutName+'</span>':'')+(synced?'<span class="sync-badge">synced</span>':'')+'</div><div class="scard-stats"><div><span class="scs-v">'+((s.distance/1000).toFixed(2))+'</span><span class="scs-l">km</span></div><div><span class="scs-v">'+fmtH(s.duration)+'</span><span class="scs-l">time</span></div><div><span class="scs-v">'+(s.avgPace>0?fmt(s.avgPace):'--')+'</span><span class="scs-l">avg pace</span></div><div><span class="scs-v">'+(s.strokeCount||0)+'</span><span class="scs-l">strokes</span></div></div>';
+    el.innerHTML=(s.name?'<div class="scard-name">'+s.name+'</div>':'')+'<div class="scard-date"><span>'+fmtDate(s.startTime)+'</span>'+(s.hrTrace?'<span>HR</span>':'')+(hasFit?'<span class="fit-badge">FIT</span>':'')+(s.detectedAxis?'<span>AX:'+s.detectedAxis.toUpperCase()+'</span>':'')+(s.workoutName?'<span>'+s.workoutName+'</span>':'')+(synced?'<span class="sync-badge">synced</span>':'')+'</div><div class="scard-stats"><div><span class="scs-v">'+((s.distance/1000).toFixed(2))+'</span><span class="scs-l">km</span></div><div><span class="scs-v">'+fmtH(s.duration)+'</span><span class="scs-l">time</span></div><div><span class="scs-v">'+(s.avgPace>0?fmt(s.avgPace):'--')+'</span><span class="scs-l">avg pace</span></div><div><span class="scs-v">'+(s.strokeCount||0)+'</span><span class="scs-l">strokes</span></div></div>';
     el.addEventListener('click',()=>showDetail(s.id));
     list.appendChild(el);attachSwipeDelete(el,s.id);
   });
@@ -4443,6 +4465,7 @@ function showDetail(id){
   const driveLinked=DriveSync.isSignedIn();
   dw.querySelector('#detail-content').innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"><button class="dback" id="dback-btn">← Log</button><button id="analyser-btn" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:7px 12px;border:none;border-radius:3px;cursor:pointer;touch-action:manipulation;background:'+(driveLinked?'#1a5276':'#888')+';color:#fff;">'+(driveLinked?'Analyser ↗':'Link Drive → Analyser')+'</button></div>'
     +'<div style="font-size:10px;color:#aaa;margin-bottom:6px;">'+fmtDate(s.startTime)+(s.detectedAxis?' Axis: '+s.detectedAxis.toUpperCase():'')+(syncedNow?' synced':'')+'</div>'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span id="sess-name-disp" style="font-size:15px;font-weight:700;color:#000;">'+(s.name?s.name:'<span style="color:#aaa;font-weight:400;">Untitled session</span>')+'</span><button id="rename-btn" style="font-size:9px;font-weight:700;padding:4px 8px;border:none;border-radius:3px;background:#888;color:#fff;cursor:pointer;touch-action:manipulation;">RENAME</button></div>'
     +'<div style="display:flex;gap:10px;font-size:9px;letter-spacing:.08em;margin-bottom:10px;flex-wrap:wrap;">'
     +'<span style="color:#27ae60">● Independent</span>'
     +'<span style="color:#2980b9">● Boat dependent</span>'
@@ -4472,6 +4495,12 @@ function showDetail(id){
     +'<div style="height:20px"></div>';
   requestAnimationFrame(()=>{
     document.getElementById('dback-btn').addEventListener('click',()=>{dw.style.display='none';document.getElementById('ht-log-list').style.display='block';const hb=document.querySelector('.home-body');if(hb)hb.scrollTop=0;renderSessionList();});
+    document.getElementById('rename-btn').addEventListener('click',()=>{
+      const nn=prompt('Session name:',s.name||'');
+      if(nn===null)return;
+      renameSess(s.id,nn.trim()||null);
+      showDetail(s.id);
+    });
     document.getElementById('analyser-btn').addEventListener('click',()=>{
       if(!DriveSync.isSignedIn()){if(confirm('Link Google Drive to use Analyser.\n\nTap OK to sign in to Drive.'))driveSignIn();return;}
       try{
