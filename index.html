@@ -438,7 +438,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <!-- LIVE SCREEN -->
 <div id="screen-live" class="screen">
 <div class="sbar">
-<div class="sbar-l"><span class="sbar-title">SCULL</span><span class="pill pill-off" id="p-gps">GPS</span><span class="pill pill-off" id="p-acc">ACC</span><span class="pill pill-off" id="p-cal">CAL</span><span class="pill pill-off" id="p-axis">AX:?</span></div>
+<div class="sbar-l"><span class="sbar-title">SCULL</span><span class="pill pill-off" id="p-gps">GPS</span><span class="pill pill-off" id="p-acc">ACC</span><span class="pill pill-off" id="p-cal">CAL</span><span class="pill pill-off" id="p-axis">AX:?</span><span class="pill pill-off" id="p-squad" style="display:none;">SQ</span></div>
 <div class="sbar-r"><div class="rec" id="rec-ind" style="display:none"><div class="recdot"></div>REC</div></div>
 </div>
 <!-- Workout bar -->
@@ -1118,13 +1118,35 @@ function applyRemoteWorkout(def) {
 const SquadSync = (() => {
     let _es = null, _lastBroadcastT = 0, _lastLapT = 0;
     return {
-        isConnected() { return !!_es; },
-                async maybeBroadcast() {
+        isConnected() { return !!_es && _es.readyState === 1; },
+        async maybeBroadcast() {
             const code = getSquadCode(); if (!code) return;
             const now = Date.now();
             if (now - _lastBroadcastT < 2000) return;
             _lastBroadcastT = now;
-            const lastStroke = sessStrokes.length > 0 ? sessStrokes[sessStrokes.length - 1] : null;
+            let workoutPayload = null;
+            if (typeof wkt !== 'undefined' && wkt.active) {
+                if (wkt.waitingForRow) {
+                    workoutPayload = { active: true, waiting: true, name: wkt.def?.name || 'Workout' };
+                } else {
+                    const ws = wktCurrentStep(); const rem = wktGetRemaining();
+                    let cd = '--';
+                    if (ws) {
+                        if (ws.mode === 'open') cd = 'LAP';
+                        else if (ws.mode === 'distance') cd = (appSettings.distUnit === 'mi' ? Math.max(0, rem / 1609.34).toFixed(1) + 'mi' : Math.max(0, Math.round(rem)) + 'm');
+                        else cd = fmt(Math.max(0, rem));
+                    }
+                    workoutPayload = {
+                        active: true, waiting: false,
+                        name: wkt.def?.name || 'Workout',
+                        type: ws ? ws.type : 'done',
+                        countdown: cd,
+                        prog: (wkt.seqIdx + 1) + '/' + wkt.sequence.length,
+                        groupLabel: ws?.groupLabel || '',
+                        hint: ws ? stepTargetHint(ws) : ''
+                    };
+                }
+            }
             const body = {
                 name: getRowerName() || 'Rower', rate: Math.round(strokeRate || 0),
                 pace: pace > 0 ? Math.round(pace) : 0,
@@ -1139,6 +1161,7 @@ const SquadSync = (() => {
                 char: strokeChar,
                 oarAngle: oarAngle,
                 checkDelta: checkDelta != null ? Math.round(checkDelta * 100) / 100 : null,
+                workout: workoutPayload,
                 live: !!(running && !paused), t: now
             };
             try {
@@ -1162,12 +1185,30 @@ const SquadSync = (() => {
             };
             _es.addEventListener('put', e => handle(e.data));
             _es.addEventListener('patch', e => handle(e.data));
-            _es.onerror = () => {};
+            _es.onopen = () => updateSquadPill();
+            _es.onerror = () => updateSquadPill();
+            updateSquadPill();
         },
-        stop() { if (_es) { _es.close(); _es = null; } }
+        stop() { if (_es) { _es.close(); _es = null; } updateSquadPill(); }
     };
 })();
 function bootSquadSync() { if (getSquadCode()) SquadSync.listen(); }
+function updateSquadPill() {
+    const p = document.getElementById('p-squad'); if (!p) return;
+    if (!getSquadCode()) { p.style.display = 'none'; return; }
+    p.style.display = 'inline-block';
+    p.className = 'pill ' + (SquadSync.isConnected() ? 'pill-on' : 'pill-off');
+    p.textContent = SquadSync.isConnected() ? 'SQ' : 'SQ\u2026';
+}
+function disconnectSquad() {
+    setSquadCode('');
+    SquadSync.stop();
+    const codeEl = document.getElementById('squad-code-input');
+    if (codeEl) codeEl.value = '';
+    renderSettingsPanel();
+    updateSquadPill();
+    toast('Disconnected from squad');
+}
 
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // OAUTH — Google sign-in flow (popup + redirect fallback)
@@ -4179,10 +4220,13 @@ function renderSettingsPanel() {
         <div style="height:10px;"></div>
         ${row('SUB UNITS (DPS / RUN LOSS)', 'dpsUnit', [['m','m'],['ft','ft'],['in','in']])}
         <div style="height:18px;"></div>
-        <div class="setup-section">COACH SQUAD ${SquadSync.isConnected()?'<span style="color:#27ae60;">● connected</span>':''}</div>
+        <div class="setup-section">COACH SQUAD ${SquadSync.isConnected()?'<span style="color:#27ae60;">\u25cf connected</span>':(getSquadCode()?'<span style="color:#f39c12;">\u25cf connecting\u2026</span>':'')}</div>
         <input id="squad-code-input" type="text" placeholder="Squad code (e.g. RC7K)" value="${getSquadCode()}" style="width:100%;padding:10px;font-size:14px;border:1px solid #ccc;border-radius:4px;margin-top:6px;text-transform:uppercase;box-sizing:border-box;" maxlength="8"/>
         <input id="squad-name-input" type="text" placeholder="Your name (shown to coach)" value="${getRowerName()}" style="width:100%;padding:10px;font-size:14px;border:1px solid #ccc;border-radius:4px;margin-top:8px;box-sizing:border-box;" maxlength="24"/>
-        <button onclick="saveSquadSettings()" style="width:100%;padding:10px;font-size:13px;font-weight:700;letter-spacing:.08em;margin-top:8px;background:#1a5276;color:#fff;border:none;border-radius:4px;">SAVE &amp; CONNECT</button>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+            <button onclick="saveSquadSettings()" style="flex:2;padding:10px;font-size:13px;font-weight:700;letter-spacing:.08em;background:#1a5276;color:#fff;border:none;border-radius:4px;">SAVE &amp; CONNECT</button>
+            ${getSquadCode() ? '<button onclick="disconnectSquad()" style="flex:1;padding:10px;font-size:12px;font-weight:700;letter-spacing:.05em;background:#fff;color:#c0392b;border:1px solid #ddd;border-radius:4px;">DISCONNECT</button>' : ''}
+        </div>
     </div>`;
 }
 function saveSquadSettings() {
