@@ -1119,15 +1119,26 @@ const SquadSync = (() => {
     let _es = null, _lastBroadcastT = 0, _lastLapT = 0;
     return {
         isConnected() { return !!_es; },
-        async maybeBroadcast() {
+                async maybeBroadcast() {
             const code = getSquadCode(); if (!code) return;
             const now = Date.now();
-            if (now - _lastBroadcastT < 3000) return;
+            if (now - _lastBroadcastT < 2000) return;
             _lastBroadcastT = now;
+            const lastStroke = sessStrokes.length > 0 ? sessStrokes[sessStrokes.length - 1] : null;
             const body = {
                 name: getRowerName() || 'Rower', rate: Math.round(strokeRate || 0),
+                pace: pace > 0 ? Math.round(pace) : 0,
                 dist: Math.round(distance || 0), strokes: strokeCount || 0,
                 laps: laps.length, elapsed: elapsed || 0,
+                dps: distPerStroke > 0 ? Math.round(distPerStroke * 10) / 10 : null,
+                ratio: strokeRatio != null ? Math.round(strokeRatio * 10) / 10 : null,
+                runLoss: runLossPct != null ? Math.round(runLossPct) : null,
+                catch: catchLast,
+                catchDur: catchDurLast,
+                impulse: driveImpulseEma != null ? Math.round(driveImpulseEma * 100) : null,
+                char: strokeChar,
+                oarAngle: oarAngle,
+                checkDelta: checkDelta != null ? Math.round(checkDelta * 100) / 100 : null,
                 live: !!(running && !paused), t: now
             };
             try {
