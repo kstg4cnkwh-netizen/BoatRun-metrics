@@ -13,6 +13,9 @@
 <script>
 (function(){try{var h=new URLSearchParams(location.hash.slice(1)),t=h.get("access_token");if(!t)return;var d={token:t,expires:parseInt(h.get("expires_in")||"3600")};try{history.replaceState({},"",location.pathname);}catch{}window._scullOAuth=d;try{sessionStorage.setItem("_oauth_token",JSON.stringify(d));}catch{}try{localStorage.setItem("_oauth_token_ls",JSON.stringify({token:d.token,expires:d.expires,ts:Date.now()}));}catch{}if(window.opener&&!window.opener.closed){try{window.opener.postMessage({type:"_scullOAuth",token:d.token,expires:d.expires},"*");window.close();}catch{}}}catch{}})();
 </script>
+<script>
+(function(){try{var q=new URLSearchParams(location.search),code=q.get("code"),state=q.get("state");if(!code||state!=="strava")return;try{history.replaceState({},"",location.pathname);}catch{}window._stravaOAuthCode=code;try{sessionStorage.setItem("_strava_oauth_code",code);}catch{}try{localStorage.setItem("_strava_oauth_code_ls",JSON.stringify({code:code,ts:Date.now()}));}catch{}if(window.opener&&!window.opener.closed){try{window.opener.postMessage({type:"_stravaOAuthCode",code:code},"*");window.close();}catch{}}}catch{}})();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -924,6 +927,11 @@ function addSess(s) {
             .then(() => { markSynced(s.id); updateDriveBtn(); toast('Saved to Drive'); })
             .catch(() => { queuePending(s.id); });
     }
+    if (saved && StravaSync.isSignedIn()) {
+        StravaSync.uploadSession(s)
+            .then(() => toast('Uploaded to Strava'))
+            .catch(() => toast('Strava upload failed'));
+    }
     return saved;
 }
 function renameSess(id, name) {
@@ -1111,6 +1119,156 @@ const DriveSync = (() => {
         }
     };
 })();
+function buildSessionTCX(s) {
+    const pad2 = n => String(n).padStart(2, '0');
+    const pad3 = n => String(n).padStart(3, '0');
+    const isoMs = ms => { const d = new Date(ms); return d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate()) + 'T' + pad2(d.getUTCHours()) + ':' + pad2(d.getUTCMinutes()) + ':' + pad2(d.getUTCSeconds()) + '.' + pad3(d.getUTCMilliseconds()) + 'Z'; };
+    const HR = s.hrTrace || [];
+    const nearestHR = ms => {
+        if (!HR.length) return null;
+        let best = null, bestDiff = Infinity;
+        for (const h of HR) { const diff = Math.abs(h.t - ms); if (diff < bestDiff) { bestDiff = diff; best = h.hr; } }
+        return bestDiff < 30000 ? best : null;
+    };
+    const startMs = s.startTime;
+    const GPS = s.gpsTrace || [];
+    const ST = s.strokes || [];
+    let trackpoints = '';
+    if (GPS.length) {
+        for (const gp of GPS) {
+            let nearStroke = null, nearDiff = Infinity;
+            for (const st of ST) { const diff = Math.abs(st.t - gp.t); if (diff < nearDiff) { nearDiff = diff; nearStroke = st; } }
+            const spm = nearStroke ? Math.round(nearStroke.rate || 0) : null;
+            const hr = nearestHR(gp.t);
+            const distM = gp.dist != null ? gp.dist.toFixed(1) : null;
+            trackpoints += `        <Trackpoint>
+          <Time>${isoMs(gp.t)}</Time>
+          <Position><LatitudeDegrees>${gp.lat.toFixed(7)}</LatitudeDegrees><LongitudeDegrees>${gp.lon.toFixed(7)}</LongitudeDegrees></Position>
+          ${distM != null ? '<DistanceMeters>' + distM + '</DistanceMeters>' : ''}
+          ${spm != null ? '<Cadence>' + spm + '</Cadence>' : ''}
+          ${hr != null ? '<HeartRateBpm><Value>' + hr + '</Value></HeartRateBpm>' : ''}
+        </Trackpoint>
+`;
+        }
+    } else {
+        for (const st of ST) {
+            const tpMs = st.t;
+            const hr = nearestHR(tpMs);
+            const spm = Math.round(st.rate || 0);
+            const distM = st.dist != null ? st.dist.toFixed(1) : null;
+            trackpoints += `        <Trackpoint>
+          <Time>${isoMs(tpMs)}</Time>
+          ${distM != null ? '<DistanceMeters>' + distM + '</DistanceMeters>' : ''}
+          ${spm ? '<Cadence>' + spm + '</Cadence>' : ''}
+          ${hr != null ? '<HeartRateBpm><Value>' + hr + '</Value></HeartRateBpm>' : ''}
+        </Trackpoint>
+`;
+        }
+    }
+    const totalDist = (s.distance || 0).toFixed(1);
+    const totalTime = (s.duration || 0).toFixed(1);
+    const maxSPM = ST.length ? Math.max(...ST.map(x => x.rate || 0)).toFixed(0) : '0';
+    const hrValid = HR.filter(h => h.hr > 40 && h.hr < 220);
+    const avgHR = hrValid.length ? Math.round(hrValid.reduce((a, h) => a + h.hr, 0) / hrValid.length) : null;
+    const maxHR = hrValid.length ? Math.max(...hrValid.map(h => h.hr)) : null;
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2 http://www.garmin.com/xmlschemas/TrainingCenterDatabasev2.xsd">
+  <Activities>
+    <Activity Sport="Other">
+      <Id>${isoMs(startMs)}</Id>
+      <Lap StartTime="${isoMs(startMs)}">
+        <TotalTimeSeconds>${totalTime}</TotalTimeSeconds>
+        <DistanceMeters>${totalDist}</DistanceMeters>
+        <MaximumSpeed>0</MaximumSpeed>
+        <Calories>0</Calories>
+        ${avgHR != null ? '<AverageHeartRateBpm><Value>' + avgHR + '</Value></AverageHeartRateBpm>' : ''}
+        ${maxHR != null ? '<MaximumHeartRateBpm><Value>' + maxHR + '</Value></MaximumHeartRateBpm>' : ''}
+        <Intensity>Active</Intensity>
+        <Cadence>${maxSPM}</Cadence>
+        <TriggerMethod>Manual</TriggerMethod>
+        <Track>
+${trackpoints}        </Track>
+      </Lap>
+    </Activity>
+  </Activities>
+</TrainingCenterDatabase>`;
+}
+const STRAVA_CLIENT_ID = 'PASTE_YOUR_CLIENT_ID';
+const STRAVA_CLIENT_SECRET = 'PASTE_YOUR_CLIENT_SECRET';
+const StravaSync = (() => {
+    let _atok = null, _aexp = 0, _rtok = null;
+    const KEY = '_strava_tok';
+    return {
+        isSignedIn() { return !!_rtok; },
+        async init() {
+            try {
+                const r = _LS.getItem(KEY);
+                if (!r) return;
+                const { a, e, rt } = JSON.parse(r);
+                _atok = a; _aexp = e; _rtok = rt;
+            } catch {}
+        },
+        _persist() {
+            try { _LS.setItem(KEY, JSON.stringify({ a: _atok, e: _aexp, rt: _rtok })); } catch {}
+        },
+        async exchangeCode(code) {
+            const r = await fetch('https://www.strava.com/oauth/token', {
+                method: 'POST',
+                body: new URLSearchParams({
+                    client_id: STRAVA_CLIENT_ID,
+                    client_secret: STRAVA_CLIENT_SECRET,
+                    code,
+                    grant_type: 'authorization_code'
+                })
+            });
+            if (!r.ok) throw new Error('Token exchange failed');
+            const d = await r.json();
+            _atok = d.access_token; _aexp = d.expires_at * 1000; _rtok = d.refresh_token;
+            this._persist();
+        },
+        async _ensureToken() {
+            if (!_rtok) throw new Error('Not signed in');
+            if (_atok && Date.now() < _aexp - 60000) return _atok;
+            const r = await fetch('https://www.strava.com/oauth/token', {
+                method: 'POST',
+                body: new URLSearchParams({
+                    client_id: STRAVA_CLIENT_ID,
+                    client_secret: STRAVA_CLIENT_SECRET,
+                    refresh_token: _rtok,
+                    grant_type: 'refresh_token'
+                })
+            });
+            if (!r.ok) throw new Error('Token refresh failed');
+            const d = await r.json();
+            _atok = d.access_token; _aexp = d.expires_at * 1000; _rtok = d.refresh_token;
+            this._persist();
+            return _atok;
+        },
+        async uploadSession(session) {
+            const tok = await this._ensureToken();
+            const tcx = buildSessionTCX(session);
+            const d = new Date(session.startTime);
+            const name = 'BoatRun ' + d.toLocaleDateString();
+            const form = new FormData();
+            form.append('file', new Blob([tcx], { type: 'application/tcx+xml' }), 'session.tcx');
+            form.append('data_type', 'tcx');
+            form.append('name', name);
+            form.append('sport_type', 'Rowing');
+            form.append('external_id', 'boatrun_' + session.id);
+            const r = await fetch('https://www.strava.com/api/v3/uploads', {
+                method: 'POST',
+                headers: { Authorization: 'Bearer ' + tok },
+                body: form
+            });
+            if (!r.ok) throw new Error('Strava upload failed ' + r.status);
+            return r.json();
+        },
+        signOut() {
+            _atok = null; _aexp = 0; _rtok = null;
+            try { _LS.removeItem(KEY); } catch {}
+        }
+    };
+})();
 
 // ──────────────────────────────────────────────────────────────────────────
 // SQUAD SYNC — live broadcast + remote lap/workout commands (BoatRun-coach)
@@ -1276,6 +1434,37 @@ function driveSignIn() {
                 flushQueue().catch(() => {});
                 DriveSync.syncFromDrive().catch(() => {});
                 renderSessionList();
+            };
+            window.addEventListener('message', handler);
+            const poll = setInterval(() => {
+                if (popup.closed) { clearInterval(poll); window.removeEventListener('message', handler); }
+            }, 800);
+            return;
+        }
+    } catch {}
+    window.location.href = url;
+}
+function stravaSignIn() {
+    const p = new URLSearchParams({
+        client_id: STRAVA_CLIENT_ID,
+        redirect_uri: OAUTH_REDIRECT,
+        response_type: 'code',
+        approval_prompt: 'auto',
+        scope: 'activity:write',
+        state: 'strava'
+    });
+    const url = 'https://www.strava.com/oauth/authorize?' + p;
+    try {
+        const popup = window.open(url, '_stravaOauth', 'width=520,height=660,scrollbars=yes');
+        if (popup && !popup.closed) {
+            const handler = (ev) => {
+                if (!ev.data || ev.data.type !== '_stravaOAuthCode') return;
+                window.removeEventListener('message', handler);
+                const { code } = ev.data;
+                if (!code) return;
+                StravaSync.exchangeCode(code)
+                    .then(() => { toast('Strava linked'); renderSettingsPanel(); })
+                    .catch(() => toast('Strava auth failed'));
             };
             window.addEventListener('message', handler);
             const poll = setInterval(() => {
@@ -4272,6 +4461,14 @@ function renderSettingsPanel() {
             <button onclick="saveSquadSettings()" style="flex:2;padding:10px;font-size:13px;font-weight:700;letter-spacing:.08em;background:#1a5276;color:#fff;border:none;border-radius:4px;">SAVE &amp; CONNECT</button>
             ${getSquadCode() ? '<button onclick="disconnectSquad()" style="flex:1;padding:10px;font-size:12px;font-weight:700;letter-spacing:.05em;background:#fff;color:#c0392b;border:1px solid #ddd;border-radius:4px;">DISCONNECT</button>' : ''}
         </div>
+        <div style="height:18px;"></div>
+        <div class="setup-section">STRAVA SYNC</div>
+        <div style="font-size:11px;color:#888;margin-top:4px;">${StravaSync.isSignedIn() ? 'Linked \u2014 sessions auto-upload after each row' : 'Not linked'}</div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+            ${StravaSync.isSignedIn()
+                ? '<button onclick="stravaDisconnect()" style="flex:1;padding:10px;font-size:12px;font-weight:700;letter-spacing:.05em;background:#fff;color:#c0392b;border:1px solid #ddd;border-radius:4px;">DISCONNECT</button>'
+                : '<button onclick="stravaSignIn()" style="flex:1;padding:10px;font-size:13px;font-weight:700;letter-spacing:.08em;background:#fc4c02;color:#fff;border:none;border-radius:4px;">CONNECT TO STRAVA</button>'}
+        </div>
     </div>`;
 }
 function saveSquadSettings() {
@@ -5287,6 +5484,26 @@ async function checkOAuthReturn(){
   try{DriveSync._injectToken(pending.token,pending.expires);wireTabButtons();showTab('home');updateDriveBtn();toast('Drive linked');flushQueue();await migrateLocalSessionsToDrive();await DriveSync.syncFromDrive();return true;}catch(e){toast('Drive auth failed');return false;}
 }
 
+function stravaDisconnect() {
+    StravaSync.signOut();
+    renderSettingsPanel();
+    toast('Strava disconnected');
+}
+async function checkStravaOAuthReturn(){
+  let code=window._stravaOAuthCode||null;window._stravaOAuthCode=null;
+  if(!code){
+    const raw=_SS.getItem('_strava_oauth_code');
+    if(!raw){
+      try{const ls=JSON.parse(localStorage.getItem('_strava_oauth_code_ls')||'null');
+        if(ls&&ls.code&&(Date.now()-ls.ts)<300000){code=ls.code;}
+      }catch{}
+      if(!code)return false;
+    }else{_SS.removeItem('_strava_oauth_code');code=raw;}
+  }
+  try{localStorage.removeItem('_strava_oauth_code_ls');}catch{}
+  try{await StravaSync.exchangeCode(code);wireTabButtons();showTab('home');renderSettingsPanel();toast('Strava linked');return true;}catch(e){toast('Strava auth failed');return false;}
+}
+
 /* 
 ¨T¨T
 SERVICE WORKER + GLOBAL INIT 
@@ -5302,6 +5519,7 @@ DriveSync.init().then(async()=>{
   if(!hadOAuth&&DriveSync.isSignedIn()){updateDriveBtn();flushQueue().catch(()=>{});await migrateLocalSessionsToDrive();DriveSync.syncFromDrive().catch(()=>{});}
   if(!hadOAuth){try{if(localStorage.getItem('scull_setup_v1')==='1')showTab('home');}catch{}}
 }).catch(()=>{});
+StravaSync.init().then(checkStravaOAuthReturn).catch(()=>{});
 checkAutosave();
 bootSquadSync();
 window.addEventListener('online',()=>{if(DriveSync.isSignedIn())flushQueue().catch(()=>{});});
