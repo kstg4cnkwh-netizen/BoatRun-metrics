@@ -2571,6 +2571,7 @@ function onStrokeFinish(now, driveDur) {
         driveEndT:  now
     };
     strokeCount++;
+    gpsLastStrokeT = now;   // GPS-independent gate for upper-envelope speed tracker
     sessStrokes.push({
         t: Date.now(), catchPeak: catchSlope, char: strokeChar,
         rate: (rateToLog > 0 && strokeMeanSpeed > CONFIG.gps.minSpeedForRecord) ? rateToLog : null, pace: pace > 0 ? pace : null,
@@ -2622,7 +2623,7 @@ function onStrokeFinish(now, driveDur) {
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 let strokeSpeedBuf = [], strokeMeanSpeed = 0;
 let pace = 0, gpsAccuracyM = null, gpsSpeedEma = -1, gpsLastValidT = 0, gpsLastFixT = 0, gpsWasStopped = false, gpsDeadWarned = false, gpsResumeT = -Infinity, gpsLowSpeedStreak = 0;
-let gpsSpeedHist = [], gpsRejectStreak = 0;
+let gpsSpeedHist = [], gpsRejectStreak = 0, gpsLastStrokeT = -1e9;
 function gpsSpeedMedian() {
     const n = gpsSpeedHist.length;
     if (n < 3) return 0;
@@ -2724,27 +2725,38 @@ function pushVelocity(t, v) {
     }
     gpsLowSpeedStreak = 0;
     gpsLastValidT = t;
-    // Reject an isolated Doppler collapse: a fix far below the recent median
-    // (>40%) is a GPS speed glitch, not a real slowdown (which is gradual and
-    // sustained). Drop it so it can't poison the filter / pace. Three lows in a
-    // row is treated as a genuine sustained change and adopted immediately.
-    const gMed = gpsSpeedMedian();
-    if (gMed > 1.0 && v < gMed * 0.40) {   // extreme Doppler collapse: single-shot reject
-        gpsRejectStreak++;
-        return;
-    }
-    if (gMed > 1.0 && v < gMed * 0.60) {
-        if (gpsRejectStreak < 3) { gpsRejectStreak++; return; }
-        gpsSpeedHist.length = 0;
-    }
-    gpsRejectStreak = 0;
-    // Light spike clamp, then One-Euro filter on the Doppler speed
-    let vIn = v;
-    if (gpsSpeedEma > 1.0 && vIn > gpsSpeedEma + CONFIG.gps.spikeMarginMps)
-        vIn = gpsSpeedEma + CONFIG.gps.spikeMarginMps;
-    gpsSpeedHist.push(vIn);
+    // ── Reliable speed: stroke-gated upper-envelope tracker ─────────────────
+    // Doppler multipath COLLAPSES (spurious lows), so during noise the true
+    // boat speed sits near the UPPER envelope of the recent fixes, not the
+    // median. Track the median in clean water; lift to the 75th percentile only
+    // when the window is noisy AND a stroke was seen in the last 5 s (boat
+    // confirmed at speed) — so genuine slow / stopped periods are never inflated.
+    gpsSpeedHist.push(v);                          // raw window keeps the full spread
     if (gpsSpeedHist.length > 7) gpsSpeedHist.shift();
-   gpsSpeedEma = vFilter.filter(vIn, t);
+    let target;
+    if (gpsSpeedHist.length >= 3) {
+        const sorted = gpsSpeedHist.slice().sort((a, b) => a - b);
+        const med = sorted[sorted.length >> 1];
+        let big = 0;                               // swing-noise: fix-to-fix jumps > 2 m/s
+        for (let i = 1; i < gpsSpeedHist.length; i++)
+            if (Math.abs(gpsSpeedHist[i] - gpsSpeedHist[i - 1]) > 2.0) big++;
+        const noise = big / (gpsSpeedHist.length - 1);
+        const active = (t - gpsLastStrokeT) < 5000;   // rowing, not drifting/stopped
+        if (active && noise > 0.25) {
+            const k = Math.min(sorted.length - 1, Math.round(0.75 * (sorted.length - 1)));
+            target = sorted[k];                    // 75th percentile = upper envelope
+        } else {
+            target = med;
+        }
+    } else {
+        target = v;
+    }
+    // Rate-limit to plausible boat acceleration (±1.0 m/s per fix), then One-Euro
+    if (gpsSpeedEma > 0) {
+        const dv = target - gpsSpeedEma;
+        target = gpsSpeedEma + Math.max(-1.0, Math.min(1.0, dv));
+    }
+    gpsSpeedEma = vFilter.filter(target, t);
     if (gpsSpeedEma > 0.3) strokeSpeedBuf.push(gpsSpeedEma);
     // Distance from velocity integral — unbiased, no position-jitter inflation
     if (lastDistT > 0) {
