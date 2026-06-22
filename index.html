@@ -5450,6 +5450,7 @@ function getLapStrokeIndices(strokes, laps) {
 
 function getLapPaceIndices(paceTrace, strokes, laps, paceTimes, startTime) {
   if (!paceTrace || paceTrace.length < 2 || !strokes || !strokes.length || !laps || !laps.length) return [];
+  const M = paceTrace.length - 1;
   if (paceTimes && paceTimes.length === paceTrace.length && startTime) {
     const result = [];
     let cumMs = 0;
@@ -5461,18 +5462,19 @@ function getLapPaceIndices(paceTrace, strokes, laps, paceTimes, startTime) {
         const d = Math.abs(paceTimes[i] - tgt);
         if (d < bestDiff) { bestDiff = d; best = i; }
       }
-      if (best > 0 && best < paceTrace.length - 1) result.push(best);
+      if (best > 0 && best < M) result.push(best);
     }
     return result;
   }
+  if (!startTime) return [];
   const sIdx = getLapStrokeIndices(strokes, laps);
   if (!sIdx.length) return [];
-  const N = strokes.length - 1 || 1;
-  const M = paceTrace.length - 1;
+  const tSpan = (strokes[strokes.length - 1].t || 0) - startTime || 1;
   const result = [];
   sIdx.forEach(si => {
     if (si < 0 || si >= strokes.length) return;
-    const idx = Math.round((si / N) * M);
+    const frac = Math.min(1, Math.max(0, ((strokes[si].t || 0) - startTime) / tSpan));
+    const idx = Math.round(frac * M);
     if (idx > 0 && idx < M) result.push(idx);
   });
   return result;
