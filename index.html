@@ -2977,16 +2977,28 @@ const PROFILES_KEY = 'scull_profiles_v1', ACTIVE_PROFILE_KEY = 'scull_active_pro
 const DEFAULT_PROFILES = [
     {
         name: 'Race',
-        landscape: { layout: '2x2', cells: ['pace','rate','oarangle','workout'] },
-        portrait:  { layout: '2x3', cells: ['pace','rate','oarangle','impulse','workout','selectable'] }
+        landscape: { layout: '2x2', layouts: { '2x2': ['pace','rate','oarangle','workout'] } },
+        portrait:  { layout: '2x3', layouts: { '2x3': ['pace','rate','oarangle','impulse','workout','selectable'] } }
     },
     {
         name: 'Training',
-        landscape: { layout: '3x3', cells: ['pace','rate','dps','impulse','catchdur','runloss','oarangle','workout','selectable'] },
-        portrait:  { layout: '2x4', cells: ['pace','rate','dps','catchdur','oarangle','impulse','workout','selectable'] }
+        landscape: { layout: '3x3', layouts: { '3x3': ['pace','rate','dps','impulse','catchdur','runloss','oarangle','workout','selectable'] } },
+        portrait:  { layout: '2x4', layouts: { '2x4': ['pace','rate','dps','catchdur','oarangle','impulse','workout','selectable'] } }
     },
 ];
-function loadProfiles()          { try { const p = JSON.parse(_LS.getItem(PROFILES_KEY)); if (p && p.length) return p; } catch {} return JSON.parse(JSON.stringify(DEFAULT_PROFILES)); }
+function loadProfiles(){
+  try{
+    const p=JSON.parse(_LS.getItem(PROFILES_KEY));
+    if(p&&p.length){
+      // migrate old format: flat cells array → per-layout layouts object
+      p.forEach(prof=>{['landscape','portrait'].forEach(ok=>{
+        const o=prof[ok];if(o&&Array.isArray(o.cells)&&!o.layouts){o.layouts={[o.layout]:o.cells};delete o.cells;}
+      });});
+      return p;
+    }
+  }catch{}
+  return JSON.parse(JSON.stringify(DEFAULT_PROFILES));
+}
 function saveProfiles(p)         { try { _LS.setItem(PROFILES_KEY, JSON.stringify(p)); } catch {} }
 function loadActiveProfileName() { return _LS.getItem(ACTIVE_PROFILE_KEY) || 'Race'; }
 function saveActiveProfileName(n){ try { _LS.setItem(ACTIVE_PROFILE_KEY, n); } catch {} }
@@ -3000,12 +3012,15 @@ function getCurrentLayoutDef() {
     const layouts = LAYOUT_DEFS[ok];
     return layouts.find(l => l.id === cfg.layout) || layouts[0];
 }
-function getCurrentCells() {
-    const prof = getActiveProfile(), ok = getOrientKey(), cfg = prof[ok];
-    const ld = getCurrentLayoutDef(), n = ld.cols * ld.rows;
-    const cells = cfg.cells || [], out = [...cells];
-    while (out.length < n) out.push('empty');
-    return out.slice(0, n);
+function getOrientCells(orientCfg,layoutId,n){
+  const saved=(orientCfg.layouts&&orientCfg.layouts[layoutId])||[];
+  const out=[...saved];while(out.length<n)out.push('empty');
+  return out.slice(0,n);
+}
+function getCurrentCells(){
+  const prof=getActiveProfile(),ok=getOrientKey(),cfg=prof[ok];
+  const ld=getCurrentLayoutDef(),n=ld.cols*ld.rows;
+  return getOrientCells(cfg,cfg.layout,n);
 }
 
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
@@ -4854,21 +4869,19 @@ function renderProfileList(){
       </div>
     </div>`).join('');
 }
-function buildPreviewGrid(profile,pi,orient){
-  const layouts=LAYOUT_DEFS[orient];const cfg=profile[orient];
-  const ld=layouts.find(l=>l.id===cfg.layout)||layouts[0];
-  const n=ld.cols*ld.rows;const cells=[...cfg.cells];while(cells.length<n)cells.push('empty');const cl=cells.slice(0,n);
-  const isPortrait = orient === 'portrait';
-  // Portrait: narrow and tall like a phone in portrait (9:19.5 ratio)
-  // Landscape: wide and short like a phone in landscape (19.5:9 ratio)
-  const wrapStyle = isPortrait
-    ? 'width:170px;aspect-ratio:9/19.5;margin:0 auto 8px;'
-    : 'width:100%;max-width:340px;aspect-ratio:19.5/9;margin-bottom:8px;';
-  const gs='display:grid;height:100%;grid-template-columns:repeat('+ld.cols+',1fr);grid-template-rows:repeat('+ld.rows+',1fr);gap:2px;background:#000;padding:2px;border-radius:2px;';
-  return '<div style="'+wrapStyle+'"><div style="'+gs+'">'+cl.map((key,ci)=>{
-    const def=METRIC_DEFS[key]||METRIC_DEFS.empty;
-    return '<div class="preview-cell" style="min-height:0;" onclick="openMetricPicker('+pi+',\''+orient+'\','+ci+')" title="Tap to assign"><span class="preview-cell-val">'+def.short+'</span></div>';
-  }).join('')+'</div></div>';
+function setProfileLayout(pi,orient,layoutId){
+  const cfg=_profiles[pi][orient];
+  if(!cfg.layouts)cfg.layouts={};
+  cfg.layout=layoutId;
+  const layouts=LAYOUT_DEFS[orient];const ld=layouts.find(l=>l.id===layoutId)||layouts[0];
+  const n=ld.cols*ld.rows;
+  if(!cfg.layouts[layoutId])cfg.layouts[layoutId]=[];
+  const cells=cfg.layouts[layoutId];
+  while(cells.length<n)cells.push('empty');
+  cfg.layouts[layoutId]=cells.slice(0,n);
+  saveProfiles(_profiles);if(_profiles[pi].name===_activeProfileName)buildGrid();
+  renderProfileList();
+  const body=document.getElementById('pcb-'+pi);if(body)body.classList.add('open');
 }
 function toggleProfileCard(pi){
   const body=document.getElementById('pcb-'+pi);
@@ -4876,11 +4889,15 @@ function toggleProfileCard(pi){
   body&&body.classList.toggle('open');
 }
 function setProfileLayout(pi,orient,layoutId){
-  _profiles[pi][orient].layout=layoutId;
+  const cfg=_profiles[pi][orient];
+  if(!cfg.layouts)cfg.layouts={};
+  cfg.layout=layoutId;
   const layouts=LAYOUT_DEFS[orient];const ld=layouts.find(l=>l.id===layoutId)||layouts[0];
-  const n=ld.cols*ld.rows;const cur=_profiles[pi][orient].cells||[];
-  const updated=[...cur];while(updated.length<n)updated.push('empty');
-  _profiles[pi][orient].cells=updated.slice(0,n);
+  const n=ld.cols*ld.rows;
+  if(!cfg.layouts[layoutId])cfg.layouts[layoutId]=[];
+  const cells=cfg.layouts[layoutId];
+  while(cells.length<n)cells.push('empty');
+  cfg.layouts[layoutId]=cells.slice(0,n);
   saveProfiles(_profiles);if(_profiles[pi].name===_activeProfileName)buildGrid();
   renderProfileList();
   const body=document.getElementById('pcb-'+pi);if(body)body.classList.add('open');
@@ -4904,7 +4921,8 @@ function openMetricPicker(profIdx,orient,cellIdx){
   _pickState={profIdx,orient,cellIdx};
   const modal=document.getElementById('metric-picker');
   document.getElementById('mpick-slot-label').textContent=orient+' #'+(cellIdx+1);
-  const currentKey=(_profiles[profIdx]?.[orient]?.cells?.[cellIdx])||'empty';
+  const cfg=_profiles[profIdx]?.[orient];
+  const currentKey=(cfg?.layouts?.[cfg.layout]?.[cellIdx])||'empty';
   const grid=document.getElementById('mpick-grid');
   grid.innerHTML=Object.entries(METRIC_DEFS).filter(([,def])=>!def.hidden).map(([key,def])=>
     '<button class="mpick-btn'+(key===currentKey?' sel':'')+(key==='empty'?' empty-m':'')+'" onclick="selectMetric(\''+key+'\')">'+def.short+'</button>'
@@ -4915,8 +4933,9 @@ function openMetricPicker(profIdx,orient,cellIdx){
 }
 function selectMetric(key){
   const{profIdx,orient,cellIdx}=_pickState;
-  if(_profiles[profIdx]?.[orient]?.cells){
-    _profiles[profIdx][orient].cells[cellIdx]=key;saveProfiles(_profiles);
+  const cfg=_profiles[profIdx]?.[orient];
+  if(cfg?.layouts?.[cfg.layout]){
+    cfg.layouts[cfg.layout][cellIdx]=key;saveProfiles(_profiles);
     if(_profiles[profIdx].name===_activeProfileName){buildGrid();if(enterLive._done)updateUI();}
   }
   document.getElementById('metric-picker').style.display='none';
