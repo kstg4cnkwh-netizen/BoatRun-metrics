@@ -1352,7 +1352,7 @@ const SquadSync = (() => {
                 }
             }
             const body = {
-                name: getRowerName() || 'Rower', rate: Math.round(strokeRate || 0),
+                name: getRowerName() || 'Rower', rate: strokeRate || 0,
                 pace: pace > 0 ? Math.round(pace) : 0,
                 dist: Math.round(distance || 0), strokes: strokeCount || 0,
                 laps: laps.length, elapsed: elapsed || 0,
@@ -2728,6 +2728,10 @@ function pushVelocity(t, v) {
     // sustained). Drop it so it can't poison the filter / pace. Three lows in a
     // row is treated as a genuine sustained change and adopted immediately.
     const gMed = gpsSpeedMedian();
+    if (gMed > 1.0 && v < gMed * 0.40) {   // extreme Doppler collapse: single-shot reject
+        gpsRejectStreak++;
+        return;
+    }
     if (gMed > 1.0 && v < gMed * 0.60) {
         if (gpsRejectStreak < 3) { gpsRejectStreak++; return; }
         gpsSpeedHist.length = 0;
@@ -4136,6 +4140,15 @@ function stopSess() {
         }
         wktEnd();
     }
+    if (laps.length > 0 && wkt.lapMetrics.length === 0) {
+        const _fd = distance - lapStartDist, _ft = elapsed - lapStartTime, _fd_r = Math.round(_fd);
+        if (_fd_r > 10 && _ft > 10) {
+            laps.push({ n: laps.length + 1, dist: _fd_r, time: _ft,
+                pace: _fd > 5 && _ft > 0 ? (_ft / _fd) * 500 : 0,
+                rate: strokeRate || null, avgDPS: distPerStroke || null,
+                avgRunLoss: runLossM, avgOarAngle: oarAngle || null, avgCheckDelta: checkDelta || null });
+        }
+    }
     if (elapsed > 10 && sessStrokes.length > 0 && !sessSaved) {
         try {
             const ap  = distance > 5 && elapsed > 0 ? Math.round((elapsed / distance) * 500) : 0;
@@ -5374,10 +5387,11 @@ CHARTS
 // Returns an array of stroke indices (0-based) where each lap boundary falls.
 // The last lap end is omitted — it coincides with the session end.
 function getLapStrokeIndices(strokes, laps) {
-  if (!laps || laps.length < 2 || !strokes || !strokes.length) return [];
+  if (!laps || !laps.length || !strokes || !strokes.length) return [];
   const result = [];
-  let cumDist = 0;
-  for (let li = 0; li < laps.length - 1; li++) {
+  const offset = strokes[0].dist || 0;
+  let cumDist = offset;
+  for (let li = 0; li < laps.length; li++) {
     cumDist += laps[li].dist || 0;
     let best = 0, bestDiff = Infinity;
     for (let i = 0; i < strokes.length; i++) {
@@ -5390,10 +5404,10 @@ function getLapStrokeIndices(strokes, laps) {
 }
 
 function getLapTimeIndices(trace, laps) {
-  if (!laps || laps.length < 2 || !trace || !trace.length) return [];
+  if (!laps || !laps.length || !trace || !trace.length) return [];
   const result = [];
   let cumSec = 0;
-  for (let li = 0; li < laps.length - 1; li++) {
+  for (let li = 0; li < laps.length; li++) {
     cumSec += laps[li].time || 0;
     const idx = Math.min(Math.round(cumSec), trace.length - 1);
     if (idx > 0) result.push(idx);
