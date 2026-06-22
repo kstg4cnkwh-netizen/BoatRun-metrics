@@ -4769,7 +4769,7 @@ function showDetail(id){
       const allPace=[...s.paceTrace,...gspd].filter(v=>v>60&&v<600);
       const sharedMin=allPace.length?Math.min(...allPace)*0.97:null;
       const sharedMax=allPace.length?Math.max(...allPace)*1.03:null;
-      const plapIdx=getLapTimeIndices(s.paceTrace,s.laps);
+      const plapIdx=getLapTimeIndices(s.paceTrace,s.laps,s.duration||0);
       if(gspd.length>2)drawChart('a-gspeed',gspd,'#8e44ad',true,sharedMax,false,sharedMin,null,plapIdx);
       drawChart('a-pace',s.paceTrace,'#27ae60',true,sharedMax,false,sharedMin,null,plapIdx);
     } else if(s.garminSpeedTrace&&s.garminSpeedTrace.length>2){
@@ -4785,10 +4785,10 @@ function showDetail(id){
       drawChart('a-eff',s.strokes.map(x=>(x.driveImpulse||0)*100),'#27ae60',false,null,true,null,null,lapIdx);
       drawChart('a-dps',s.strokes.map(x=>x.dps||0),'#1a5276',false,20,false,null,null,lapIdx);
       drawChart('a-char',s.strokes.map(x=>x.char||0),'#8e44ad',false,100,true,0,50,lapIdx);
-      const ratioData=s.strokes.map(x=>x.strokeRatio||0).filter(v=>v>0);
-      if(ratioData.length>1)drawChart('a-ratio',ratioData,'#27ae60',false,null,true,null,null,lapIdx);
-      const oarData=s.strokes.map(x=>x.oarAngle||0).filter(v=>v>0);
-      if(oarData.length>1)drawChart('a-oarangle',oarData,'#2de0d4',false,null,true,null,[60,90],lapIdx);
+      const ratioData=s.strokes.map(x=>(x.strokeRatio>0?x.strokeRatio:NaN));
+      if(ratioData.some(v=>isFinite(v)))drawChart('a-ratio',ratioData,'#27ae60',false,null,true,null,null,lapIdx);
+      const oarData=s.strokes.map(x=>(x.oarAngle>0?x.oarAngle:NaN));
+      if(oarData.some(v=>isFinite(v)))drawChart('a-oarangle',oarData,'#2de0d4',false,null,true,null,[60,90],lapIdx);
       const cdData=s.strokes.map(x=>x.checkDelta||0);
       if(cdData.some(v=>v>0))drawChart('a-checkdelta',cdData,'#2980b9',false,null,true,0,null,lapIdx);
     }
@@ -5403,14 +5403,14 @@ function getLapStrokeIndices(strokes, laps) {
   return result;
 }
 
-function getLapTimeIndices(trace, laps) {
-  if (!laps || !laps.length || !trace || !trace.length) return [];
+function getLapTimeIndices(trace, laps, duration) {
+  if (!laps || !laps.length || !trace || !trace.length || !duration) return [];
   const result = [];
   let cumSec = 0;
   for (let li = 0; li < laps.length; li++) {
     cumSec += laps[li].time || 0;
-    const idx = Math.min(Math.round(cumSec), trace.length - 1);
-    if (idx > 0) result.push(idx);
+    const idx = Math.round((cumSec / duration) * (trace.length - 1));
+    if (idx > 0 && idx < trace.length - 1) result.push(idx);
   }
   return result;
 }
