@@ -4769,9 +4769,8 @@ function showDetail(id){
       const allPace=[...s.paceTrace,...gspd].filter(v=>v>60&&v<600);
       const sharedMin=allPace.length?Math.min(...allPace)*0.97:null;
       const sharedMax=allPace.length?Math.max(...allPace)*1.03:null;
-      const _dur=s.duration||0;
-      const plapIdx=getLapTimeIndices(s.paceTrace,s.laps,_dur);
-      const gslapIdx=gspd.length>2?getLapTimeIndices(gspd,s.laps,_dur):[];
+      const plapIdx=(s.strokes&&s.strokes.length>1)?getLapPaceIndices(s.paceTrace,s.strokes,s.laps):[];
+      const gslapIdx=(s.garminSpeedTrace&&s.garminSpeedTrace.length>2&&s.startTime)?getLapGarminIndices(s.garminSpeedTrace,s.laps,s.startTime):[];
       if(gspd.some(v=>isFinite(v)))drawChart('a-gspeed',gspd,'#8e44ad',true,sharedMax,false,sharedMin,null,gslapIdx);
       drawChart('a-pace',s.paceTrace,'#27ae60',true,sharedMax,false,sharedMin,null,plapIdx);
     } else if(s.garminSpeedTrace&&s.garminSpeedTrace.length>2){
@@ -5405,14 +5404,36 @@ function getLapStrokeIndices(strokes, laps) {
   return result;
 }
 
-function getLapTimeIndices(trace, laps, duration) {
-  if (!laps || !laps.length || !trace || !trace.length || !duration) return [];
+function getLapPaceIndices(paceTrace, strokes, laps) {
+  if (!paceTrace || paceTrace.length < 2 || !strokes || !strokes.length || !laps || !laps.length) return [];
+  const sIdx = getLapStrokeIndices(strokes, laps);
+  if (!sIdx.length) return [];
+  const d0 = strokes[0].dist || 0;
+  const dN = strokes[strokes.length - 1].dist || 1;
+  const dRange = dN - d0 || 1;
+  const M = paceTrace.length - 1;
   const result = [];
-  let cumSec = 0;
+  sIdx.forEach(si => {
+    if (si < 0 || si >= strokes.length) return;
+    const frac = ((strokes[si].dist || 0) - d0) / dRange;
+    const idx = Math.round(frac * M);
+    if (idx > 0 && idx < M) result.push(idx);
+  });
+  return result;
+}
+function getLapGarminIndices(gsTrace, laps, startTime) {
+  if (!gsTrace || !gsTrace.length || !laps || !laps.length || !startTime) return [];
+  const result = [];
+  let cumMs = 0;
   for (let li = 0; li < laps.length; li++) {
-    cumSec += laps[li].time || 0;
-    const idx = Math.round((cumSec / duration) * (trace.length - 1));
-    if (idx > 0 && idx < trace.length - 1) result.push(idx);
+    cumMs += (laps[li].time || 0) * 1000;
+    const tgt = startTime + cumMs;
+    let best = 0, bestDiff = Infinity;
+    for (let i = 0; i < gsTrace.length; i++) {
+      const d = Math.abs((gsTrace[i].t || 0) - tgt);
+      if (d < bestDiff) { bestDiff = d; best = i; }
+    }
+    if (best > 0 && best < gsTrace.length - 1) result.push(best);
   }
   return result;
 }
