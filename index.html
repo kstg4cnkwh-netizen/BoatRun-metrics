@@ -1066,6 +1066,27 @@ const DriveSync = (() => {
                 });
             }
         },
+        async deleteAllSessions() {
+            if (!this.isSignedIn()) throw new Error('Not signed in');
+            const q = encodeURIComponent("name contains 'RowSess_' and trashed=false");
+            const r = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id)&pageSize=1000`, {
+                headers: { Authorization: `Bearer ${_tok}` }
+            });
+            if (!r.ok) throw new Error(`List failed ${r.status}`);
+            const found = await r.json();
+            const files = found.files || [];
+            let n = 0;
+            for (const f of files) {
+                try {
+                    await fetch(`https://www.googleapis.com/drive/v3/files/${f.id}`, {
+                        method: 'DELETE',
+                        headers: { Authorization: `Bearer ${_tok}` }
+                    });
+                    n++;
+                } catch {}
+            }
+            return n;
+        },
         async listSessions() {
             if (!this.isSignedIn()) throw new Error('Not signed in');
             const q = encodeURIComponent("name contains 'RowSess_' and trashed=false");
@@ -1344,6 +1365,8 @@ const SquadSync = (() => {
                 char: strokeChar,
                 oarAngle: oarAngle,
                 checkDelta: checkDelta != null ? Math.round(checkDelta * 100) / 100 : null,
+                lat: lastPos ? Math.round(lastPos.lat * 1e6) / 1e6 : null,
+                lon: lastPos ? Math.round(lastPos.lon * 1e6) / 1e6 : null,
                 workout: workoutPayload,
                 live: !!(running && !paused), t: now
             };
@@ -1557,6 +1580,7 @@ const gravity = { x: 0, y: 0, z: 0 };
 const axFast   = { x: 0, y: 0, z: 0 };
 const axSmooth = { x: 0, y: 0, z: 0 };
 const axBuf    = { x: [], y: [], z: [] };
+const fastBuf   = { x: [], y: [], z: [] };
 function updateAxes(raw, now) {
     for (const k of AXES) {
         if (calRunning) calSamples[k].push(Math.abs(raw[k]));
@@ -1567,6 +1591,8 @@ function updateAxes(raw, now) {
         axBuf[k].push({ t: now, v: axSmooth[k] });
         const cut = now - CONFIG.motion.axBufMs;
         while (axBuf[k].length > 1 && axBuf[k][0].t < cut) axBuf[k].shift();
+        fastBuf[k].push({ t: now, v: axFast[k] });
+        while (fastBuf[k].length > 1 && fastBuf[k][0].t < cut) fastBuf[k].shift();
     }
 }
 function scoreAxis(ax) {
@@ -1666,7 +1692,7 @@ function driveSign(vals) {
 }
 // Sign for the projected axis — same skewness criterion as the single-axis path.
 function projectedSign(ux, uy) {
-    const bx = axBuf.x, by = axBuf.y, n = Math.min(bx.length, by.length);
+    const bx = fastBuf.x, by = fastBuf.y, n = Math.min(bx.length, by.length);
     const proj = new Array(n);
     for (let i = 0; i < n; i++) proj[i] = ux * bx[i].v + uy * by[i].v;
     return driveSign(proj);
@@ -1698,7 +1724,7 @@ function maybeDetectAxis(now) {
         }
         axisAutoDetected = true;
     } else if (bSc > 0.03) {
-        const newSign = driveSign(axBuf[bAx].map(s => s.v));
+        const newSign = driveSign(fastBuf[bAx].map(s => s.v));
         if (useProjAxis || bAx !== selAxis || newSign !== selSign) {
             useProjAxis = false; selAxis = bAx; selSign = newSign;
             resetAxisState();
@@ -1732,20 +1758,20 @@ function signedSkew(vals) {
 function maybeRevalidateSign(now) {
     if (!axisAutoDetected || now - lastSignCheck < 4000) return;
     lastSignCheck = now;
-    if (strokesDetected < 6 || acRate <= 0) return;   // require real, periodic rowing
+    if (strokesDetected < 6 || acRate <= 0) return;
     let vals;
     if (useProjAxis) {
-        const bx = axBuf.x, by = axBuf.y, m = Math.min(bx.length, by.length);
+        const bx = fastBuf.x, by = fastBuf.y, m = Math.min(bx.length, by.length);
         vals = new Array(m);
         for (let i = 0; i < m; i++) vals[i] = projX * bx[i].v + projY * by[i].v;
     } else {
-        vals = axBuf[selAxis].map(s => s.v);
+        vals = fastBuf[selAxis].map(s => s.v);
     }
     const skew = signedSkew(vals);
-    if (Math.abs(skew) < 0.20) return;                // asymmetry too weak to trust
+    if (Math.abs(skew) < 0.20) return;
     const correctSign = (skew > 0) ? -1 : 1;
     if (correctSign === selSign) { signFlipStreak = 0; return; }
-    if (++signFlipStreak < 3) return;                 // sustained disagreement only
+    if (++signFlipStreak < 3) return;
     selSign = correctSign; signFlipStreak = 0;
     resetAxisState();
     if (typeof toast === 'function') toast('Axis sign auto-corrected');
@@ -4182,7 +4208,7 @@ function resetSess() {
     fsmState = FS.IDLE; catchPeakJerk = 0; driveMinJerk = 0; trigValsArr.length = 0; catchStartT = 0; lastCatchAbsT = 0; lastDriveEndT = 0; bladeExitT = 0; prevDriveStartT = 0; bladeExitDetected = false; driveForceT = 0; prevDriveForceT = 0;
     strokesDetected = 0; jerkThreshActive = jerkThreshBase; adaptReady = false;
     acBuf.length = 0; acLastUpdate = 0; jerkBuf.length = 0; catchTsBuf.length = 0;
-    axisLocked = false; axisAutoDetected = false; lastAxisCheck = 0; selSign = 1;
+    axisLocked = false; axisAutoDetected = false; lastAxisCheck = 0; selSign = 1; lastSignCheck = 0; signFlipStreak = 0;
     sessStart = null; lastStrokeCurve = null; strokeCurveHistory.length = 0;
     catchToCatchSamples = []; pendingCurveDriveCount = 0;
     motionSamples = 0; motionStartedAt = 0; lastMotionT = 0;
@@ -4469,6 +4495,10 @@ function renderSettingsPanel() {
                 ? '<button onclick="stravaDisconnect()" style="flex:1;padding:10px;font-size:12px;font-weight:700;letter-spacing:.05em;background:#fff;color:#c0392b;border:1px solid #ddd;border-radius:4px;">DISCONNECT</button>'
                 : '<button onclick="stravaSignIn()" style="flex:1;padding:10px;font-size:13px;font-weight:700;letter-spacing:.08em;background:#fc4c02;color:#fff;border:none;border-radius:4px;">CONNECT TO STRAVA</button>'}
         </div>
+        <div style="height:18px;"></div>
+        <div class="setup-section">YOUR DATA</div>
+        ${DriveSync.isSignedIn() ? `<div style="font-size:11px;color:#888;margin-top:4px;">Permanently delete all BoatRun sessions stored in your Google Drive. Sessions saved on this device are not affected.</div>
+        <button onclick="deleteAllDriveData()" style="width:100%;margin-top:8px;padding:10px;font-size:12px;font-weight:700;letter-spacing:.05em;background:#fff;color:#c0392b;border:1px solid #e0a0a0;border-radius:4px;">DELETE MY DRIVE DATA</button>` : '<div style="font-size:11px;color:#888;margin-top:4px;">Sign in to Drive to manage stored sessions.</div>'}
     </div>`;
 }
 function saveSquadSettings() {
@@ -5471,6 +5501,20 @@ DRIVE SYNC HELPERS
 */
 function handleDriveBtnTap(){if(DriveSync.isSignedIn()){const choice=confirm('Drive linked.\n\nOK = Sync from Drive now\nCancel = Unlink Drive');if(choice){toast('Syncing from Drive…');DriveSync.syncFromDrive().then(()=>{if(typeof renderHomeScreen==='function')renderHomeScreen();}).catch(e=>toast('Sync failed: '+e.message));}else{if(confirm('Unlink Google Drive?')){DriveSync.signOut();updateDriveBtn();toast('Drive unlinked');}}}else driveSignIn();}
 function updateDriveBtn(){const btn=document.getElementById('drive-btn');if(!btn)return;const linked=DriveSync.isSignedIn();linked?(btn.textContent='Linked',btn.classList.add('drive-linked')):(btn.textContent='Drive',btn.classList.remove('drive-linked'));['restore-bar-log','restore-bar-layouts','restore-bar-workouts'].forEach(id=>{const rb=document.getElementById(id);if(rb)rb.style.display=linked?'block':'none';});}
+async function deleteAllDriveData(){
+    if(!DriveSync.isSignedIn()){toast('Not linked to Drive');return;}
+    if(!confirm('Permanently delete ALL your BoatRun sessions from Google Drive?\n\nThis cannot be undone. Sessions saved on this device are not affected.'))return;
+    toast('Deleting…');
+    try{
+        const n=await DriveSync.deleteAllSessions();
+        DriveSync.signOut();
+        updateDriveBtn();
+        renderSettingsPanel();
+        toast(n+' session(s) deleted from Drive');
+    }catch(e){
+        toast('Delete failed: '+e.message);
+    }
+}
 async function checkOAuthReturn(){
   let pending=window._scullOAuth||null;window._scullOAuth=null;
   if(!pending){const raw=_SS.getItem('_oauth_token');if(!raw){
