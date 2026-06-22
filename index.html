@@ -4842,6 +4842,20 @@ function showDetail(id){
 PROFILE SYSTEM 
 ¨T¨T
 */
+function buildPreviewGrid(profile,pi,orient){
+  const layouts=LAYOUT_DEFS[orient];const cfg=profile[orient];
+  const ld=layouts.find(l=>l.id===cfg.layout)||layouts[0];
+  const n=ld.cols*ld.rows;const cl=getOrientCells(cfg,cfg.layout,n);
+  const isPortrait = orient === 'portrait';
+  const wrapStyle = isPortrait
+    ? 'width:170px;aspect-ratio:9/19.5;margin:0 auto 8px;'
+    : 'width:100%;max-width:340px;aspect-ratio:19.5/9;margin-bottom:8px;';
+  const gs='display:grid;height:100%;grid-template-columns:repeat('+ld.cols+',1fr);grid-template-rows:repeat('+ld.rows+',1fr);gap:2px;background:#000;padding:2px;border-radius:2px;';
+  return '<div style="'+wrapStyle+'"><div style="'+gs+'">'+cl.map((key,ci)=>{
+    const def=METRIC_DEFS[key]||METRIC_DEFS.empty;
+    return '<div class="preview-cell" style="min-height:0;" onclick="openMetricPicker('+pi+',\''+orient+'\','+ci+')" title="Tap to assign"><span class="preview-cell-val">'+def.short+'</span></div>';
+  }).join('')+'</div></div>';
+}
 function renderProfileList(){
   const container=document.getElementById('profile-list-container');if(!container)return;
   container.innerHTML=_profiles.map((p,pi)=>`
@@ -4887,20 +4901,6 @@ function toggleProfileCard(pi){
   const body=document.getElementById('pcb-'+pi);
   document.querySelectorAll('.pc-body').forEach(b=>{if(b.id!=='pcb-'+pi)b.classList.remove('open');});
   body&&body.classList.toggle('open');
-}
-function setProfileLayout(pi,orient,layoutId){
-  const cfg=_profiles[pi][orient];
-  if(!cfg.layouts)cfg.layouts={};
-  cfg.layout=layoutId;
-  const layouts=LAYOUT_DEFS[orient];const ld=layouts.find(l=>l.id===layoutId)||layouts[0];
-  const n=ld.cols*ld.rows;
-  if(!cfg.layouts[layoutId])cfg.layouts[layoutId]=[];
-  const cells=cfg.layouts[layoutId];
-  while(cells.length<n)cells.push('empty');
-  cfg.layouts[layoutId]=cells.slice(0,n);
-  saveProfiles(_profiles);if(_profiles[pi].name===_activeProfileName)buildGrid();
-  renderProfileList();
-  const body=document.getElementById('pcb-'+pi);if(body)body.classList.add('open');
 }
 function activateProfile(pi){
   _activeProfileName=_profiles[pi].name;saveActiveProfileName(_activeProfileName);
