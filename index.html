@@ -579,6 +579,7 @@ body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidd
 <div id="ht-settings" class="home-panel">
 <div id="settings-root"></div>
 <div id="hr-editor-root" style="margin-top:14px;"></div>
+<div id="drive-data-root"></div>
 </div>
 <!-- ABOUT panel -->
 <div id="ht-about" class="home-panel">
@@ -4508,11 +4509,17 @@ function renderSettingsPanel() {
                 ? '<button onclick="stravaDisconnect()" style="flex:1;padding:10px;font-size:12px;font-weight:700;letter-spacing:.05em;background:#fff;color:#c0392b;border:1px solid #ddd;border-radius:4px;">DISCONNECT</button>'
                 : '<button onclick="stravaSignIn()" style="flex:1;padding:10px;font-size:13px;font-weight:700;letter-spacing:.08em;background:#fc4c02;color:#fff;border:none;border-radius:4px;">CONNECT TO STRAVA</button>'}
         </div>
-        <div style="height:18px;"></div>
-        <div class="setup-section">YOUR DATA</div>
-        ${DriveSync.isSignedIn() ? `<div style="font-size:11px;color:#888;margin-top:4px;">Permanently delete all BoatRun sessions stored in your Google Drive. Sessions saved on this device are not affected.</div>
-        <button onclick="deleteAllDriveData()" style="width:100%;margin-top:8px;padding:10px;font-size:12px;font-weight:700;letter-spacing:.05em;background:#fff;color:#c0392b;border:1px solid #e0a0a0;border-radius:4px;">DELETE MY DRIVE DATA</button>` : '<div style="font-size:11px;color:#888;margin-top:4px;">Sign in to Drive to manage stored sessions.</div>'}
     </div>`;
+    renderDriveDataSettings();
+}
+function renderDriveDataSettings(){
+  const el=document.getElementById('drive-data-root');if(!el)return;
+  el.innerHTML=`<div style="padding:0 12px 20px;">
+    <div style="height:18px;"></div>
+    <div class="setup-section">YOUR DATA</div>
+    ${DriveSync.isSignedIn()?`<div style="font-size:11px;color:#888;margin-top:4px;">Permanently delete all BoatRun sessions stored in your Google Drive. Sessions saved on this device are not affected.</div>
+    <button onclick="deleteAllDriveData()" style="width:100%;margin-top:8px;padding:10px;font-size:12px;font-weight:700;letter-spacing:.05em;background:#fff;color:#c0392b;border:1px solid #e0a0a0;border-radius:4px;">DELETE MY DRIVE DATA</button>`:'<div style="font-size:11px;color:#888;margin-top:4px;">Sign in to Drive to manage stored sessions.</div>'}
+  </div>`;
 }
 function saveSquadSettings() {
     const codeEl = document.getElementById('squad-code-input'), nameEl = document.getElementById('squad-name-input');
@@ -4544,7 +4551,8 @@ function renderHomeScreen(){
       if(btn.dataset.ht==='log'){
         const dw=document.getElementById('ht-log-detail');
         const ll=document.getElementById('ht-log-list');
-        if(dw&&ll&&dw.style.display!=='none'){dw.style.display='none';ll.style.display='block';const hb=document.querySelector('.home-body');if(hb)hb.scrollTop=0;renderSessionList();}
+        if(dw&&ll&&dw.style.display!=='none'){dw.style.display='none';ll.style.display='block';const hb=document.querySelector('.home-body');if(hb)hb.scrollTop=0;}
+        renderSessionList();
       }
     };
   });
@@ -4863,6 +4871,7 @@ function setProfileLayout(pi,orient,layoutId){
   _profiles[pi][orient].cells=updated.slice(0,n);
   saveProfiles(_profiles);if(_profiles[pi].name===_activeProfileName)buildGrid();
   renderProfileList();
+  const body=document.getElementById('pcb-'+pi);if(body)body.classList.add('open');
 }
 function activateProfile(pi){
   _activeProfileName=_profiles[pi].name;saveActiveProfileName(_activeProfileName);
