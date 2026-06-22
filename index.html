@@ -4765,12 +4765,14 @@ function showDetail(id){
       window.open('https://kstg4cnkwh-netizen.github.io/BoatRun-analysis/index.html','_blank');
     });
     if(s.paceTrace&&s.paceTrace.length>2){
-      const gspd=s.garminSpeedTrace&&s.garminSpeedTrace.length>2?s.garminSpeedTrace.filter(x=>x.spd>0.3).map(x=>500/x.spd):[];
+      const gspd=s.garminSpeedTrace&&s.garminSpeedTrace.length>2?s.garminSpeedTrace.map(x=>x.spd>0.3?500/x.spd:NaN):[];
       const allPace=[...s.paceTrace,...gspd].filter(v=>v>60&&v<600);
       const sharedMin=allPace.length?Math.min(...allPace)*0.97:null;
       const sharedMax=allPace.length?Math.max(...allPace)*1.03:null;
-      const plapIdx=getLapTimeIndices(s.paceTrace,s.laps,s.duration||0);
-      if(gspd.length>2)drawChart('a-gspeed',gspd,'#8e44ad',true,sharedMax,false,sharedMin,null,plapIdx);
+      const _dur=s.duration||0;
+      const plapIdx=getLapTimeIndices(s.paceTrace,s.laps,_dur);
+      const gslapIdx=gspd.length>2?getLapTimeIndices(gspd,s.laps,_dur):[];
+      if(gspd.some(v=>isFinite(v)))drawChart('a-gspeed',gspd,'#8e44ad',true,sharedMax,false,sharedMin,null,gslapIdx);
       drawChart('a-pace',s.paceTrace,'#27ae60',true,sharedMax,false,sharedMin,null,plapIdx);
     } else if(s.garminSpeedTrace&&s.garminSpeedTrace.length>2){
       const gspd=s.garminSpeedTrace.filter(x=>x.spd>0.3).map(x=>500/x.spd);
