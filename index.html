@@ -20,7 +20,7 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html{height:100%;-webkit-text-size-adjust:none}
-body{height:100dvh;font-family:'Roboto',sans-serif;background:#000;overflow:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);}
+body{height:var(--app-h,100dvh);font-family:'Roboto',sans-serif;background:#000;overflow:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);}
 .screen{display:none;width:100%;height:100%}.screen.active{display:flex;flex-direction:column}
 #screen-perm,#screen-cal{background:#1a5276;align-items:center;justify-content:flex-start;overflow-y:auto;}
 .perm-inner{display:flex;flex-direction:column;align-items:center;gap:16px;padding:28px;text-align:center;max-width:420px;width:100%;}
@@ -4427,7 +4427,11 @@ function wireTabButtons(){
   document.getElementById('tab-home-hm')?.addEventListener('click',()=>showTab('home'));
   document.getElementById('tab-live-hm')?.addEventListener('click',()=>showTab('live'));
 }
-window.addEventListener('resize',()=>{if(curveTabActive())requestAnimationFrame(renderCurveCanvas);});
+function fixAppHeight(){document.documentElement.style.setProperty('--app-h',window.innerHeight+'px');}
+window.addEventListener('resize',()=>{fixAppHeight();if(curveTabActive())requestAnimationFrame(renderCurveCanvas);});
+window.addEventListener('orientationchange',()=>{setTimeout(fixAppHeight,300);});
+if(window.visualViewport)window.visualViewport.addEventListener('resize',fixAppHeight);
+fixAppHeight();
 
 /* 
 ¨T¨T
