@@ -2858,7 +2858,7 @@ function handlePos(pos) {
             const vMean = n > 0 ? sum / n : gpsSpeedEma;
             if (vMean > CONFIG.gps.minSpeedForPace) {
                 const raw = 500 / vMean;
-                if (raw >= 90 && raw <= CONFIG.gps.maxPaceS) { pace = raw; sessPaceTrace.push(pace); }
+                if (raw >= 90 && raw <= CONFIG.gps.maxPaceS) { pace = raw; sessPaceTrace.push(pace); sessPaceTimes.push(Date.now()); }
             } else pace = 0;
         } else pace = 0;
         if (gpsLastFixT > 0 && (now - gpsLastFixT) > 6000) pace = 0;
@@ -2903,7 +2903,7 @@ function checkGpsAlive() {
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 let running = false, paused = false, elapsed = 0, sessionReady = false, lapReady = false;
 let distance = 0, lapStartDist = 0, lapStartTime = 0;
-let laps = [], sessStart = null, sessStrokes = [], sessPaceTrace = [];
+let laps = [], sessStart = null, sessStrokes = [], sessPaceTrace = [], sessPaceTimes = [];
 let sessSaved = false, timerInt = null, autosaveInt = null, wakeLock = null, sessLocked = false;
 let pendingSessName = '';
 
@@ -4199,7 +4199,7 @@ function stopSess() {
                 avgOarAngle:    avg(sessStrokes, 'oarAngle'),    avgCheckDelta: avg(sessStrokes, 'checkDelta'),
                 avgCatchDuration: avg(sessStrokes, 'catchDuration'),
                 strokes:        sessStrokes.map(({ _prlStroke, ...r }) => r),
-                paceTrace:      sessPaceTrace.slice(),   gpsTrace:    sessGpsTrace.slice(),
+                paceTrace:      sessPaceTrace.slice(),   paceTimes:   sessPaceTimes.slice(),   gpsTrace:    sessGpsTrace.slice(),
                 gpsRawTrace:    sessGpsRawTrace.slice(), rlDebug:     rlDebug.slice(),
                 hrTrace: null,  laps: laps.slice(),
                 workoutLapMetrics: wkt.lapMetrics.length ? wkt.lapMetrics.slice() : null,
@@ -4216,7 +4216,7 @@ function stopSess() {
                 toast('Session saved ✓ (' + sessStrokes.length + ' strokes)');
             } else {
                 try {
-                    const snap = { id: sessStart.toString(), startTime: sessStart, duration: elapsed, distance: Math.round(distance), strokeCount, catchPeakSess, catchAvg8, laps, strokes: sessStrokes, paceTrace: sessPaceTrace, gpsTrace: sessGpsTrace, rlDebug: rlDebug.slice(), _autosave: true, _savedAt: Date.now() };
+                    const snap = { id: sessStart.toString(), startTime: sessStart, duration: elapsed, distance: Math.round(distance), strokeCount, catchPeakSess, catchAvg8, laps, strokes: sessStrokes, paceTrace: sessPaceTrace, paceTimes: sessPaceTimes.slice(), gpsTrace: sessGpsTrace, rlDebug: rlDebug.slice(), _autosave: true, _savedAt: Date.now() };
                     _LS.setItem(AUTOSAVE_DB, JSON.stringify(snap));
                     alert('⚠️ Session save failed — stored as autosave.\n\nClose and reopen the app to recover it.\nOr go to LOG and delete old sessions to free storage, then tap Finish again.');
                 } catch {
@@ -4241,7 +4241,7 @@ function resetSess() {
     catchValsArr.length = 0; catchConsistency = null; strokeChar = 50; charValsArr.length = 0; catchDurLast = null; catchDurValsArr.length = 0;
     rdi = null; rdiValsArr.length = 0; strokeRatio = null; strokeRatioValsArr.length = 0;
     pendingRun = null; runLosses.length = 0; runLossM = null; runLossPcts.length = 0; runLossPct = null; runLossMpsArr.length = 0; runLossMps = null; rlDebug.length = 0;
-    laps = []; sessStrokes.length = 0; sessPaceTrace.length = 0;
+    laps = []; sessStrokes.length = 0; sessPaceTrace.length = 0; sessPaceTimes.length = 0;
     sessGpsTrace.length = 0; sessGpsRawTrace.length = 0;
     strokeTs.length = 0; prevDriveDurMs = 0; prevFastSample = 0; paceDistWindow.length = 0; velocityWindow.length = 0;
     speedSamples.length = 0; prevStrokeDist = 0; prevStrokeDistT = 0;
@@ -4343,7 +4343,7 @@ function saveInProgress() {
     try {
         const gpsStep = Math.max(1, Math.round(sessGpsTrace.length / 300));
         const gpsSlim = gpsStep <= 1 ? sessGpsTrace : sessGpsTrace.filter((_, i) => i % gpsStep === 0);
-        const snap = { id: sessStart.toString(), startTime: sessStart, duration: elapsed, distance: Math.round(distance), strokeCount, catchPeakSess, catchAvg8, laps, strokes: sessStrokes, paceTrace: sessPaceTrace, gpsTrace: gpsSlim, _autosave: true, _savedAt: Date.now() };
+        const snap = { id: sessStart.toString(), startTime: sessStart, duration: elapsed, distance: Math.round(distance), strokeCount, catchPeakSess, catchAvg8, laps, strokes: sessStrokes, paceTrace: sessPaceTrace, paceTimes: sessPaceTimes.slice(), gpsTrace: gpsSlim, _autosave: true, _savedAt: Date.now() };
         _LS.setItem(AUTOSAVE_DB, JSON.stringify(snap));
     } catch { toast('⚠️ Storage full — session data not saving! Delete old sessions from LOG.'); }
 }
@@ -4808,7 +4808,7 @@ function showDetail(id){
       const allPace=[...s.paceTrace,...gspd].filter(v=>v>60&&v<600);
       const sharedMin=allPace.length?Math.min(...allPace)*0.97:null;
       const sharedMax=allPace.length?Math.max(...allPace)*1.03:null;
-      const plapIdx=(s.strokes&&s.strokes.length>1)?getLapPaceIndices(s.paceTrace,s.strokes,s.laps):[];
+      const plapIdx=(s.strokes&&s.strokes.length>1)?getLapPaceIndices(s.paceTrace,s.strokes,s.laps,s.paceTimes||null,s.startTime||0):[];
       const gslapIdx=(s.garminSpeedTrace&&s.garminSpeedTrace.length>2&&s.startTime)?getLapGarminIndices(s.garminSpeedTrace,s.laps,s.startTime):[];
       if(gspd.some(v=>isFinite(v)))drawChart('a-gspeed',gspd,'#8e44ad',true,sharedMax,false,sharedMin,null,gslapIdx);
       drawChart('a-pace',s.paceTrace,'#27ae60',true,sharedMax,false,sharedMin,null,plapIdx);
@@ -5448,19 +5448,31 @@ function getLapStrokeIndices(strokes, laps) {
   return result;
 }
 
-function getLapPaceIndices(paceTrace, strokes, laps) {
+function getLapPaceIndices(paceTrace, strokes, laps, paceTimes, startTime) {
   if (!paceTrace || paceTrace.length < 2 || !strokes || !strokes.length || !laps || !laps.length) return [];
+  if (paceTimes && paceTimes.length === paceTrace.length && startTime) {
+    const result = [];
+    let cumMs = 0;
+    for (let li = 0; li < laps.length; li++) {
+      cumMs += (laps[li].time || 0) * 1000;
+      const tgt = startTime + cumMs;
+      let best = 0, bestDiff = Infinity;
+      for (let i = 0; i < paceTimes.length; i++) {
+        const d = Math.abs(paceTimes[i] - tgt);
+        if (d < bestDiff) { bestDiff = d; best = i; }
+      }
+      if (best > 0 && best < paceTrace.length - 1) result.push(best);
+    }
+    return result;
+  }
   const sIdx = getLapStrokeIndices(strokes, laps);
   if (!sIdx.length) return [];
-  const d0 = strokes[0].dist || 0;
-  const dN = strokes[strokes.length - 1].dist || 1;
-  const dRange = dN - d0 || 1;
+  const N = strokes.length - 1 || 1;
   const M = paceTrace.length - 1;
   const result = [];
   sIdx.forEach(si => {
     if (si < 0 || si >= strokes.length) return;
-    const frac = ((strokes[si].dist || 0) - d0) / dRange;
-    const idx = Math.round(frac * M);
+    const idx = Math.round((si / N) * M);
     if (idx > 0 && idx < M) result.push(idx);
   });
   return result;
