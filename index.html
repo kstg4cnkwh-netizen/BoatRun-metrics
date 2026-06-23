@@ -1672,27 +1672,25 @@ function horizontalPrincipalAxis() {
     for (let i = 0; i < n; i++) proj[i] = ux * bx[i].v + uy * by[i].v;
     return { ux, uy, score: autocorrScore(proj, dtMs) };
 }
-// Surge-axis sign from distribution skewness. The drive is a brief, high-amplitude
-// phase and the recovery a long, low-amplitude one, so the acceleration distribution
-// is skewed toward the drive side. Skewness (3rd moment) finds the drive side far
-// more reliably than summed magnitudes, whose impulses nearly cancel each stroke and
-// flip on tiny asymmetries. Choose the sign that puts the drive on the NEGATIVE side
-// (fast<0 in drive, fast>0 at the catch / recovery).
-function driveSign(vals) {
+// Surge-axis sign from the MEDIAN. The recovery is the longest phase of the
+// stroke, so most samples sit on the recovery side of zero while the brief,
+// powerful drive sits on the opposite side. The median sign therefore picks the
+// recovery side robustly — and, unlike skewness, it is NOT thrown by the
+// amplitude of the sharp catch-check spike, which on a light hull can dominate
+// the 3rd moment and invert the skew (the cause of the wrong-sign lock).
+// Returns +1/-1 for the sign that puts the drive negative (fast<0 in drive,
+// fast>0 at catch/recovery), or 0 when ambiguous.
+function surgeSignFromMedian(vals) {
     const n = vals.length;
-    if (n < 8) return selSign;
-    let mu = 0;
-    for (let i = 0; i < n; i++) mu += vals[i];
-    mu /= n;
-    let m2 = 0, m3 = 0;
-    for (let i = 0; i < n; i++) { const d = vals[i] - mu; m2 += d * d; m3 += d * d * d; }
-    m2 /= n; m3 /= n;
-    if (m2 < 1e-9) return selSign;
-    const skew = m3 / Math.pow(m2, 1.5);
-    // Deadband: a weak/ambiguous skew (e.g. the noisy racing start) must NOT
-    // flip the sign. Only a clearly skewed distribution changes it.
-    if (Math.abs(skew) < 0.25) return selSign;
-    return (skew > 0) ? -1 : 1;
+    if (n < 8) return 0;
+    const s = vals.slice().sort((a, b) => a - b);
+    const med = (n & 1) ? s[(n - 1) >> 1] : 0.5 * (s[n / 2 - 1] + s[n / 2]);
+    if (Math.abs(med) < 1e-4) return 0;
+    return (med > 0) ? 1 : -1;
+}
+function driveSign(vals) {
+    const sgn = surgeSignFromMedian(vals);
+    return sgn === 0 ? selSign : sgn;
 }
 // Sign for the projected axis — same skewness criterion as the single-axis path.
 function projectedSign(ux, uy) {
@@ -1774,7 +1772,7 @@ function signedSkew(vals) {
 function maybeRevalidateSign(now) {
     if (!axisAutoDetected || now - lastSignCheck < 4000) return;
     lastSignCheck = now;
-    if (strokesDetected < 6 || acRate <= 0) return;
+    if (strokesDetected < 6 || (acRate <= 0 && strokeRate <= 0)) return;
     let vals;
     if (useProjAxis) {
         const bx = fastBuf.x, by = fastBuf.y, m = Math.min(bx.length, by.length);
@@ -1783,10 +1781,8 @@ function maybeRevalidateSign(now) {
     } else {
         vals = fastBuf[selAxis].map(s => s.v);
     }
-    const skew = signedSkew(vals);
-    if (Math.abs(skew) < 0.20) return;
-    const correctSign = (skew > 0) ? -1 : 1;
-    if (correctSign === selSign) { signFlipStreak = 0; return; }
+    const correctSign = surgeSignFromMedian(vals);
+    if (correctSign === 0 || correctSign === selSign) { signFlipStreak = 0; return; }
     if (++signFlipStreak < 3) return;
     selSign = correctSign; signFlipStreak = 0;
     resetAxisState();
