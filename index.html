@@ -1689,6 +1689,9 @@ function driveSign(vals) {
     m2 /= n; m3 /= n;
     if (m2 < 1e-9) return selSign;
     const skew = m3 / Math.pow(m2, 1.5);
+    // Deadband: a weak/ambiguous skew (e.g. the noisy racing start) must NOT
+    // flip the sign. Only a clearly skewed distribution changes it.
+    if (Math.abs(skew) < 0.25) return selSign;
     return (skew > 0) ? -1 : 1;
 }
 // Sign for the projected axis — same skewness criterion as the single-axis path.
@@ -1726,7 +1729,19 @@ function maybeDetectAxis(now) {
         axisAutoDetected = true;
     } else if (bSc > 0.03) {
         const newSign = driveSign(fastBuf[bAx].map(s => s.v));
-        if (useProjAxis || bAx !== selAxis || newSign !== selSign) {
+        const axisChanged = useProjAxis || bAx !== selAxis;
+        // Axis change adopts immediately. A sign flip on the SAME axis must be
+        // confirmed over 2 consecutive checks before it sticks, so one noisy
+        // racing-start window cannot lock the wrong sign and break every metric.
+        let adopt = axisChanged;
+        if (axisChanged) {
+            preLockSignStreak = 0;
+        } else if (newSign !== selSign) {
+            if (++preLockSignStreak >= 2) { adopt = true; preLockSignStreak = 0; }
+        } else {
+            preLockSignStreak = 0;
+        }
+        if (adopt) {
             useProjAxis = false; selAxis = bAx; selSign = newSign;
             resetAxisState();
         }
@@ -1739,7 +1754,7 @@ function maybeDetectAxis(now) {
     p.className = axisAutoDetected ? (axisLocked ? 'pill pill-on' : 'pill pill-warn') : 'pill pill-off';
 }
 
-let lastSignCheck = 0, signFlipStreak = 0;
+let lastSignCheck = 0, signFlipStreak = 0, preLockSignStreak = 0;
 function signedSkew(vals) {
     const n = vals.length;
     if (n < 40) return 0;
@@ -4249,7 +4264,7 @@ function resetSess() {
     fsmState = FS.IDLE; catchPeakJerk = 0; driveMinJerk = 0; trigValsArr.length = 0; catchStartT = 0; lastCatchAbsT = 0; lastDriveEndT = 0; bladeExitT = 0; prevDriveStartT = 0; bladeExitDetected = false; driveForceT = 0; prevDriveForceT = 0;
     strokesDetected = 0; jerkThreshActive = jerkThreshBase; adaptReady = false;
     acBuf.length = 0; acLastUpdate = 0; jerkBuf.length = 0; catchTsBuf.length = 0;
-    axisLocked = false; axisAutoDetected = false; lastAxisCheck = 0; selSign = 1; lastSignCheck = 0; signFlipStreak = 0;
+    axisLocked = false; axisAutoDetected = false; lastAxisCheck = 0; selSign = 1; lastSignCheck = 0; signFlipStreak = 0; preLockSignStreak = 0;
     sessStart = null; lastStrokeCurve = null; strokeCurveHistory.length = 0;
     catchToCatchSamples = []; pendingCurveDriveCount = 0;
     motionSamples = 0; motionStartedAt = 0; lastMotionT = 0;
