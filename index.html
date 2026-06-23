@@ -44,6 +44,7 @@ body{height:var(--app-h,100dvh);font-family:'Roboto',sans-serif;background:#000;
 .pill{font-size:8px;font-weight:700;letter-spacing:.1em;padding:2px 6px;border-radius:2px}
 .pill-on{background:#27ae60;color:#fff}.pill-off{background:rgba(255,255,255,.18);color:rgba(255,255,255,.4)}
 .pill-err{background:#c0392b;color:#fff}.pill-warn{background:#f39c12;color:#fff}
+#gps-flag{position:fixed;top:0;left:0;right:0;z-index:998;text-align:center;font-family:"Roboto Condensed",sans-serif;font-weight:800;letter-spacing:.08em;font-size:clamp(14px,3.4dvh,28px);padding:6px 4px;color:#fff;background:#c0392b;display:none;box-shadow:0 2px 10px rgba(0,0,0,.5);}
 .rec{display:flex;align-items:center;gap:4px;color:#000;font-size:9px;font-weight:700;flex-shrink:0;}
 .recdot{width:7px;height:7px;border-radius:50%;background:#e74c3c;animation:blink 1s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
@@ -444,6 +445,7 @@ body{height:var(--app-h,100dvh);font-family:'Roboto',sans-serif;background:#000;
 <div class="sbar">
 <div class="sbar-l"><span class="sbar-title">SCULL</span><span class="pill pill-off" id="p-gps">GPS</span><span class="pill pill-off" id="p-acc">ACC</span><span class="pill pill-off" id="p-cal">CAL</span><span class="pill pill-off" id="p-axis">AX:?</span><span class="pill pill-off" id="p-squad" style="display:none;">SQ</span></div>
 <div class="sbar-r"><div class="rec" id="rec-ind" style="display:none"><div class="recdot"></div>REC</div></div>
+<div id="gps-flag">⚠ GPS DEGRADED</div>
 </div>
 <!-- Workout bar -->
 <div class="wkt-bar" id="wkt-bar">
@@ -1752,7 +1754,7 @@ function maybeDetectAxis(now) {
     p.className = axisAutoDetected ? (axisLocked ? 'pill pill-on' : 'pill pill-warn') : 'pill pill-off';
 }
 
-let lastSignCheck = 0, signFlipStreak = 0, preLockSignStreak = 0;
+let lastSignCheck = 0, signFlipStreak = 0, preLockSignStreak = 0, curveSignStreak = 0;
 function signedSkew(vals) {
     const n = vals.length;
     if (n < 40) return 0;
@@ -1773,6 +1775,9 @@ function maybeRevalidateSign(now) {
     if (!axisAutoDetected || now - lastSignCheck < 4000) return;
     lastSignCheck = now;
     if (strokesDetected < 6 || (acRate <= 0 && strokeRate <= 0)) return;
+    // Freeze sign after the first 1000 m — the sign must be correct by then, and
+    // flipping while stopped (brief recovery, short buffer) causes thrashing.
+    if (distance >= 1000) { signFlipStreak = 0; return; }
     let vals;
     if (useProjAxis) {
         const bx = fastBuf.x, by = fastBuf.y, m = Math.min(bx.length, by.length);
@@ -1783,7 +1788,7 @@ function maybeRevalidateSign(now) {
     }
     const correctSign = surgeSignFromMedian(vals);
     if (correctSign === 0 || correctSign === selSign) { signFlipStreak = 0; return; }
-    if (++signFlipStreak < 3) return;
+    if (++signFlipStreak < 5) return;
     selSign = correctSign; signFlipStreak = 0;
     resetAxisState();
     if (typeof toast === 'function') toast('Axis sign auto-corrected');
@@ -2137,7 +2142,7 @@ function onNewCatch(now) {
             runLossMps = median(runLossMpsArr);
             const anchorPctV = (anchorV >= 1.0) ? anchorV : imuRL.v0; _rlAnchorV = +anchorPctV.toFixed(3);
             if (anchorPctV > 0) {
-                const pct = (dv / anchorPctV) * 100; _rlPct = +pct.toFixed(2);
+                const pct = Math.min(100, (dv / anchorPctV) * 100); _rlPct = +pct.toFixed(2);
                 pushLimit(runLossPcts, pct, CONFIG.runLoss.medianN);
                 const mp = median(runLossPcts); runLossPctEma = runLossPctEma == null ? mp : 0.5 * mp + 0.5 * runLossPctEma; runLossPct = runLossPctEma;
             }
@@ -2188,12 +2193,17 @@ function onNewCatch(now) {
             const vSrc = vSlice.length >= 3 ? vSlice : velocityWindow.slice(-10);
             vMean = vSrc.reduce((s, x) => s + x.v, 0) / vSrc.length;
         }
+        // Anchor the IMU drive integration to GPS speed when the GPS anchor is
+        // trustworthy; else fall back to DPS-derived boat speed (DPS is immune
+        // to Doppler multipath) so the arc isn't lost in degraded-GPS zones.
+        const _dpsSpeed = (distPerStroke > 0 && strokeRate > 0) ? distPerStroke * strokeRate / 60 : 0;
+        const _oarAnchorV = (gpsAnchorOk && vMean >= 1.5) ? vMean : _dpsSpeed;
         if (pendingOarStrokeIdx >= 0 &&
             catchToCatchSamples.length >= 8 &&
             pendingCurveDriveCount >= 2 &&
-            vMean >= 1.5 && (now - gpsResumeT) > 2000 && gpsAnchorOk) {
+            _oarAnchorV >= 1.5 && (now - gpsResumeT) > 2000) {
             const rawAngle = computeOarAngle(
-                catchToCatchSamples, pendingCurveDriveCount, vMean, finishT);
+                catchToCatchSamples, pendingCurveDriveCount, _oarAnchorV, finishT);
             if (rawAngle !== null) {
                 pushLimit(oarAngleRawArr, rawAngle, 7);
                 const med = median(oarAngleRawArr);
@@ -2203,7 +2213,7 @@ function onNewCatch(now) {
                     if (sessStrokes[pendingOarStrokeIdx]) {
                         sessStrokes[pendingOarStrokeIdx].oarAngle    = oarAngle;
                         sessStrokes[pendingOarStrokeIdx].oarAngleRaw = +rawAngle.toFixed(1);
-                        sessStrokes[pendingOarStrokeIdx].oarVMean    = +vMean.toFixed(3);
+                        sessStrokes[pendingOarStrokeIdx].oarVMean    = +_oarAnchorV.toFixed(3);
                     }
                 }
             }
@@ -2250,6 +2260,29 @@ function onNewCatch(now) {
             if (_ci >= 0 && sessStrokes[_ci]) {
                 sessStrokes[_ci].curve = Array.from(norm.data, v => Math.round(v * 100) / 100);
                 sessStrokes[_ci].curveDriveFrac = +norm.driveFrac.toFixed(3);
+            }
+            // Curve-shape sign guard: the drive must be the dominant POSITIVE feature.
+            // normalizeStrokeSamples negates fast, so correct sign → positive drive peak.
+            // If the deepest negative exceeds the highest positive by >50%, the sign is
+            // wrong. This fires at all stroke rates, catching sprints that the median
+            // check skips. Requires 3 consecutive bad strokes to flip (hysteresis).
+            if (axisLocked && strokesDetected > 5 && distance < 1000) {
+                let cMax = -Infinity, cMin = Infinity;
+                for (let i = 0; i < CURVE_POINTS; i++) {
+                    if (norm.data[i] > cMax) cMax = norm.data[i];
+                    if (norm.data[i] < cMin) cMin = norm.data[i];
+                }
+                if (-cMin > cMax * 1.5) {
+                    if (++curveSignStreak >= 3) {
+                        selSign = -selSign; curveSignStreak = 0; signFlipStreak = 0;
+                        resetAxisState();
+                        if (typeof toast === 'function') toast('Sign corrected via curve');
+                        const _p = document.getElementById('p-axis');
+                        if (_p) { _p.textContent = 'AX:' + (selSign < 0 ? '-' : '') + selAxis.toUpperCase(); _p.className = 'pill pill-on'; }
+                    }
+                } else {
+                    curveSignStreak = 0;
+                }
             }
         }
     }
@@ -2633,7 +2666,7 @@ function onStrokeFinish(now, driveDur) {
 // GPS HANDLER — speed EMA, pace window, haversine distance
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 let strokeSpeedBuf = [], strokeMeanSpeed = 0;
-let pace = 0, gpsAccuracyM = null, gpsSpeedEma = -1, gpsLastValidT = 0, gpsLastFixT = 0, gpsWasStopped = false, gpsDeadWarned = false, gpsResumeT = -Infinity, gpsLowSpeedStreak = 0;
+let pace = 0, gpsAccuracyM = null, gpsSpeedEma = -1, gpsLastValidT = 0, gpsLastFixT = 0, gpsWasStopped = false, gpsDeadWarned = false, gpsResumeT = -Infinity, gpsLowSpeedStreak = 0, paceRejectStartT = 0;
 let gpsSpeedHist = [], gpsRejectStreak = 0, gpsLastStrokeT = -1e9;
 function gpsSpeedMedian() {
     const n = gpsSpeedHist.length;
@@ -2666,6 +2699,7 @@ function makeOneEuro(minCutoff, beta, dCutoff) {
 const vFilter = makeOneEuro(CONFIG.gps.oneEuroMinCutoff, CONFIG.gps.oneEuroBeta, CONFIG.gps.oneEuroDCutoff);
 let lastDistT = 0;
 const sessGpsTrace = [], sessGpsRawTrace = [];
+let _dbgRow = null;
 let pendingRun = null;
 let imuRL = null;  // IMU-based run loss state for current recovery
 const runLosses = [];
@@ -2784,6 +2818,7 @@ function pushVelocity(t, v) {
 function handlePos(pos) {
     const acc = pos.coords.accuracy || 0;
     gpsAccuracyM = acc;
+    _dbgRow = null;
     const pill = document.getElementById('p-gps');
     if (acc < 8)       { pill.className = 'pill pill-on';  pill.textContent = 'GPS ' + Math.round(acc) + 'm'; }
     else if (acc < 25) { pill.className = 'pill pill-warn'; pill.textContent = 'GPS ' + Math.round(acc) + 'm'; }
@@ -2800,12 +2835,14 @@ function handlePos(pos) {
             else if (now <= pendingRun.endAt) rlPhase = 'in';
             else rlPhase = 'post';
         }
-        sessGpsRawTrace.push({
+        _dbgRow = {
             t: Date.now(), rawSpd: +spd.toFixed(3),
             emaSpd: +gpsSpeedEma.toFixed(3), acc: +acc.toFixed(1),
             fixAge: Math.round(Date.now() - pos.timestamp),
-            strokeN: strokeCount, rlPhase
-        });
+            strokeN: strokeCount, rlPhase,
+            winPace: null, vMean: null, anchorOk: null
+        };
+        sessGpsRawTrace.push(_dbgRow);
     }
     // Record route position for the map (distance now comes from ∫v dt in pushVelocity)
     const lat = pos.coords.latitude, lon = pos.coords.longitude, cur = { lat, lon, t: Date.now() };
@@ -2866,14 +2903,36 @@ function handlePos(pos) {
             for (let i = velocityWindow.length - 1; i >= 0 && velocityWindow[i].t >= tStart; i--) {
                 if (velocityWindow[i].t <= tEnd) { sum += velocityWindow[i].v; n++; }
             }
-            const vMean = n > 0 ? sum / n : gpsSpeedEma;
+            let vMean = n > 0 ? sum / n : gpsSpeedEma;
+            // Post-rest guard: if the stroke-cycle mean is far slower than the
+            // settled EMA, the window still reaches back into the turn/rest.
+            if (gpsSpeedEma > CONFIG.gps.minSpeedForPace && vMean < 0.6 * gpsSpeedEma) vMean = gpsSpeedEma;
             if (vMean > CONFIG.gps.minSpeedForPace) {
                 const raw = 500 / vMean;
-                if (raw >= 90 && raw <= CONFIG.gps.maxPaceS) { pace = raw; sessPaceTrace.push(pace); sessPaceTimes.push(Date.now()); }
+                if (_dbgRow) { _dbgRow.winPace = +raw.toFixed(1); _dbgRow.vMean = +vMean.toFixed(3); _dbgRow.anchorOk = gpsAnchorOk ? 1 : 0; }
+                if (raw >= 90 && raw <= CONFIG.gps.maxPaceS) {
+                    // Multipath spike rejector: a single-fix jump >30% from the
+                    // last good pace is unphysical for a shell — hold the last
+                    // good value. If the deviation persists >3.5s it is a real
+                    // change (or settled bad GPS), so re-baseline to it.
+                    const spike = pace > 0 && Math.abs(raw - pace) / pace > 0.30;
+                    if (spike && paceRejectStartT === 0) paceRejectStartT = now;
+                    if (spike && (now - paceRejectStartT) < 3500) {
+                        // hold last good pace — do not update
+                    } else {
+                        pace = raw; paceRejectStartT = 0;
+                        sessPaceTrace.push(pace); sessPaceTimes.push(Date.now());
+                    }
+                }
             } else pace = 0;
         } else pace = 0;
         if (gpsLastFixT > 0 && (now - gpsLastFixT) > 6000) pace = 0;
     }
+    { const gf = document.getElementById('gps-flag');
+      const moving = gpsSpeedEma > CONFIG.gps.minSpeedForPace;
+      const degraded = running && !paused && !sessionReady && moving && (!gpsAnchorOk || paceRejectStartT !== 0);
+      if (gf) { gf.style.display = degraded ? 'block' : 'none';
+        if (degraded) gf.textContent = paceRejectStartT !== 0 ? '\u26a0 GPS DEGRADED \u2014 PACE HELD' : '\u26a0 GPS DEGRADED'; } }
     updateUI();
 }
 function handleGpsErr(err) {
@@ -4260,7 +4319,7 @@ function resetSess() {
     fsmState = FS.IDLE; catchPeakJerk = 0; driveMinJerk = 0; trigValsArr.length = 0; catchStartT = 0; lastCatchAbsT = 0; lastDriveEndT = 0; bladeExitT = 0; prevDriveStartT = 0; bladeExitDetected = false; driveForceT = 0; prevDriveForceT = 0;
     strokesDetected = 0; jerkThreshActive = jerkThreshBase; adaptReady = false;
     acBuf.length = 0; acLastUpdate = 0; jerkBuf.length = 0; catchTsBuf.length = 0;
-    axisLocked = false; axisAutoDetected = false; lastAxisCheck = 0; selSign = 1; lastSignCheck = 0; signFlipStreak = 0; preLockSignStreak = 0;
+    axisLocked = false; axisAutoDetected = false; lastAxisCheck = 0; selSign = 1; lastSignCheck = 0; signFlipStreak = 0; preLockSignStreak = 0; curveSignStreak = 0;
     sessStart = null; lastStrokeCurve = null; strokeCurveHistory.length = 0;
     catchToCatchSamples = []; pendingCurveDriveCount = 0;
     motionSamples = 0; motionStartedAt = 0; lastMotionT = 0;
@@ -5588,7 +5647,7 @@ function exportDebugCSV(s){
   rows.push(['rl_startAfterDriveMs',n(rl.startAfterDriveMs??CONFIG.runLoss.startAfterDriveMs),'rl_windowMs',n(rl.windowMs??CONFIG.runLoss.windowMs)]);rows.push(['gps_emaAlpha',n(gps.alpha??CONFIG.gps.speedEmaAlpha),'gps_medianN',n(gps.medN??CONFIG.gps.speedMedianN)]);rows.push([]);
   rows.push(['##STR'],['n','elapsed_s','rate','catch_slope','stroke_char','consistency','dps','run_loss_m','run_loss_pct','run_loss_mps','impulse','ratio','catch_dur_ms','oar_deg','oar_raw_deg','oar_vmean','check_delta','rdi','pace_s500','drive_dur_ms','interval_ms','jerk_raw','jerk_thresh','gps_ema_pace','dps_n','sel_axis','sel_sign','axis_locked','phys_drv_ms','phys_rec_ms','drive_min_jerk','drv_peak_ms','dps_raw_m']);(s.strokes||[]).forEach((r,i)=>{const d=r.dbg||{};rows.push([i+1,el(r.t),n(r.rate),f2(r.catchPeak),n(r.char),f2(r.catchConsistency),f2(r.dps),f2(r.runLossM),f2(r.runLossPct),f2(r.runLossMps),r.driveImpulse!=null?Math.round(r.driveImpulse*100):'',f2(r.strokeRatio),n(r.catchDuration),n(r.oarAngle),f2(r.oarAngleRaw),f3(r.oarVMean),f2(r.checkDelta),f2(r.rdi),f2(r.pace),n(d.driveDurMs),n(d.intervalMs),f2(d.catchJerkRaw),f2(d.jerkThresh),f2(d.gpsEma),n(d.dpsN),d.selAxis||'',(d.selSign==null?'':d.selSign),d.axisLocked?'1':'0',n(d.physDrvMs),n(d.physRecMs),f2(d.driveMinJerk),n(d.drvPeakMs),f2(d.dpsRaw)]);});rows.push([]);
   rows.push(['##RL'],['stroke_n','start_spd_ms','min_spd_ms','gps_dv_ms','imu_max_dv','imu_min_dv','imu_swing_dv','sampled_s','raw_loss_m','anchor_v','raw_rl_pct','med_loss_m','gps_n','imu_n']);(s.rlDebug||[]).forEach(r=>rows.push([n(r.strokeN),f3(r.startSpeed),f3(r.minSpeed),f3(r.dv),f4(r.imuMaxDv),f4(r.imuMinDv),f4(r.imuSwingDv),f3(r.sampledS),f4(r.rawLossM),f3(r.anchorV),f2(r.rlPct),f4(r.medLoss),n(r.nSamples),n(r.imuN)]));rows.push([]);
-  if(s.gpsRawTrace&&s.gpsRawTrace.length){rows.push(['##GPS'],['elapsed_s','gps_raw_ms','gps_ema_ms','acc_m','stroke_n','rl_phase']);s.gpsRawTrace.forEach(p=>rows.push([el(p.t),f3(p.rawSpd),f3(p.emaSpd),f2(p.acc),n(p.strokeN),p.rlPhase||'none']));rows.push([]);}
+  if(s.gpsRawTrace&&s.gpsRawTrace.length){rows.push(['##GPS'],['elapsed_s','gps_raw_ms','gps_ema_ms','acc_m','stroke_n','rl_phase','win_pace','vmean','anchor_ok']);s.gpsRawTrace.forEach(p=>rows.push([el(p.t),f3(p.rawSpd),f3(p.emaSpd),f2(p.acc),n(p.strokeN),p.rlPhase||'none',f1(p.winPace),f3(p.vMean),(p.anchorOk==null?'':p.anchorOk)]));rows.push([]);}
   if(s.hrTrace&&s.hrTrace.length){rows.push(['##HR'],['elapsed_s','hr_bpm']);s.hrTrace.forEach(h=>rows.push([el(h.t),h.hr]));rows.push([]);}
   const blob=new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);const d=new Date(s.startTime),pad=x=>String(x).padStart(2,'0');a.download='BoatRunDebug_'+d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes())+'.csv';a.click();toast('Debug CSV exported');
 }
