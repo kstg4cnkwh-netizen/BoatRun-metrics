@@ -2559,9 +2559,9 @@ function onStrokeFinish(now, driveDur) {
     if (strokeTs.length > MAX_STROKE_TS) strokeTs.shift();
     rdi = null;
     strokeRatio = null;
-    if (driveForceT > 0 && prevDriveForceT > 0 && bladeExitT > prevDriveForceT + 100 && bladeExitT < driveForceT) {
-        const physDrv = (bladeExitT - prevDriveForceT) / 1000;
-        const physRec = (driveForceT - bladeExitT) / 1000;
+    if (bladeExitT > prevDriveStartT + 100 && bladeExitT < driveStartT) {
+        const physDrv = (bladeExitT - prevDriveStartT) / 1000;   // matches phys_drv_ms in debug
+        const physRec = (driveStartT - bladeExitT) / 1000;       // matches phys_rec_ms in debug
         if (physDrv > 0.3 && physRec > 0.3) {
             const rv = (physRec - physDrv) / (physRec + physDrv);
             rdiValsArr.push(rv);
