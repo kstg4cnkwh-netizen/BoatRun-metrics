@@ -792,7 +792,7 @@ function toast(m) {
 // APP SETTINGS — boat class, units
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 const SETTINGS_KEY = 'scull_settings_v1';
-const _defaultSettings = { boatClass: 'scull', paceUnit: 'pace500', distUnit: 'km', dpsUnit: 'm' };
+const _defaultSettings = { boatClass: 'scull', paceUnit: 'pace500', distUnit: 'km', dpsUnit: 'm', coxMode: false };
 let appSettings = (() => {
     try {
         const v = JSON.parse(_LS.getItem(SETTINGS_KEY));
@@ -1577,7 +1577,6 @@ function enterLive() {
 const AXES = ['x', 'y', 'z'];
 let selAxis = 'x', selSign = 1, axisLocked = false, axisAutoDetected = false, lastAxisCheck = 0;
 let signLock = 0;                  // orientation-locked surge sign (0 = adaptive fallback)
-const ORIENT_SIGN_INVERT = false;  // flip to true if the locked sign is backwards on this mount
 function landscapeSurgeSign() {
     // +1 = landscape-right, -1 = landscape-left, 0 = not landscape / unknown
     let ang = null;
@@ -1588,8 +1587,9 @@ function landscapeSurgeSign() {
     if (ang === null && typeof window.orientation === 'number'
         && Math.abs(window.orientation) === 90) ang = (window.orientation + 360) % 360;
     if (ang === null) return 0;
-    let sgn = (ang === 90) ? 1 : (ang === 270 ? -1 : 0);
-    return ORIENT_SIGN_INVERT ? -sgn : sgn;
+    // angle 270 = clockwise-right on iPhone (rower mount); angle 90 = counter-clockwise (cox mount)
+    let sgn = (ang === 270) ? 1 : (ang === 90 ? -1 : 0);
+    return appSettings.coxMode ? -sgn : sgn;
 }
 let useProjAxis = false, projX = 1, projY = 0;
 // Direction detection — auto-detect cox (phone faces fwd) vs rower (phone faces back)
@@ -4343,7 +4343,7 @@ function resetSess() {
     acBuf.length = 0; acLastUpdate = 0; jerkBuf.length = 0; catchTsBuf.length = 0;
     axisLocked = false; axisAutoDetected = false; lastAxisCheck = 0; selSign = 1; lastSignCheck = 0; signFlipStreak = 0; preLockSignStreak = 0; curveSignStreak = 0;
     signLock = isAndroid ? 0 : landscapeSurgeSign();
-    if (signLock) { selSign = signLock; if (typeof toast === 'function') toast('Surge sign locked ' + (signLock > 0 ? '+X' : '\u2212X')); }
+    if (signLock) { selSign = signLock; if (typeof toast === 'function') toast((appSettings.coxMode ? 'Cox' : 'Rower') + ' mode — sign ' + (signLock > 0 ? '+X' : '−X')); }
     sessStart = null; lastStrokeCurve = null; strokeCurveHistory.length = 0;
     catchToCatchSamples = []; pendingCurveDriveCount = 0;
     motionSamples = 0; motionStartedAt = 0; lastMotionT = 0;
@@ -4618,6 +4618,13 @@ function renderSettingsPanel() {
         ${row('DISTANCE UNIT', 'distUnit', [['km','km'],['mi','miles']])}
         <div style="height:10px;"></div>
         ${row('SUB UNITS (DPS / RUN LOSS)', 'dpsUnit', [['m','m'],['ft','ft'],['in','in']])}
+        <div style="height:10px;"></div>
+        <div class="setup-section">PHONE ORIENTATION</div>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+            <button class="layout-size-btn${s.coxMode?'':' sel'}" onclick="setSetting('coxMode',false);toast('Rower mode — restart session to apply')">ROWER (DEFAULT)</button>
+            <button class="layout-size-btn${s.coxMode?' sel':''}" onclick="setSetting('coxMode',true);toast('Cox mode — restart session to apply')">COX MODE</button>
+        </div>
+        <div style="font-size:11px;color:#888;margin-top:5px;">Rower: phone faces stern (back). Cox: phone faces bow (front). Change takes effect at next session start.</div>
         <div style="height:18px;"></div>
         <div class="setup-section">COACH SQUAD <span id="squad-status-text">${SquadSync.isConnected()?'<span style="color:#27ae60;">\u25cf Connected'+(SquadSync.coachName()?' to '+SquadSync.coachName():'')+'</span>':(getSquadCode()?'<span style="color:#f39c12;">\u25cf connecting\u2026</span>':'')}</span></div>
         <input id="squad-code-input" type="text" placeholder="Squad code (e.g. RC7K)" value="${getSquadCode()}" style="width:100%;padding:10px;font-size:14px;border:1px solid #ccc;border-radius:4px;margin-top:6px;text-transform:uppercase;box-sizing:border-box;" maxlength="8"/>
