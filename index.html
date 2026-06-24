@@ -4033,15 +4033,19 @@ function updateIntervalsPanel(){
       el.innerHTML='<div class="no-workout-msg">No laps yet.<br/>Press LAP to record a split.</div>';
       return;
     }
+    const hasTypes=laps.some(l=>l.type);
     const rows=[...laps].reverse().map(l=>
-      '<tr><td><span class="int-badge-sm work">#'+l.n+'</span></td>'+
+      '<tr>'+
+      (hasTypes?'<td><span class="int-badge-sm '+(l.type||'work')+'">'+(l.type?l.type.toUpperCase():'LAP')+'</span></td>':'<td><span class="int-badge-sm work">#'+l.n+'</span></td>')+
+      (hasTypes?'<td>#'+l.n+'</td>':'')+
       '<td>'+fmt(l.time)+'</td>'+
       '<td>'+(l.dist>0?l.dist+'m':'--')+'</td>'+
       '<td>'+(l.pace>0?fmt(l.pace):'--')+'</td>'+
       '<td>'+(l.rate?Math.round(l.rate):'--')+'</td>'+
       '</tr>'
     ).join('');
-    el.innerHTML='<table class="int-tbl"><tr><th>Lap</th><th>Time</th><th>Dist</th><th>Pace</th><th>SPM</th></tr>'+rows+'</table>';
+    const hdr=hasTypes?'<tr><th>Type</th><th>#</th><th>Time</th><th>Dist</th><th>Pace</th><th>SPM</th></tr>':'<tr><th>Lap</th><th>Time</th><th>Dist</th><th>Pace</th><th>SPM</th></tr>';
+    el.innerHTML='<table class="int-tbl">'+hdr+rows+'</table>';
     return;
   }
   if(nm)nm.textContent=wkt.def?.name||'';
@@ -4229,7 +4233,9 @@ function finishSess() {
         : 'Finish session?';
     if (!confirm(msg)) return;
     if (elapsed > 10 && sessStrokes.length > 0) {
-        const nn = prompt('Name this session (optional):', '');
+        const _d=new Date(sessStart||Date.now()),_p=x=>String(x).padStart(2,'0');
+        const _auto=(getRowerName()?getRowerName().replace(/\s+/g,'_')+'_':'')+_d.getFullYear()+_p(_d.getMonth()+1)+_p(_d.getDate())+'_'+_p(_d.getHours())+_p(_d.getMinutes());
+        const nn = prompt('Name this session (optional):', _auto);
         pendingSessName = nn ? nn.trim() : '';
     } else {
         pendingSessName = '';
@@ -4389,9 +4395,9 @@ function recordLap() {
     const distRaw = distance - lapStartDist, d = Math.round(distRaw), t = elapsed - lapStartTime, p = distRaw > 5 && t > 0 ? (t / distRaw) * 500 : 0;
     const avgC = catchValsArr.length ? Math.round(catchValsArr.reduce((a, b) => a + b, 0) / catchValsArr.length) : null;
     const avgI = sessStrokes.length > 0 ? sessStrokes[sessStrokes.length - 1].driveImpulse : null;
-    laps.push({ n: laps.length + 1, dist: d, time: t, pace: p, rate: strokeRate, avgCatch: avgC, avgDPS: distPerStroke || null, avgImpulse: avgI, avgRunLoss: runLossM, avgRdi: rdi, avgOarAngle: oarAngle || null, avgCheckDelta: checkDelta || null });
-    lapStartDist = distance; lapStartTime = elapsed;
     const curStep = wkt.active ? wktCurrentStep() : null;
+    laps.push({ n: laps.length + 1, dist: d, time: t, pace: p, rate: strokeRate, avgCatch: avgC, avgDPS: distPerStroke || null, avgImpulse: avgI, avgRunLoss: runLossM, avgRdi: rdi, avgOarAngle: oarAngle || null, avgCheckDelta: checkDelta || null, type: curStep ? curStep.type : null });
+    lapStartDist = distance; lapStartTime = elapsed;
     if ((!curStep || curStep.type === 'work') && !wkt.workToWork) showLapSplit(laps[laps.length - 1]);
     updateIntervalsPanel();
 }
@@ -4629,14 +4635,15 @@ function renderSettingsPanel() {
         <div style="height:10px;"></div>
         <div class="setup-section">PHONE ORIENTATION</div>
         <div style="display:flex;gap:8px;margin-top:6px;">
-            <button class="layout-size-btn${s.coxMode?'':' sel'}" onclick="setSetting('coxMode',false);toast('Rower mode — restart session to apply')">ROWER (DEFAULT)</button>
+            <button class="layout-size-btn${s.coxMode?'':' sel'}" onclick="setSetting('coxMode',false);toast('Rower mode — restart session to apply')">ROWER</button>
             <button class="layout-size-btn${s.coxMode?' sel':''}" onclick="setSetting('coxMode',true);toast('Cox mode — restart session to apply')">COX MODE</button>
         </div>
         <div style="font-size:11px;color:#888;margin-top:5px;">Rower: phone faces stern (back). Cox: phone faces bow (front). Change takes effect at next session start.</div>
         <div style="height:18px;"></div>
-        <div class="setup-section">COACH SQUAD <span id="squad-status-text">${SquadSync.isConnected()?'<span style="color:#27ae60;">\u25cf Connected'+(SquadSync.coachName()?' to '+SquadSync.coachName():'')+'</span>':(getSquadCode()?'<span style="color:#f39c12;">\u25cf connecting\u2026</span>':'')}</span></div>
+        <div class="setup-section">COACH'S SQUAD CODE <span id="squad-status-text">${SquadSync.isConnected()?'<span style="color:#27ae60;">\u25cf Connected'+(SquadSync.coachName()?' to '+SquadSync.coachName():'')+'</span>':(getSquadCode()?'<span style="color:#f39c12;">\u25cf connecting\u2026</span>':'')}</span></div>
         <input id="squad-code-input" type="text" placeholder="Squad code (e.g. RC7K)" value="${getSquadCode()}" style="width:100%;padding:10px;font-size:14px;border:1px solid #ccc;border-radius:4px;margin-top:6px;text-transform:uppercase;box-sizing:border-box;" maxlength="8"/>
-        <input id="squad-name-input" type="text" placeholder="Your name (shown to coach)" value="${getRowerName()}" style="width:100%;padding:10px;font-size:14px;border:1px solid #ccc;border-radius:4px;margin-top:8px;box-sizing:border-box;" maxlength="24"/>
+        <div style="font-size:10px;color:#555;font-weight:700;letter-spacing:.1em;margin-top:10px;">USERNAME</div>
+        <input id="squad-name-input" type="text" placeholder="Name shown to coach" value="${getRowerName()}" style="width:100%;padding:10px;font-size:14px;border:1px solid #ccc;border-radius:4px;margin-top:4px;box-sizing:border-box;" maxlength="24"/>
         <div style="display:flex;gap:8px;margin-top:8px;">
             <button onclick="saveSquadSettings()" style="flex:2;padding:10px;font-size:13px;font-weight:700;letter-spacing:.08em;background:#1a5276;color:#fff;border:none;border-radius:4px;">SAVE &amp; CONNECT</button>
             ${getSquadCode() ? '<button onclick="disconnectSquad()" style="flex:1;padding:10px;font-size:12px;font-weight:700;letter-spacing:.05em;background:#fff;color:#c0392b;border:1px solid #ddd;border-radius:4px;">DISCONNECT</button>' : ''}
