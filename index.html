@@ -4897,6 +4897,8 @@ function showDetail(id){
     +'<button class="exp-btn" id="json-btn" style="flex:1;font-size:10px;padding:10px 4px;">JSON</button>'
     +'<button class="del-btn" id="del-btn" style="flex:1;font-size:10px;padding:10px 4px;">Delete</button>'
     +'</div>'
+    +'<button class="exp-btn" id="coach-send-btn" style="width:100%;margin-top:6px;font-size:10px;padding:10px;background:#1a5276;">📤 Send to Coach'+(getSquadCode()?' (squad '+getSquadCode()+')':' — set squad code first')+'</button>'
+    +'</div>'
     +'<div style="height:20px"></div>';
   requestAnimationFrame(()=>{
     document.getElementById('dback-btn').addEventListener('click',()=>{dw.style.display='none';document.getElementById('ht-log-list').style.display='block';const hb=document.querySelector('.home-body');if(hb)hb.scrollTop=0;renderSessionList();});
@@ -4954,6 +4956,7 @@ function showDetail(id){
     document.getElementById('json-btn').addEventListener('click',()=>exportSessionJSON(s));
     document.getElementById('sync-btn').addEventListener('click',async e=>{e.preventDefault();if(DriveSync.isSignedIn()){try{await DriveSync.upload(s);markSynced(s.id);updateDriveBtn();toast('Synced to Drive');}catch(err){toast('Sync failed');}}else{queuePending(s.id);driveSignIn();}});
     document.getElementById('del-btn').addEventListener('click',()=>{if(confirm('Delete?')){delSess(s.id);dw.style.display='none';document.getElementById('ht-log-list').style.display='block';const hb=document.querySelector('.home-body');if(hb)hb.scrollTop=0;renderSessionList();toast('Deleted');}});
+    document.getElementById('coach-send-btn').addEventListener('click', () => sendToCoach(s));
   });
 }
 
@@ -5703,6 +5706,22 @@ function exportSessionJSON(s){
   const d=new Date(s.startTime),pad=x=>String(x).padStart(2,'0');
   a.download='RowSess_'+d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes())+'.json';
   a.click();toast('Session JSON exported');
+}
+async function sendToCoach(s) {
+    const code = getSquadCode();
+    if (!code) { toast('No squad code — add one in Settings first'); return; }
+    toast('Sending…');
+    try {
+        const slim = { ...s, strokes: s.strokes ? s.strokes.map(({ dbg, ...r }) => r) : s.strokes, gpsRawTrace: undefined, rlDebug: undefined };
+        const body = JSON.stringify(slim);
+        if (body.length > 5000000) { toast('Session too large (' + Math.round(body.length / 1024) + 'KB) — use Drive sync instead'); return; }
+        const base = 'https://boatrun-default-rtdb.asia-southeast1.firebasedatabase.app/squads/' + code + '/coach_sessions/' + s.id;
+        const r = await fetch(base + '.json', { method: 'PUT', body });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const meta = { rower: getRowerName() || 'Rower', dist: s.distance ? Math.round(s.distance) : 0, dur: s.duration || 0, t: s.startTime || parseInt(s.id), name: s.name || null };
+        await fetch(base + '_meta.json', { method: 'PUT', body: JSON.stringify(meta) });
+        toast('Sent to coach ✓  (squad ' + code + ')');
+    } catch (e) { toast('Send failed: ' + e.message); }
 }
 
 /* 
