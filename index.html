@@ -1576,6 +1576,21 @@ function enterLive() {
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 const AXES = ['x', 'y', 'z'];
 let selAxis = 'x', selSign = 1, axisLocked = false, axisAutoDetected = false, lastAxisCheck = 0;
+let signLock = 0;                  // orientation-locked surge sign (0 = adaptive fallback)
+const ORIENT_SIGN_INVERT = false;  // flip to true if the locked sign is backwards on this mount
+function landscapeSurgeSign() {
+    // +1 = landscape-right, -1 = landscape-left, 0 = not landscape / unknown
+    let ang = null;
+    try {
+        if (screen.orientation && typeof screen.orientation.angle === 'number'
+            && /^landscape/.test(screen.orientation.type || '')) ang = screen.orientation.angle;
+    } catch {}
+    if (ang === null && typeof window.orientation === 'number'
+        && Math.abs(window.orientation) === 90) ang = (window.orientation + 360) % 360;
+    if (ang === null) return 0;
+    let sgn = (ang === 90) ? 1 : (ang === 270 ? -1 : 0);
+    return ORIENT_SIGN_INVERT ? -sgn : sgn;
+}
 let useProjAxis = false, projX = 1, projY = 0;
 // Direction detection — auto-detect cox (phone faces fwd) vs rower (phone faces back)
 
@@ -1723,7 +1738,7 @@ function maybeDetectAxis(now) {
         const sgn = projectedSign(proj.ux, proj.uy);
         if (!useProjAxis || sgn !== selSign
                 || Math.abs(proj.ux - projX) > 0.08 || Math.abs(proj.uy - projY) > 0.08) {
-            useProjAxis = true; projX = proj.ux; projY = proj.uy; selSign = sgn;
+            useProjAxis = true; projX = proj.ux; projY = proj.uy; selSign = signLock || sgn;
             resetAxisState();
         }
         axisAutoDetected = true;
@@ -1742,7 +1757,7 @@ function maybeDetectAxis(now) {
             preLockSignStreak = 0;
         }
         if (adopt) {
-            useProjAxis = false; selAxis = bAx; selSign = newSign;
+            useProjAxis = false; selAxis = bAx; selSign = signLock || newSign;
             resetAxisState();
         }
         axisAutoDetected = true;
@@ -1772,6 +1787,7 @@ function signedSkew(vals) {
 // confident disagreements (hysteresis stops thrashing). Also re-corrects if the
 // phone is physically flipped mid-session.
 function maybeRevalidateSign(now) {
+    if (signLock) return;
     if (!axisAutoDetected || now - lastSignCheck < 4000) return;
     lastSignCheck = now;
     if (strokesDetected < 6 || (acRate <= 0 && strokeRate <= 0)) return;
@@ -2046,7 +2062,7 @@ function runFSM(now, fast, jerk) {
             if (fast > drivePeakAcc) { drivePeakAcc = fast; drivePeakAccT = now; }
             {
                 const dd = now - driveStartT;
-                if (driveForceT > 0 && (now - driveForceT) < 400 && jerk < driveMinJerk) driveMinJerk = jerk;
+                if (dd < 600 && jerk < driveMinJerk) driveMinJerk = jerk;   // anchor to driveStartT (always set); was driveForceT (often unset)
                 if ((fastDt < 0 && dd > CONFIG.stroke.minDriveMs) || dd > CONFIG.stroke.maxDriveMs) {
                     onStrokeFinish(now, dd);
                     lastDriveEndT = now;
@@ -2273,7 +2289,7 @@ function onNewCatch(now) {
                     if (norm.data[i] > cMax) cMax = norm.data[i];
                     if (norm.data[i] < cMin) cMin = norm.data[i];
                 }
-                if (-cMin > cMax * 1.5) {
+                if (!signLock && -cMin > cMax * 1.5) {
                     if (++curveSignStreak >= 3) {
                         selSign = -selSign; curveSignStreak = 0; signFlipStreak = 0;
                         resetAxisState();
@@ -4326,6 +4342,8 @@ function resetSess() {
     strokesDetected = 0; jerkThreshActive = jerkThreshBase; adaptReady = false;
     acBuf.length = 0; acLastUpdate = 0; jerkBuf.length = 0; catchTsBuf.length = 0;
     axisLocked = false; axisAutoDetected = false; lastAxisCheck = 0; selSign = 1; lastSignCheck = 0; signFlipStreak = 0; preLockSignStreak = 0; curveSignStreak = 0;
+    signLock = isAndroid ? 0 : landscapeSurgeSign();
+    if (signLock) { selSign = signLock; if (typeof toast === 'function') toast('Surge sign locked ' + (signLock > 0 ? '+X' : '\u2212X')); }
     sessStart = null; lastStrokeCurve = null; strokeCurveHistory.length = 0;
     catchToCatchSamples = []; pendingCurveDriveCount = 0;
     motionSamples = 0; motionStartedAt = 0; lastMotionT = 0;
