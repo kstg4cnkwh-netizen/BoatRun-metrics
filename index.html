@@ -1717,7 +1717,7 @@ function projectedSign(ux, uy) {
     return driveSign(proj);
 }
 function maybeDetectAxis(now) {
-    if (axisLocked) { maybeRevalidateSign(now); return; }
+    if (axisLocked) return;
     if (now - lastAxisCheck < 4000) return;
     lastAxisCheck = now;
     // Best single axis by autocorrelation
@@ -1769,7 +1769,7 @@ function maybeDetectAxis(now) {
     p.className = axisAutoDetected ? (axisLocked ? 'pill pill-on' : 'pill pill-warn') : 'pill pill-off';
 }
 
-let lastSignCheck = 0, signFlipStreak = 0, preLockSignStreak = 0, curveSignStreak = 0;
+let preLockSignStreak = 0, noImpulseStreak = 0;
 function signedSkew(vals) {
     const n = vals.length;
     if (n < 40) return 0;
@@ -1786,34 +1786,6 @@ function signedSkew(vals) {
 // signal — re-derive the correct sign and auto-flip after several consecutive
 // confident disagreements (hysteresis stops thrashing). Also re-corrects if the
 // phone is physically flipped mid-session.
-function maybeRevalidateSign(now) {
-    if (signLock) return;
-    if (!axisAutoDetected || now - lastSignCheck < 4000) return;
-    lastSignCheck = now;
-    if (strokesDetected < 6 || (acRate <= 0 && strokeRate <= 0)) return;
-    // Freeze sign after the first 1000 m — the sign must be correct by then, and
-    // flipping while stopped (brief recovery, short buffer) causes thrashing.
-    if (distance >= 1000) { signFlipStreak = 0; return; }
-    let vals;
-    if (useProjAxis) {
-        const bx = fastBuf.x, by = fastBuf.y, m = Math.min(bx.length, by.length);
-        vals = new Array(m);
-        for (let i = 0; i < m; i++) vals[i] = projX * bx[i].v + projY * by[i].v;
-    } else {
-        vals = fastBuf[selAxis].map(s => s.v);
-    }
-    const correctSign = surgeSignFromMedian(vals);
-    if (correctSign === 0 || correctSign === selSign) { signFlipStreak = 0; return; }
-    if (++signFlipStreak < 5) return;
-    selSign = correctSign; signFlipStreak = 0;
-    resetAxisState();
-    if (typeof toast === 'function') toast('Axis sign auto-corrected');
-    const p = document.getElementById('p-axis');
-    if (p) {
-        const lbl = useProjAxis ? 'P' + Math.round(Math.atan2(projY, projX) * 57.3) : selAxis.toUpperCase();
-        p.textContent = 'AX:' + (selSign < 0 ? '-' : '') + lbl; p.className = 'pill pill-on';
-    }
-}
 
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // MOTION HANDLER — DeviceMotion event → jerk, acBuf, FSM
@@ -2289,17 +2261,6 @@ function onNewCatch(now) {
                     if (norm.data[i] > cMax) cMax = norm.data[i];
                     if (norm.data[i] < cMin) cMin = norm.data[i];
                 }
-                if (!signLock && -cMin > cMax * 1.5) {
-                    if (++curveSignStreak >= 3) {
-                        selSign = -selSign; curveSignStreak = 0; signFlipStreak = 0;
-                        resetAxisState();
-                        if (typeof toast === 'function') toast('Sign corrected via curve');
-                        const _p = document.getElementById('p-axis');
-                        if (_p) { _p.textContent = 'AX:' + (selSign < 0 ? '-' : '') + selAxis.toUpperCase(); _p.className = 'pill pill-on'; }
-                    }
-                } else {
-                    curveSignStreak = 0;
-                }
             }
         }
     }
@@ -2431,6 +2392,9 @@ function computeOarAngle(samples, driveCount, vMean, finishT) {
     }
     }
     if (finishIdx < 0) { finishIdx = Math.min(driveCount, finishCap); _finsrc = 'fb'; }  // FSM fallback
+    // Cap finishIdx to FSM drive count — prevents overrun into recovery when
+    // blade-exit detection lags at high stroke rate and drive shortens rapidly.
+    if (finishIdx > catchIdx + driveCount + 5) finishIdx = catchIdx + driveCount + 5;
     if (finishIdx - catchIdx < 2) return null;
 
     // Pass 2 — integrate v = vCatch + ΔV over catch → blade-out
@@ -2441,7 +2405,7 @@ function computeOarAngle(samples, driveCount, vMean, finishT) {
         driveDist += ((vCatch + cumulDV[i - 1]) + (vCatch + cumulDV[i])) / 2 * dt;
     }
 
-    if (driveDist <= 0.3 || driveDist > 15) return null;
+    if (driveDist <= 0.3 || driveDist > 4) return null;
 
     const effectiveDist = driveDist * (1 - SLIP_FRACTION);
     const sinArg        = Math.min(effectiveDist / (2 * OUTBOARD), 0.9999);
@@ -2492,10 +2456,25 @@ function onStrokeFinish(now, driveDur) {
         catchTsBuf.length = 0;                // clear completely — seed happens below
         strokeRate = 0; catchToCatchSamples = []; pendingCurveDriveCount = 0; strokeTs.length = 0; prevDriveDurMs = 0; bladeExitT = 0; prevDriveStartT = 0; bladeExitDetected = false; posRunStartT = 0; fastBaseline = 0; driveForceT = 0; prevDriveForceT = 0;
         drvImpAcc = 0; drvImpLastT = -1; drvPeakNeg = 0; drvPeakNegT = 0;
-        prevDrvImp = null; prevDrvPeakT = 0; prevCatchEndT = 0;
+        prevDrvImp = null; prevDrvPeakT = 0; prevCatchEndT = 0; noImpulseStreak = 0;
     }
     // ── End rest-gap reset ───────────────────────────────────────────────────
 
+    // ── Impulse-based sign auto-correction ─────────────────────────────────
+    if (!signLock && strokeRate > 14 && gpsSpeedEma > 1.5) {
+        if ((prevDrvImp || 0) < 0.05) {
+            noImpulseStreak++;
+            if (noImpulseStreak >= 3) {
+                selSign = -selSign;
+                noImpulseStreak = 0;
+                drvImpAcc = 0; drvImpLastT = -1; drvPeakNeg = 0; drvPeakNegT = 0;
+                if (typeof toast === 'function') toast('Sign corrected — ' + (selSign > 0 ? '+X' : '−X'));
+            }
+        } else {
+            noImpulseStreak = 0;
+        }
+    }
+    // ── End impulse sign check ───────────────────────────────────────────────
     const catchDurMs = driveDur;
     catchTsBuf.push(driveStartT);
     if (strokeRate > 0 && catchTsBuf.length >= 2) {
@@ -4364,7 +4343,7 @@ function resetSess() {
     fsmState = FS.IDLE; catchPeakJerk = 0; driveMinJerk = 0; trigValsArr.length = 0; catchStartT = 0; lastCatchAbsT = 0; lastDriveEndT = 0; bladeExitT = 0; prevDriveStartT = 0; bladeExitDetected = false; driveForceT = 0; prevDriveForceT = 0;
     strokesDetected = 0; jerkThreshActive = jerkThreshBase; adaptReady = false;
     acBuf.length = 0; acLastUpdate = 0; jerkBuf.length = 0; catchTsBuf.length = 0;
-    axisLocked = false; axisAutoDetected = false; lastAxisCheck = 0; selSign = 1; lastSignCheck = 0; signFlipStreak = 0; preLockSignStreak = 0; curveSignStreak = 0;
+    axisLocked = false; axisAutoDetected = false; lastAxisCheck = 0; selSign = 1; preLockSignStreak = 0; noImpulseStreak = 0;
     signLock = isAndroid ? 0 : landscapeSurgeSign();
     if (signLock) { selSign = signLock; if (typeof toast === 'function') toast((appSettings.coxMode ? 'Cox' : 'Rower') + ' mode — sign ' + (signLock > 0 ? '+X' : '−X')); }
     sessStart = null; lastStrokeCurve = null; strokeCurveHistory.length = 0;
