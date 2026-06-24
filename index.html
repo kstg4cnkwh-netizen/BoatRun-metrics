@@ -2698,6 +2698,7 @@ function gpsSpeedMedian() {
 const speedSamples = [], paceDistWindow = [], velocityWindow = [];
 let lastPos = null;
 let havSpeedBuf = [], dopplerLowStreak = 0, gpsConvergeStreak = 0, gpsAnchorOk = false;
+let _gpsReadyFired = false;
 let headingEmaX = null, headingEmaY = null;
 // ── Velocity engine: One-Euro adaptive filter on GPS Doppler speed ───────────
 // Smooth when pace is steady, low-lag when it changes (start / rate shifts).
@@ -2845,6 +2846,19 @@ function handlePos(pos) {
     if (acc < 8)       { pill.className = 'pill pill-on';  pill.textContent = 'GPS ' + Math.round(acc) + 'm'; }
     else if (acc < 25) { pill.className = 'pill pill-warn'; pill.textContent = 'GPS ' + Math.round(acc) + 'm'; }
     else               { pill.className = 'pill pill-err';  pill.textContent = 'GPS ' + Math.round(acc) + 'm'; }
+    if (sessionReady) {
+        const _gfH = document.getElementById('gps-flag');
+        if (_gfH) {
+            if (acc < 8) {
+                _gfH.style.background = '#27ae60'; _gfH.style.display = 'block';
+                _gfH.textContent = '\u2713 GPS READY \u2014 START ROWING';
+                if (!_gpsReadyFired) { _gpsReadyFired = true; if (navigator.vibrate) navigator.vibrate([100, 60, 100]); }
+            } else {
+                _gfH.style.background = '#e67e22'; _gfH.style.display = 'block';
+                _gfH.textContent = '\u23f3 WAITING FOR GPS \u2014 ' + Math.round(acc) + 'm';
+            }
+        }
+    }
     const spd = pos.coords.speed, now = performance.now();
     gpsLastFixT = now;   // position arrived regardless of whether Doppler speed is available
     if (running && !paused && !sessionReady && spd != null && spd >= 0 && spd < 8) {
@@ -2953,7 +2967,7 @@ function handlePos(pos) {
     { const gf = document.getElementById('gps-flag');
       const moving = gpsSpeedEma > CONFIG.gps.minSpeedForPace;
       const degraded = running && !paused && !sessionReady && moving && (!gpsAnchorOk || paceRejectStartT !== 0);
-      if (gf) { gf.style.display = degraded ? 'block' : 'none';
+      if (gf && !sessionReady) { gf.style.display = degraded ? 'block' : 'none';
         if (degraded) gf.textContent = paceRejectStartT !== 0 ? '\u26a0 GPS DEGRADED \u2014 PACE HELD' : '\u26a0 GPS DEGRADED'; } }
     updateUI();
 }
@@ -4077,18 +4091,27 @@ COUNTDOWN OVERLAY (P2)
 ¨T¨T
 */
 let _cdownTimer=null;
-let _audioCtx=null;
+let _audioCtx=null, _audioComp=null;
 function _getAudioCtx(){
-  if(!_audioCtx) _audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  if(!_audioCtx){
+    _audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    _audioComp=_audioCtx.createDynamicsCompressor();
+    _audioComp.threshold.value=-50;
+    _audioComp.knee.value=0;
+    _audioComp.ratio.value=20;
+    _audioComp.attack.value=0.001;
+    _audioComp.release.value=0.1;
+    _audioComp.connect(_audioCtx.destination);
+  }
   return _audioCtx;
 }
 function wktBeep(freq,dur,vol){
-  freq=freq||880; dur=dur||0.12; vol=vol||0.45;
+  freq=freq||880; dur=dur||0.12; vol=vol||1.0;
   try{
     const ctx=_getAudioCtx();
     if(ctx.state==='suspended') ctx.resume();
     const o=ctx.createOscillator(), g=ctx.createGain();
-    o.connect(g); g.connect(ctx.destination);
+    o.connect(g); g.connect(_audioComp);
     o.type='sine'; o.frequency.value=freq;
     g.gain.setValueAtTime(vol,ctx.currentTime);
     g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
@@ -4096,7 +4119,7 @@ function wktBeep(freq,dur,vol){
   }catch(e){}
 }
 function wktTrill(){
-  [880,1100,880,1100,1320,1760].forEach((f,i)=>setTimeout(()=>wktBeep(f,0.09,0.5),i*65));
+  [880,1100,880,1100,1320,1760].forEach((f,i)=>setTimeout(()=>wktBeep(f,0.09,1.0),i*65));
 }
 function showCountdownOverlay(mode,seconds,step,restSecs,autoResume){
   const ov=document.getElementById('countdown-overlay');
@@ -4398,14 +4421,20 @@ function enterSessionReady() {
     sessStart = Date.now();
     lapStartDist = distance; lapStartTime = 0;
     running = true; paused = false; sessionReady = true;
+    _gpsReadyFired = false;
+    const _gfR = document.getElementById('gps-flag');
+    if (_gfR) { _gfR.style.background = '#e67e22'; _gfR.style.display = 'block'; _gfR.textContent = '\u23f3 WAITING FOR GPS\u2026'; }
     if(wkt.active){const _ws=wktCurrentStep();if(_ws?.type==='warmup')showCountdownOverlay('warmup',null,_ws);}
     requestAnimationFrame(renderCtrl);
 }
 function exitSessionReady() {
     if (!sessionReady) return;
     sessionReady = false;
+    const _gfE = document.getElementById('gps-flag');
+    if (_gfE) { _gfE.style.display = 'none'; _gfE.style.background = '#c0392b'; }
+    _gpsReadyFired = false;
     lapStartDist = distance; lapStartTime = elapsed;
-    lastDistT = performance.now();   // prevent distance gap-burst on first GPS fix after ready
+    lastDistT = performance.now();
     hideCountdownOverlay();
     clearInterval(timerInt);
     timerInt = setInterval(() => { elapsed++; wktCheckAuto(); checkGpsAlive(); updateUI(); updateWorkoutBar(); }, 1000);
