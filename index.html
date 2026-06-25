@@ -4308,6 +4308,7 @@ function stopSess() {
                 calNoiseFloor:  cal.noiseFloor, calThresh: cal.jerkThresh, detectedAxis: (selSign < 0 ? '-' : '') + selAxis,
                 config: { rl: CONFIG.runLoss, gps: { alpha: CONFIG.gps.speedEmaAlpha, medN: CONFIG.gps.speedMedianN, spike: CONFIG.gps.spikeMarginMps } },
                 settings: { ...appSettings },
+                squadCode: getSquadCode() || null,
             };
             const ok = addSess(sessObj);
             if (ok) {
