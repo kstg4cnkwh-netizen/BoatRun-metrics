@@ -1390,9 +1390,12 @@ const SquadSync = (() => {
                 let msg; try { msg = JSON.parse(raw); } catch { return; }
                 if (!msg || !msg.data) return;
                 const lap = msg.path === '/lap' ? msg.data : (msg.path === '/' ? msg.data.lap : null);
+                const devId = getDeviceId(); const iLapK = 'lap_' + devId;
+                const indivLap = msg.path === '/' + iLapK ? msg.data : (msg.path === '/' ? (msg.data[iLapK] || null) : null);
                 const wkt2 = msg.path === '/workout' ? msg.data : (msg.path === '/' ? msg.data.workout : null);
                 const cn = msg.path === '/coachName' ? msg.data : (msg.path === '/' ? msg.data.coachName : null);
                 if (lap && lap.t && lap.t !== _lastLapT && (Date.now() - lap.t) < 5000) { _lastLapT = lap.t; remoteLapTrigger(); }
+                if (indivLap && indivLap.t && indivLap.t !== _lastLapT && (Date.now() - indivLap.t) < 5000) { _lastLapT = indivLap.t; remoteLapTrigger(); }
                 if (wkt2 && wkt2.t && wkt2.t !== seenWktT) { seenWktT = wkt2.t; try { _LS.setItem(seenKey, String(wkt2.t)); } catch {} applyRemoteWorkout(wkt2); }
                 if (cn && cn.name && cn.name !== _coachName) { _coachName = cn.name; updateSquadPill(); }
             };
