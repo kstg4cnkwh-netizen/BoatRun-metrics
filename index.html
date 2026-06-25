@@ -984,6 +984,7 @@ function formatSessionFilename(sessionId, session) {
         if (session.detectedAxis) extra += `_AX${session.detectedAxis.toUpperCase()}`;
         if (session.workoutName) extra += `_WKT${session.workoutName.replace(/\s+/g,'-').replace(/[^a-zA-Z0-9\-]/g,'').slice(0,24)}`;
         if (session.name) extra += `_NAME${session.name.replace(/\s+/g,'-').replace(/[^a-zA-Z0-9\-]/g,'').slice(0,30)}`;
+        if (session.squadCode) extra += `_SQ${session.squadCode.replace(/[^A-Z0-9]/g,'').slice(0,8)}`;
         return `${base}_${Math.round(session.distance)}m_${hh}h${mm}m${ss}s${extra}.json`;
     }
     return `${base}.json`;
