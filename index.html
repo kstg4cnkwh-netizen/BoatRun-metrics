@@ -4644,19 +4644,6 @@ function renderSettingsPanel() {
         return `<div class="setup-section">${label}</div><div class="layout-size-row">${btns}</div>`;
     }
     el.innerHTML = `<div style="padding:10px 12px 20px;">
-        ${row('PACE UNIT', 'paceUnit', [['pace500','/500m'],['pace1000','/1km'],['kph','km/h'],['pacemile','/mile'],['mph','mph']])}
-        <div style="height:10px;"></div>
-        ${row('DISTANCE UNIT', 'distUnit', [['km','km'],['mi','miles']])}
-        <div style="height:10px;"></div>
-        ${row('SUB UNITS (DPS / RUN LOSS)', 'dpsUnit', [['m','m'],['ft','ft'],['in','in']])}
-        <div style="height:10px;"></div>
-        <div class="setup-section">PHONE ORIENTATION</div>
-        <div style="display:flex;gap:8px;margin-top:6px;">
-            <button class="layout-size-btn${s.coxMode?'':' sel'}" onclick="setSetting('coxMode',false);toast('Rower mode — restart session to apply')">ROWER</button>
-            <button class="layout-size-btn${s.coxMode?' sel':''}" onclick="setSetting('coxMode',true);toast('Cox mode — restart session to apply')">COX MODE</button>
-        </div>
-        <div style="font-size:11px;color:#888;margin-top:5px;">Rower: phone faces stern (back). Cox: phone faces bow (front). Change takes effect at next session start.</div>
-        <div style="height:18px;"></div>
         <div class="setup-section">COACH'S SQUAD CODE <span id="squad-status-text">${SquadSync.isConnected()?'<span style="color:#27ae60;">\u25cf Connected'+(SquadSync.coachName()?' to '+SquadSync.coachName():'')+'</span>':(getSquadCode()?'<span style="color:#f39c12;">\u25cf connecting\u2026</span>':'')}</span></div>
         <input id="squad-code-input" type="text" placeholder="Squad code (e.g. RC7K)" value="${getSquadCode()}" style="width:100%;padding:10px;font-size:14px;border:1px solid #ccc;border-radius:4px;margin-top:6px;text-transform:uppercase;box-sizing:border-box;" maxlength="8"/>
         <div style="font-size:10px;color:#555;font-weight:700;letter-spacing:.1em;margin-top:10px;">USERNAME</div>
@@ -4666,6 +4653,19 @@ function renderSettingsPanel() {
             ${getSquadCode() ? '<button onclick="disconnectSquad()" style="flex:1;padding:10px;font-size:12px;font-weight:700;letter-spacing:.05em;background:#fff;color:#c0392b;border:1px solid #ddd;border-radius:4px;">DISCONNECT</button>' : ''}
         </div>
         <div style="height:18px;"></div>
+        <div class="setup-section">PHONE ORIENTATION</div>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+            <button class="layout-size-btn${s.coxMode?'':' sel'}" onclick="setSetting('coxMode',false);toast('Rower mode — restart session to apply')">ROWER</button>
+            <button class="layout-size-btn${s.coxMode?' sel':''}" onclick="setSetting('coxMode',true);toast('Cox mode — restart session to apply')">COX MODE</button>
+        </div>
+        <div style="font-size:11px;color:#888;margin-top:5px;">Rower: phone faces stern (back). Cox: phone faces bow (front). Change takes effect at next session start.</div>
+        <div style="height:18px;"></div>
+        ${row('PACE UNIT', 'paceUnit', [['pace500','/500m'],['pace1000','/1km'],['kph','km/h'],['pacemile','/mile'],['mph','mph']])}
+        <div style="height:10px;"></div>
+        ${row('DISTANCE UNIT', 'distUnit', [['km','km'],['mi','miles']])}
+        <div style="height:10px;"></div>
+        ${row('SUB UNITS (DPS / RUN LOSS)', 'dpsUnit', [['m','m'],['ft','ft'],['in','in']])}
+        <div style="height:10px;"></div>
         <div class="setup-section">STRAVA SYNC</div>
         <div style="font-size:11px;color:#888;margin-top:4px;">${StravaSync.isSignedIn() ? 'Linked \u2014 sessions auto-upload after each row' : 'Not linked'}</div>
         <div style="display:flex;gap:8px;margin-top:8px;">
