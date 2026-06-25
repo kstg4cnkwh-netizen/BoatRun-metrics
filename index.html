@@ -446,6 +446,7 @@ body{height:var(--app-h,100dvh);font-family:'Roboto',sans-serif;background:#000;
 <div class="sbar-l"><span class="sbar-title">SCULL</span><span class="pill pill-off" id="p-gps">GPS</span><span class="pill pill-off" id="p-acc">ACC</span><span class="pill pill-off" id="p-cal">CAL</span><span class="pill pill-off" id="p-axis">AX:?</span><span class="pill pill-off" id="p-squad" style="display:none;">SQ</span></div>
 <div class="sbar-r"><div class="rec" id="rec-ind" style="display:none"><div class="recdot"></div>REC</div></div>
 <div id="gps-flag">⚠ GPS DEGRADED</div>
+<div id="orient-warn" style="display:none;position:fixed;top:0;left:0;right:0;z-index:999;text-align:center;font-family:'Roboto Condensed',sans-serif;font-weight:800;letter-spacing:.06em;font-size:clamp(12px,2.8dvh,22px);padding:6px 8px;color:#fff;background:#e67e22;box-shadow:0 2px 10px rgba(0,0,0,.5);">⚠ FLIP PHONE 180° — landscape mounted wrong way</div>
 </div>
 <!-- Workout bar -->
 <div class="wkt-bar" id="wkt-bar">
@@ -2393,9 +2394,7 @@ function computeOarAngle(samples, driveCount, vMean, finishT) {
     }
     }
     if (finishIdx < 0) { finishIdx = Math.min(driveCount, finishCap); _finsrc = 'fb'; }  // FSM fallback
-    // Cap finishIdx to FSM drive count — prevents overrun into recovery when
-    // blade-exit detection lags at high stroke rate and drive shortens rapidly.
-    if (finishIdx > catchIdx + driveCount + 5) finishIdx = catchIdx + driveCount + 5;
+    if (_finsrc !== 'fsm' && finishIdx > catchIdx + driveCount + 5) finishIdx = catchIdx + driveCount + 5;
     if (finishIdx - catchIdx < 2) return null;
 
     // Pass 2 — integrate v = vCatch + ΔV over catch → blade-out
@@ -4539,7 +4538,23 @@ function wireTabButtons(){
 }
 function fixAppHeight(){document.documentElement.style.setProperty('--app-h',window.innerHeight+'px');}
 window.addEventListener('resize',()=>{fixAppHeight();if(curveTabActive())requestAnimationFrame(renderCurveCanvas);});
-window.addEventListener('orientationchange',()=>{setTimeout(fixAppHeight,300);});
+window.addEventListener('orientationchange',()=>{setTimeout(()=>{fixAppHeight();updateOrientWarning();},300);});
+function updateOrientWarning(){
+    const banner=document.getElementById('orient-warn');
+    if(!banner)return;
+    let ang=null;
+    try{
+        if(screen.orientation&&typeof screen.orientation.angle==='number'
+            &&/^landscape/.test(screen.orientation.type||''))ang=screen.orientation.angle;
+    }catch{}
+    if(ang===null&&typeof window.orientation==='number'
+        &&Math.abs(window.orientation)===90)ang=(window.orientation+360)%360;
+    if(ang===null){banner.style.display='none';return;} // portrait — always fine
+    // CW landscape: iOS quirk reports 270, Android (per W3C spec) reports 90
+    const correctAng=isAndroid?90:270;
+    banner.style.display=(ang!==correctAng)?'block':'none';
+}
+updateOrientWarning();
 if(window.visualViewport)window.visualViewport.addEventListener('resize',fixAppHeight);
 fixAppHeight();
 
