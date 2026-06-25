@@ -4596,7 +4596,7 @@ document.getElementById('perm-btn').addEventListener('click',async()=>{
   }).catch(()=>{});
   if(navigator.geolocation){
     navigator.geolocation.getCurrentPosition(
-      pos=>{handlePos(pos);navigator.geolocation.watchPosition(handlePos,handleGpsErr,{enableHighAccuracy:true,maximumAge:500,timeout:20000});},
+      pos=>{handlePos(pos);navigator.geolocation.watchPosition(handlePos,handleGpsErr,{enableHighAccuracy:true,maximumAge:0,timeout:Infinity});},
       handleGpsErr,{enableHighAccuracy:true,timeout:20000});
   }else{document.getElementById('p-gps').className='pill pill-err';document.getElementById('p-gps').textContent='NO GPS';}
   if('wakeLock' in navigator){
