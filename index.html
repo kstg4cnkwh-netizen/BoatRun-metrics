@@ -844,6 +844,24 @@ function paceLabelFull() {
         default:         return 'Pace';
     }
 }
+function paceToUnit(s500){
+  if(!s500||s500<=0||!isFinite(s500))return NaN;
+  switch(appSettings.paceUnit){
+    case 'pace500':  return s500;
+    case 'pace1000': return s500*2;
+    case 'pacemile': return s500*3.21868;
+    case 'kph':      return 1800/s500;
+    case 'mph':      return 1118.47/s500;
+    default:         return s500;
+  }
+}
+function paceChartInvert(){
+  return appSettings.paceUnit!=='kph'&&appSettings.paceUnit!=='mph';
+}
+function paceAxisFmt(v){
+  if(appSettings.paceUnit==='kph'||appSettings.paceUnit==='mph')return v.toFixed(1);
+  const s=Math.round(v);return Math.floor(s/60)+':'+(s%60<10?'0':'')+(s%60);
+}
 function fmtDPS(m) {
     switch (appSettings.dpsUnit) {
         case 'in': return (m * 39.3701).toFixed(0);
@@ -4937,8 +4955,8 @@ function showDetail(id){
     +wktHTML
     +(s.garminLaps&&s.garminLaps.length?'<div class="chart-card" style="border-color:#8e44ad"><div class="chart-lbl"><span>Garmin Laps</span></div><table class="lap-tbl"><tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>HR</th><th>SPM</th><th>DPS</th></tr>'+s.garminLaps.map(l=>'<tr><td>'+l.n+'</td><td>'+l.dist+'m</td><td>'+fmt(l.time)+'</td><td>'+(l.pace>0?fmt(l.pace):'--')+'</td><td>'+(l.avgHr||'--')+'</td><td>'+(l.garminAvgSpm||'--')+'</td><td>'+(l.avgStrokeDist?l.avgStrokeDist+'m':'--')+'</td></tr>').join('')+'</table></div>':'')
     +hrHTML
-    +(s.garminSpeedTrace&&s.garminSpeedTrace.length>2?'<div class="chart-card" style="border-color:#8e44ad"><div class="chart-lbl"><span>Garmin Pace</span><span>min/500m</span></div><canvas id="a-gspeed" class="acanvas"></canvas></div>':'')
-    +(s.paceTrace&&s.paceTrace.length>2?'<div class="chart-card g"><div class="chart-lbl"><span>GPS Pace</span><span>min/500m faster=up</span></div><canvas id="a-pace" class="acanvas"></canvas></div>':'')
+    +(s.garminSpeedTrace&&s.garminSpeedTrace.length>2?'<div class="chart-card" style="border-color:#8e44ad"><div class="chart-lbl"><span>Garmin Pace</span><span>'+paceLabelFull()+'</span></div><canvas id="a-gspeed" class="acanvas"></canvas></div>':'')
+    +(s.paceTrace&&s.paceTrace.length>2?'<div class="chart-card g"><div class="chart-lbl"><span>GPS Pace</span><span>'+paceLabelFull()+'</span></div><canvas id="a-pace" class="acanvas"></canvas></div>':'')
     +(s.strokes&&s.strokes.length>2?'<div class="chart-card a"><div class="chart-lbl"><span>Stroke Rate</span></div><canvas id="a-rate" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>DPS</span></div><canvas id="a-dps" class="acanvas"></canvas></div><div class="chart-card" style="border-color:#2980b9"><div class="chart-lbl"><span>Check Delta</span><span>m/s</span></div><canvas id="a-checkdelta" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Run Loss</span><span>%</span></div><canvas id="a-runloss" class="acanvas"></canvas></div><div class="chart-card" style="border-color:#e74c3c"><div class="chart-lbl"><span>Oar Arc</span><span>degrees</span></div><canvas id="a-oarangle" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Impulse</span></div><canvas id="a-eff" class="acanvas"></canvas></div><div class=\"chart-card b\"><div class=\"chart-lbl\"><span>Catch Slope</span></div><canvas id=\"a-catch\" class=\"acanvas\"></canvas></div><div class=\"chart-card\"><div class=\"chart-lbl\"><span>Catch Dur</span><span>ms</span></div><canvas id=\"a-catchdur\" class=\"acanvas\"></canvas></div><div class=\"chart-card\"><div class=\"chart-lbl\"><span>Stroke Ratio</span><span>rec÷drive</span></div><canvas id="a-ratio" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Stroke Char</span><span>% · 50% ref</span></div><canvas id="a-char" class="acanvas"></canvas></div>':'')
     +'<div style="display:flex;gap:6px;margin-top:8px;">'
     +'<button class="exp-btn" id="dbg-btn" style="flex:1;font-size:10px;padding:10px 4px;">Debug CSV</button>'
@@ -4972,16 +4990,19 @@ function showDetail(id){
     });
     if(s.paceTrace&&s.paceTrace.length>2){
       const gspd=s.garminSpeedTrace&&s.garminSpeedTrace.length>2?s.garminSpeedTrace.map(x=>x.spd>0.3?500/x.spd:NaN):[];
-      const allPace=[...s.paceTrace,...gspd].filter(v=>v>60&&v<600);
-      const sharedMin=allPace.length?Math.min(...allPace)*0.97:null;
-      const sharedMax=allPace.length?Math.max(...allPace)*1.03:null;
+      const paceConverted=s.paceTrace.map(paceToUnit);
+      const gsConverted=gspd.map(paceToUnit);
+      const allConv=[...paceConverted,...gsConverted].filter(v=>isFinite(v)&&v>0);
+      const sharedMin=allConv.length?Math.min(...allConv)*0.97:null;
+      const sharedMax=allConv.length?Math.max(...allConv)*1.03:null;
+      const inv=paceChartInvert();
       const plapIdx=(s.strokes&&s.strokes.length>1)?getLapPaceIndices(s.paceTrace,s.strokes,s.laps,s.paceTimes||null,s.startTime||0):[];
       const gslapIdx=(s.garminSpeedTrace&&s.garminSpeedTrace.length>2&&s.startTime)?getLapGarminIndices(s.garminSpeedTrace,s.laps,s.startTime):[];
-      if(gspd.some(v=>isFinite(v)))drawChart('a-gspeed',gspd,'#8e44ad',true,sharedMax,false,sharedMin,null,gslapIdx);
-      drawChart('a-pace',s.paceTrace,'#27ae60',true,sharedMax,false,sharedMin,null,plapIdx);
+      if(gsConverted.some(v=>isFinite(v)))drawChart('a-gspeed',gsConverted,'#8e44ad',inv,sharedMax,false,sharedMin,null,gslapIdx,paceAxisFmt);
+      drawChart('a-pace',paceConverted,'#27ae60',inv,sharedMax,false,sharedMin,null,plapIdx,paceAxisFmt);
     } else if(s.garminSpeedTrace&&s.garminSpeedTrace.length>2){
-      const gspd=s.garminSpeedTrace.filter(x=>x.spd>0.3).map(x=>500/x.spd);
-      if(gspd.length>2)drawChart('a-gspeed',gspd,'#8e44ad',true);
+      const gspd=s.garminSpeedTrace.filter(x=>x.spd>0.3).map(x=>paceToUnit(500/x.spd));
+      if(gspd.length>2)drawChart('a-gspeed',gspd,'#8e44ad',paceChartInvert(),null,false,null,null,null,paceAxisFmt);
     }
     if(s.strokes&&s.strokes.length>2){
       const lapIdx=getLapStrokeIndices(s.strokes,s.laps);
@@ -5664,7 +5685,7 @@ function getLapGarminIndices(gsTrace, laps, startTime) {
   return result;
 }
 
-function drawChart(id,data,color,invertY,yMax,points,yMin=null,refLine=null,lapLines=null){
+function drawChart(id,data,color,invertY,yMax,points,yMin=null,refLine=null,lapLines=null,labelFmt=null){
   const c=document.getElementById(id);if(!c||data.length<2)return;
   const dpr=window.devicePixelRatio||1,W=c.offsetWidth*dpr,H=c.offsetHeight*dpr;c.width=W;c.height=H;
   const ctx=c.getContext('2d');ctx.clearRect(0,0,W,H);
@@ -5675,10 +5696,11 @@ function drawChart(id,data,color,invertY,yMax,points,yMin=null,refLine=null,lapL
   if(refLine!=null){const refs=Array.isArray(refLine)?refLine:[refLine];refs.forEach(rl=>{const ry=sy(rl);ctx.save();ctx.strokeStyle='rgba(0,0,0,0.35)';ctx.lineWidth=1*dpr;ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(0,ry);ctx.lineTo(W,ry);ctx.stroke();ctx.setLineDash([]);if(rl===90||rl===120){ctx.fillStyle='rgba(0,0,0,0.45)';ctx.font=(7.5*dpr)+'px Roboto';ctx.textAlign='right';ctx.fillText(rl+'°',W-3*dpr,ry-2*dpr);}ctx.restore();});}
   if(points){const r=Math.max(2,3*dpr);ctx.fillStyle=color;data.forEach((v,i)=>{const x=(i/(data.length-1))*W;ctx.beginPath();ctx.arc(x,sy(v),r,0,Math.PI*2);ctx.fill();});}
   else{const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,color+'33');g.addColorStop(1,color+'05');ctx.beginPath();data.forEach((v,i)=>i===0?ctx.moveTo(0,sy(v)):ctx.lineTo((i/(data.length-1))*W,sy(v)));ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fillStyle=g;ctx.fill();ctx.beginPath();data.forEach((v,i)=>i===0?ctx.moveTo(0,sy(v)):ctx.lineTo((i/(data.length-1))*W,sy(v)));ctx.strokeStyle=color;ctx.lineWidth=1.5*dpr;ctx.lineJoin='round';ctx.stroke();}
-  if(_d.length>=4){const _mean=_d.reduce((a,b)=>a+b,0)/_d.length;const _my=sy(_mean);ctx.save();ctx.strokeStyle='rgba(255,255,255,0.9)';ctx.lineWidth=1.5*dpr;ctx.beginPath();ctx.moveTo(0,_my);ctx.lineTo(W,_my);ctx.stroke();ctx.restore();}
+  if(_d.length>=4){const _mean=_d.reduce((a,b)=>a+b,0)/_d.length;const _my=sy(_mean);ctx.save();ctx.strokeStyle='rgba(0,0,0,0.7)';ctx.lineWidth=1.5*dpr;ctx.beginPath();ctx.moveTo(0,_my);ctx.lineTo(W,_my);ctx.stroke();ctx.restore();}
   if(lapLines&&lapLines.length){ctx.save();ctx.setLineDash([3*dpr,4*dpr]);ctx.strokeStyle='rgba(100,120,220,0.35)';ctx.lineWidth=1*dpr;lapLines.forEach(idx=>{if(idx<=0||idx>=data.length-1)return;const x=(idx/(data.length-1))*W;ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();});ctx.setLineDash([]);ctx.restore();}
-  ctx.fillStyle='#aaa';ctx.font=(8*dpr)+'px Roboto';ctx.textAlign='left';
-  ctx.fillText((invertY?mn:mx).toFixed(1),4,11*dpr);ctx.fillText((invertY?mx:mn).toFixed(1),4,H-3);
+  const _lf=labelFmt||(v=>v.toFixed(1));
+  ctx.fillStyle='#333';ctx.font=(8*dpr)+'px Roboto';ctx.textAlign='left';
+  ctx.fillText(_lf(invertY?mn:mx),4,11*dpr);ctx.fillText(_lf(invertY?mx:mn),4,H-3);
 }
 
 /* 
