@@ -5003,7 +5003,7 @@ function showDetail(id){
     const fz=document.getElementById('fit-zone');if(fz)fz.addEventListener('click',()=>{const inp=document.getElementById('fit-input');inp.onchange=ev=>handleGPX(ev,s.id);inp.click();});
     document.getElementById('dbg-btn').addEventListener('click',()=>exportDebugCSV(s));
     document.getElementById('json-btn').addEventListener('click',()=>exportSessionJSON(s));
-    document.getElementById('sync-btn').addEventListener('click',async e=>{e.preventDefault();if(DriveSync.isSignedIn()){try{await DriveSync.upload(s);markSynced(s.id);updateDriveBtn();toast('Synced to Drive');}catch(err){toast('Sync failed');}}else{queuePending(s.id);driveSignIn();}});
+    document.getElementById('sync-btn').addEventListener('click',async e=>{e.preventDefault();if(DriveSync.isSignedIn()){try{await DriveSync.upload(s);markSynced(s.id);updateDriveBtn();toast('Synced to Drive');showDetail(s.id);}catch(err){toast('Sync failed');}}else{queuePending(s.id);driveSignIn();}});
     document.getElementById('del-btn').addEventListener('click',()=>{if(confirm('Delete?')){delSess(s.id);dw.style.display='none';document.getElementById('ht-log-list').style.display='block';const hb=document.querySelector('.home-body');if(hb)hb.scrollTop=0;renderSessionList();toast('Deleted');}});
     document.getElementById('coach-send-btn').addEventListener('click', () => sendToCoach(s));
   });
