@@ -688,8 +688,8 @@ const CONFIG = Object.freeze({
         oneEuroDCutoff: 1.0, //lower=more-smoothing, higher=more-responsive; 1.0 is a reasonable starting point  
         paceAvgMs: 5000,
         dopplerStuckSpeed: 1.5,
-        dopplerStuckN: 5,
-        havSpeedMin: 2.0,
+        dopplerStuckN: 4,
+        havSpeedMin: 1.3,
         havBufN: 5
     },
     motion: {
@@ -711,8 +711,8 @@ const CONFIG = Object.freeze({
         minDriveMs: 300,
         postDriveLockoutMs: 500,
         bladeExitSustainMs: 150,
-        dpsMedianN: 8,
-        catchBufN: 7,
+        dpsMedianN: 6,
+        catchBufN: 5,
         spmMin: 10,
         spmMax: 50,
         restGapS: 8.0,
@@ -2856,7 +2856,7 @@ function handlePos(pos) {
     if (sessionReady) {
         const _gfH = document.getElementById('gps-flag');
         if (_gfH) {
-            if (acc < 8) {
+            if (acc < 8 && gpsAnchorOk) {
                 _gfH.style.background = '#27ae60'; _gfH.style.display = 'block';
                 _gfH.textContent = '\u2713 GPS READY \u2014 START ROWING';
                 if (!_gpsReadyFired) { _gpsReadyFired = true; if (navigator.vibrate) navigator.vibrate([100, 60, 100]); }
