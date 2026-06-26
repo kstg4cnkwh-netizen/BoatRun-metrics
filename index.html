@@ -2190,7 +2190,9 @@ function onNewCatch(now) {
         // trustworthy; else fall back to DPS-derived boat speed (DPS is immune
         // to Doppler multipath) so the arc isn't lost in degraded-GPS zones.
         const _dpsSpeed = (distPerStroke > 0 && strokeRate > 0) ? distPerStroke * strokeRate / 60 : 0;
-        const _oarAnchorV = (gpsAnchorOk && vMean >= 1.5) ? vMean : _dpsSpeed;
+        if (gpsAnchorOk && strokeMeanSpeed >= 1.5) pushLimit(oarSpeedBuf, strokeMeanSpeed, 15);
+        const _vLong = oarSpeedBuf.length >= 8 ? median(oarSpeedBuf) : vMean;
+        const _oarAnchorV = (gpsAnchorOk && _vLong >= 1.5) ? _vLong : _dpsSpeed;
         if (pendingOarStrokeIdx >= 0 &&
             catchToCatchSamples.length >= 8 &&
             pendingCurveDriveCount >= 2 &&
@@ -2288,7 +2290,7 @@ const CATCH_TS_BUF = 5, catchTsBuf = [];
 let rdi = null, rdiValsArr = [];
 let strokeRatio = null, strokeRatioValsArr = [], prevDriveDurMs = 0;
 let dbgDpsRaw = null;
-let oarAngle = null, oarAngleRawArr = [], oarAngleEma = null;
+let oarAngle = null, oarAngleRawArr = [], oarAngleEma = null, oarSpeedBuf = [];
 let checkDelta = null, checkDeltaRawArr = [], checkDeltaEma = null;
 let catchGpsDist = 0, pendingOarStrokeIdx = -1;
 function rateFromMedianIntervals() {
@@ -2452,7 +2454,7 @@ function onStrokeFinish(now, driveDur) {
     // ── Rest-gap reset: check BEFORE touching catchTsBuf or strokeRate ──────
     const gapMs = prevCatchT > 0 ? driveStartT - prevCatchT : 0;
     if (gapMs / 1000 > CONFIG.stroke.restGapS) {
-        oarAngle = null; oarAngleRawArr.length = 0; oarAngleEma = null; lastCatchSlope = 0;
+        oarAngle = null; oarAngleRawArr.length = 0; oarAngleEma = null; oarSpeedBuf.length = 0; lastCatchSlope = 0;
         checkDelta = null; checkDeltaRawArr.length = 0; checkDeltaEma = null;
         lastKnownPeriodMs = Math.max(lastKnownPeriodMs * 0.70, CONFIG.stroke.nominalFallbackMs);
         acBuf.length = 0; acConf = 0;
@@ -2680,6 +2682,7 @@ function gpsSpeedMedian() {
 const speedSamples = [], paceDistWindow = [], velocityWindow = [];
 let lastPos = null;
 let havSpeedBuf = [], dopplerLowStreak = 0, gpsConvergeStreak = 0, gpsAnchorOk = false;
+let gpsTrustPos = null, gpsDegrading = false;
 let _gpsReadyFired = false;
 let headingEmaX = null, headingEmaY = null;
 // ── Velocity engine: One-Euro adaptive filter on GPS Doppler speed ───────────
@@ -2735,7 +2738,7 @@ function pushVelocity(t, v) {
     const gapMs = gpsLastValidT > 0 ? t - gpsLastValidT : 0;
     // Cold start or long gap → reinitialise filter
     if (gpsSpeedEma < 0 || gapMs > CONFIG.gps.gapResetMs) {
-        gpsLastValidT = t; lastDistT = t; gpsWasStopped = false; gpsLowSpeedStreak = 0; strokeSpeedBuf.length = 0; gpsSpeedHist.length = 0; gpsRejectStreak = 0;
+        gpsLastValidT = t; lastDistT = t; gpsWasStopped = false; gpsLowSpeedStreak = 0; strokeSpeedBuf.length = 0; gpsSpeedHist.length = 0; gpsRejectStreak = 0; gpsTrustPos = null; gpsDegrading = false;
         vFilter.reset(); gpsSpeedEma = vFilter.filter(v, t);
         if (gapMs > CONFIG.gps.gapResetMs) { paceDistWindow.length = 0; velocityWindow.length = 0; }
         return;
@@ -2744,7 +2747,7 @@ function pushVelocity(t, v) {
     // would otherwise lag for several fixes. Reset the filter so it SNAPS to the
     // new speed, clear stale windows and reseed — fixes "pace fails to restart".
     if ((gpsWasStopped || gpsLowSpeedStreak >= 3) && v > 0.5) {
-        gpsWasStopped = false; gpsLowSpeedStreak = 0; gpsResumeT = t;
+        gpsWasStopped = false; gpsLowSpeedStreak = 0; gpsResumeT = t; gpsTrustPos = null; gpsDegrading = false;
         gpsConvergeStreak = 0; gpsAnchorOk = false;
         havSpeedBuf.length = 0; strokeSpeedBuf.length = 0; velocityWindow.length = 0; gpsSpeedHist.length = 0; gpsRejectStreak = 0;
         gpsLastValidT = t; lastDistT = t;
@@ -2764,9 +2767,9 @@ function pushVelocity(t, v) {
             // declaring a genuine stop — a single GPS glitch (raw speed
             // reported as 0) must not wipe the DPS/oar-angle history.
             if (gpsLowSpeedStreak >= 3 && gpsSpeedEma < 0.5) {
-                gpsLastValidT = t; gpsWasStopped = true; strokeSpeedBuf.length = 0; gpsSpeedHist.length = 0; gpsRejectStreak = 0;
+                gpsLastValidT = t; gpsWasStopped = true; strokeSpeedBuf.length = 0; gpsSpeedHist.length = 0; gpsRejectStreak = 0; gpsTrustPos = null; gpsDegrading = false;
                 dpsValsArr.length = 0; distPerStroke = 0;   // clear corrupt DPS buffer
-                oarAngleRawArr.length = 0;                   // clear corrupt oar history
+                oarAngleRawArr.length = 0; oarSpeedBuf.length = 0;   // clear corrupt oar history
             }
             return;
         }
@@ -2897,6 +2900,28 @@ function handlePos(pos) {
                 havSpeedBuf.length = 0;
                 gpsConvergeStreak = 0; gpsAnchorOk = false;
             }
+        }
+    }
+    // GPS reacquisition distance snap
+    // integral of v dt under-accumulates while Doppler is degraded.
+    // Track last trusted fix; when GPS recovers, top distance up to the
+    // straight-line gap so total/lap distance and avg/lap pace self-correct.
+    if (running && !paused && !sessionReady && lat != null && lon != null) {
+        const _trustAcc = 15;
+        const _snapMin  = 8;
+        const _healthy  = gpsAnchorOk && acc <= _trustAcc;
+        if (_healthy) {
+            if (gpsDegrading && gpsTrustPos) {
+                const _straight = haversineM(gpsTrustPos, cur);
+                const _cap      = 8 * (cur.t - gpsTrustPos.t) / 1000;
+                const _gap      = Math.min(_straight, _cap);
+                const _accrued  = distance - gpsTrustPos.dist;
+                if (_gap > _accrued + _snapMin) distance += (_gap - _accrued);
+            }
+            gpsDegrading = false;
+            gpsTrustPos = { lat, lon, t: cur.t, dist: distance };
+        } else if (gpsTrustPos) {
+            gpsDegrading = true;
         }
     }
     lastPos = cur;
@@ -4361,7 +4386,7 @@ function resetSess() {
     motionSamples = 0; motionStartedAt = 0; lastMotionT = 0;
     imuRL = null; driveImpulseEma = null; oarAngle = null; oarAngleRawArr.length = 0; oarAngleEma = null;
     checkDelta = null; checkDeltaRawArr.length = 0; checkDeltaEma = null; runLossEma = null; runLossPctEma = null;
-    gpsConvergeStreak = 0; gpsAnchorOk = false; havSpeedBuf.length = 0;
+    gpsConvergeStreak = 0; gpsAnchorOk = false; havSpeedBuf.length = 0; gpsTrustPos = null; gpsDegrading = false; oarSpeedBuf.length = 0;
     catchGpsDist = 0; pendingOarStrokeIdx = -1;
     for (const k of AXES) { gravity[k] = 0; axFast[k] = 0; axSmooth[k] = 0; }
     wkt = { active: false, def: null, sequence: [], seqIdx: 0, startDist: 0, startElapsed: 0, lapMetrics: [], countdownActive: false, waitingForRow: false, waitStrokeCount: 0, fromRestCountdown: false, workToWork: false, _lastWasWork: false, readyPaused: false };
