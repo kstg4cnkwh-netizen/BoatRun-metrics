@@ -2134,7 +2134,8 @@ function onNewCatch(now) {
             pushLimit(runLossMpsArr, dv, CONFIG.runLoss.medianN);
             runLossMps = median(runLossMpsArr);
             if (gpsAnchorOk && strokeMeanSpeed >= 1.5) pushLimit(rlSpeedBuf, strokeMeanSpeed, 15);
-            const _rlLongV = rlSpeedBuf.length >= 8 ? median(rlSpeedBuf) : (anchorV >= 1.0 ? anchorV : 0);
+            const _rlTrend  = rlSpeedBuf.length >= 4 ? strokeMeanSpeed - median(rlSpeedBuf) : 0;
+            const _rlLongV  = (rlSpeedBuf.length >= 8 && Math.abs(_rlTrend) < 0.3) ? median(rlSpeedBuf) : (anchorV >= 1.0 ? anchorV : 0);
             const anchorPctV = _rlLongV >= 1.0 ? _rlLongV : imuRL.v0; _rlAnchorV = +anchorPctV.toFixed(3);
             if (anchorPctV > 0) {
                 const pct = Math.min(100, (dv / anchorPctV) * 100); _rlPct = +pct.toFixed(2);
@@ -2191,9 +2192,10 @@ function onNewCatch(now) {
         // Anchor the IMU drive integration to GPS speed when the GPS anchor is
         // trustworthy; else fall back to DPS-derived boat speed (DPS is immune
         // to Doppler multipath) so the arc isn't lost in degraded-GPS zones.
-        const _dpsSpeed = (distPerStroke > 0 && strokeRate > 0) ? distPerStroke * strokeRate / 60 : 0;
+        const _dpsSpeed  = (distPerStroke > 0 && strokeRate > 0) ? distPerStroke * strokeRate / 60 : 0;
         if (gpsAnchorOk && strokeMeanSpeed >= 1.5) pushLimit(oarSpeedBuf, strokeMeanSpeed, 15);
-        const _vLong = oarSpeedBuf.length >= 8 ? median(oarSpeedBuf) : vMean;
+        const _oarTrend  = oarSpeedBuf.length >= 4 ? strokeMeanSpeed - median(oarSpeedBuf) : 0;
+        const _vLong     = (oarSpeedBuf.length >= 8 && Math.abs(_oarTrend) < 0.3) ? median(oarSpeedBuf) : vMean;
         const _oarAnchorV = (gpsAnchorOk && _vLong >= 1.5) ? _vLong : _dpsSpeed;
         if (pendingOarStrokeIdx >= 0 &&
             catchToCatchSamples.length >= 8 &&
