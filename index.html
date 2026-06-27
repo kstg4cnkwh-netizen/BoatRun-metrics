@@ -2351,12 +2351,17 @@ function computeOarAngle(samples, driveCount, vMean, finishT) {
     if (n < 8 || driveCount < 2 || driveCount >= n) return null;
     if (vMean < 0.5 || vMean > 8) return null;
 
-    // Remove any residual DC bias in axFast over the catch-to-catch window
-    // before integrating — axFast should be ~zero-mean per cycle; a small
-    // offset otherwise drifts cumulDV and shifts the catch/finish crossings.
-    let meanV = 0;
-    for (let i = 0; i < n; i++) meanV += samples[i].v;
-    meanV /= n;
+    // ── Baseline removal via MEDIAN, not mean ────────────────────────────────
+    // The recovery — especially at high rating, when the boat is still
+    // accelerating through it — is a long, near-flat positive section of
+    // axFast. Its MEAN drags the zero-reference up and inflates the drive
+    // excursion (arc reads high as rating rises). The MEDIAN sits on the
+    // recovery/glide level, so the drive is measured as its excursion BELOW
+    // the glide baseline: the blade-anchored section only, robust to how hard
+    // the boat accelerates through the recovery.
+    const _sv = samples.map(s => s.v).sort((a, b) => a - b);
+    const _mid = _sv.length >> 1;
+    const meanV = _sv.length % 2 ? _sv[_mid] : (_sv[_mid - 1] + _sv[_mid]) / 2;
     const v = new Array(n);
     for (let i = 0; i < n; i++) v[i] = samples[i].v - meanV;
 
@@ -2383,7 +2388,6 @@ function computeOarAngle(samples, driveCount, vMean, finishT) {
     if (vCatch < vMean * 0.25) return null;
 
     // ── Signal-derived drive boundaries (detrended v: negative = drive) ─────
-    // Deepest negative peak within first 70% of window
     let peakIdx = -1, peakV = 0;
     const peakEnd = Math.round(n * 0.70);
     for (let i = 0; i < peakEnd; i++) {
@@ -2391,13 +2395,11 @@ function computeOarAngle(samples, driveCount, vMean, finishT) {
     }
     if (peakIdx < 1 || peakV > -0.05) return null;
 
-    // Catch = pos→neg crossing immediately before the peak (onset of drive)
     let catchIdx = 0;
     for (let i = peakIdx; i > 0; i--) {
         if (v[i - 1] >= 0) { catchIdx = i; break; }
     }
 
-    // Finish: prefer FSM blade-exit time, fall back to signal crossing
     let finishIdx = -1;
     const finishCap = Math.round(n * 0.65);
     if (finishT != null) {
@@ -2424,7 +2426,7 @@ function computeOarAngle(samples, driveCount, vMean, finishT) {
     if (_finsrc !== 'fsm' && finishIdx > catchIdx + driveCount + 5) finishIdx = catchIdx + driveCount + 5;
     if (finishIdx - catchIdx < 2) return null;
 
-    // Pass 2 — integrate v = vCatch + ΔV over catch → blade-out
+    // Pass 2 — boat displacement over the blade-anchored section only.
     let driveDist = 0;
     for (let i = catchIdx + 1; i <= finishIdx; i++) {
         const dt = (samples[i].t - samples[i - 1].t) / 1000;
@@ -2972,6 +2974,15 @@ function handlePos(pos) {
             // Post-rest guard: if the stroke-cycle mean is far slower than the
             // settled EMA, the window still reaches back into the turn/rest.
             if (gpsSpeedEma > CONFIG.gps.minSpeedForPace && vMean < 0.6 * gpsSpeedEma) vMean = gpsSpeedEma;
+            // Bound the stroke-cycle mean to the smooth One-Euro EMA.
+            // The velocity window can swallow a multipath fix the EMA already
+            // rejected (mid-piece pace spikes), and just after a restart it
+            // still holds the acceleration ramp (pace reads slow). The EMA is
+            // the trusted speed, so clamp vMean to +/-15% of it.
+            if (gpsSpeedEma > CONFIG.gps.minSpeedForPace) {
+                const _lo = gpsSpeedEma * 0.85, _hi = gpsSpeedEma * 1.15;
+                vMean = vMean < _lo ? _lo : (vMean > _hi ? _hi : vMean);
+            }
             if (vMean > CONFIG.gps.minSpeedForPace) {
                 const raw = 500 / vMean;
                 if (_dbgRow) { _dbgRow.winPace = +raw.toFixed(1); _dbgRow.vMean = +vMean.toFixed(3); _dbgRow.anchorOk = gpsAnchorOk ? 1 : 0; }
