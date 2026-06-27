@@ -921,7 +921,7 @@ function saveSess(a) {
     catch {
         try {
             const slim = a.map(s => s.strokes
-                ? { ...s, strokes: s.strokes.map(({ dbg, ...r }) => r), gpsRawTrace: undefined, rlDebug: undefined }
+                ? { ...s, strokes: s.strokes.map(({ dbg, ...r }) => r), gpsRawTrace: undefined }
                 : s);
             _LS.setItem(DB, JSON.stringify(slim));
             toast('Saved — GPS trace removed (storage full)');
@@ -2023,12 +2023,6 @@ function runFSM(now, fast, jerk) {
                         bladeExitT = posRunStartT;
                         bladeExitDetected = true;
                         // Rebase run-loss windows to the true finish (blade exit)
-                        if (imuRL) {
-                            imuRL.startAt = bladeExitT + CONFIG.runLoss.startAfterDriveMs;
-                            imuRL.endAt   = imuRL.startAt + CONFIG.runLoss.windowMs;
-                            imuRL.driveEndT = bladeExitT;
-                            imuRL.deltaV = 0; imuRL.maxDeltaV = 0; imuRL.minDeltaV = 0; imuRL.lastT = -1; imuRL.nSamples = 0;
-                        }
                         if (pendingRun) {
                             pendingRun.startAt = bladeExitT + CONFIG.runLoss.startAfterDriveMs;
                             pendingRun.endAt   = pendingRun.startAt + CONFIG.runLoss.windowMs;
@@ -2504,6 +2498,18 @@ function onStrokeFinish(now, driveDur) {
         }
     }
     // ── End impulse sign check ───────────────────────────────────────────────
+    // ── Anchor imuRL to FSM drive end ────────────────────────────────────────
+    // fastDt >=0 sustain (blade exit) fires late: the oscillatory fast signal
+    // (seat movement, body weight shifts) repeatedly resets posRunStartT until
+    // late recovery settles. That puts startAt ~365ms before next catch,
+    // capturing the check deceleration → dv ≈0.10 m/s → run_loss ≈0.03m.
+    // Anchoring at the DRIVE→RECOVERY transition covers the full recovery.
+    if (imuRL && imuRL.strokeN === strokeCount) {
+        imuRL.startAt   = now + CONFIG.runLoss.startAfterDriveMs;
+        imuRL.endAt     = now + CONFIG.runLoss.startAfterDriveMs + CONFIG.runLoss.windowMs;
+        imuRL.driveEndT = now;
+        imuRL.deltaV = 0; imuRL.maxDeltaV = 0; imuRL.minDeltaV = 0; imuRL.lastT = -1; imuRL.nSamples = 0;
+    }
     const catchDurMs = driveDur;
     catchTsBuf.push(driveStartT);
     if (strokeRate > 0 && catchTsBuf.length >= 2) {
@@ -2567,9 +2573,9 @@ function onStrokeFinish(now, driveDur) {
     if (strokeTs.length > MAX_STROKE_TS) strokeTs.shift();
     rdi = null;
     strokeRatio = null;
-    if (bladeExitT > prevDriveStartT + 100 && bladeExitT < driveStartT) {
-        const physDrv = (bladeExitT - prevDriveStartT) / 1000;   // matches phys_drv_ms in debug
-        const physRec = (driveStartT - bladeExitT) / 1000;       // matches phys_rec_ms in debug
+    if (lastDriveEndT > prevDriveStartT + 100 && lastDriveEndT < driveStartT) {
+        const physDrv = (lastDriveEndT - prevDriveStartT) / 1000;   // matches phys_drv_ms in debug
+        const physRec = (driveStartT - lastDriveEndT) / 1000;       // matches phys_rec_ms in debug
         if (physDrv > 0.3 && physRec > 0.3) {
             const rv = (physRec - physDrv) / (physRec + physDrv);
             rdiValsArr.push(rv);
