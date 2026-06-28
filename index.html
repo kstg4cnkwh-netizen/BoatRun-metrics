@@ -946,7 +946,7 @@ function addSess(s) {
     }
     if (saved && DriveSync.isSignedIn()) {
         DriveSync.upload(s)
-            .then(() => { markSynced(s.id); updateDriveBtn(); toast('Saved to Drive'); })
+            .then(() => { markSynced(s.id); updateDriveBtn(); renderSessionList(); toast('Saved to Drive'); })
             .catch(() => { queuePending(s.id); });
     }
     if (saved && StravaSync.isSignedIn()) {
@@ -5169,6 +5169,7 @@ let _wktOriginalSnapshot=null;   // JSON snapshot before edit, for change detect
 
 function renderWorkoutList(){
   const container=document.getElementById('workout-list-container');if(!container)return;
+  detachBuilder();
   const workouts=loadWorkouts();
   if(!workouts.length){container.innerHTML='<div style="text-align:center;padding:20px;color:#bbb;font-size:12px;">No workouts yet.</div>';return;}
   container.innerHTML=workouts.map((w,wi)=>`
@@ -5882,13 +5883,14 @@ wireTabButtons();
 wireWorkoutBar();
 DriveSync.init().then(async()=>{
   const hadOAuth=await checkOAuthReturn();
-  if(!hadOAuth&&DriveSync.isSignedIn()){updateDriveBtn();flushQueue().catch(()=>{});await migrateLocalSessionsToDrive();DriveSync.syncFromDrive().catch(()=>{});}
+  if(!hadOAuth){updateDriveBtn();if(DriveSync.isSignedIn()){flushQueue().catch(()=>{});await migrateLocalSessionsToDrive();DriveSync.syncFromDrive().catch(()=>{});}}
   if(!hadOAuth){try{if(localStorage.getItem('scull_setup_v1')==='1')showTab('home');}catch{}}
 }).catch(()=>{});
 StravaSync.init().then(checkStravaOAuthReturn).catch(()=>{});
 checkAutosave();
 bootSquadSync();
 window.addEventListener('online',()=>{if(DriveSync.isSignedIn())flushQueue().catch(()=>{});});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')updateDriveBtn();});
 
 fetch('./sw.js?'+Date.now()).then(r=>r.text()).then(txt=>{const m=txt.match(/const C\s*=\s*([^;\n]+)/);if(m){const v=m[1].replace(/['"\s+]/g,'');if(v){['splash-version','about-version'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=v;});}}}).catch(()=>{});
 const _pn=document.getElementById('perm-note');
