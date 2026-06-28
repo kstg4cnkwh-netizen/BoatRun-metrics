@@ -1601,17 +1601,20 @@ const AXES = ['x', 'y', 'z'];
 let selAxis = 'x', selSign = 1, axisLocked = false, axisAutoDetected = false, lastAxisCheck = 0;
 let signLock = 0;                  // orientation-locked surge sign (0 = adaptive fallback)
 function landscapeSurgeSign() {
-    // +1 = landscape-right, -1 = landscape-left, 0 = not landscape / unknown
-    let ang = null;
+    // screen.orientation.angle: CW=90, CCW=270
+    // window.orientation normalised: CW=270, CCW=90  ← opposite convention
+    let ang = null, fromScreenApi = false;
     try {
         if (screen.orientation && typeof screen.orientation.angle === 'number'
-            && /^landscape/.test(screen.orientation.type || '')) ang = screen.orientation.angle;
+            && /^landscape/.test(screen.orientation.type || '')) {
+            ang = screen.orientation.angle; fromScreenApi = true;
+        }
     } catch {}
     if (ang === null && typeof window.orientation === 'number'
         && Math.abs(window.orientation) === 90) ang = (window.orientation + 360) % 360;
     if (ang === null) return 0;
-    // angle 270 = clockwise-right on iPhone (rower mount); angle 90 = counter-clockwise (cox mount)
-    let sgn = (ang === 270) ? 1 : (ang === 90 ? -1 : 0);
+    const cwAng = fromScreenApi ? 90 : 270;   // CW angle value differs by API
+    const sgn = (ang === cwAng) ? 1 : (ang === (360 - cwAng) ? -1 : 0);
     return appSettings.coxMode ? -sgn : sgn;
 }
 let useProjAxis = false, projX = 1, projY = 0;
@@ -2573,16 +2576,16 @@ function onStrokeFinish(now, driveDur) {
     if (strokeTs.length > MAX_STROKE_TS) strokeTs.shift();
     rdi = null;
     strokeRatio = null;
-    if (lastDriveEndT > prevDriveStartT + 100 && lastDriveEndT < driveStartT) {
-        const physDrv = (lastDriveEndT - prevDriveStartT) / 1000;   // matches phys_drv_ms in debug
-        const physRec = (driveStartT - lastDriveEndT) / 1000;       // matches phys_rec_ms in debug
+    if (bladeExitDetected && bladeExitT > driveStartT && bladeExitT < now) {
+        const physDrv = (bladeExitT - driveStartT) / 1000;          // catch trigger → oar extraction
+        const physRec = (now - bladeExitT) / 1000;                   // extraction → next catch
         if (physDrv > 0.3 && physRec > 0.3) {
             const rv = (physRec - physDrv) / (physRec + physDrv);
             rdiValsArr.push(rv);
             if (rdiValsArr.length > 10) rdiValsArr.shift();
             rdi = clamp(rdiValsArr.reduce((a, b) => a + b, 0) / rdiValsArr.length, -1, 1);
-            const rawRatio = physRec / physDrv;
-            if (rawRatio > 0.3 && rawRatio < 8) {
+            const rawRatio = (physDrv + physRec) / physDrv;          // total / drive
+            if (rawRatio > 1.0 && rawRatio < 12) {
                 pushLimit(strokeRatioValsArr, rawRatio, 8);
                 strokeRatio = +(median(strokeRatioValsArr) ?? rawRatio).toFixed(2);
             }
@@ -2671,8 +2674,8 @@ function onStrokeFinish(now, driveDur) {
             prlStartMs: Math.round(CONFIG.runLoss.startAfterDriveMs),
             prlWindowMs: CONFIG.runLoss.windowMs,
             selAxis, selSign, axisLocked,
-            physDrvMs: bladeExitT > 0 ? Math.round(bladeExitT - prevDriveStartT) : null,
-            physRecMs: bladeExitT > 0 ? Math.round(driveStartT - bladeExitT) : null,
+            physDrvMs: bladeExitDetected ? Math.round(bladeExitT - driveStartT) : null,
+            physRecMs: bladeExitDetected ? Math.round(now - bladeExitT) : null,
             driveMinJerk: +driveMinJerk.toFixed(1), dfSet: driveForceT > 0 ? 1 : 0,
             drvPeakMs: (prevDrvPeakT > prevCatchEndT) ? Math.round(prevDrvPeakT - prevCatchEndT) : null,
             dpsRaw: dbgDpsRaw
