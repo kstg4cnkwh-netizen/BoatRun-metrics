@@ -2145,7 +2145,7 @@ function onNewCatch(now) {
         const rawLoss  = +(dv * sampledS * 0.5).toFixed(4); _rlRawLoss = rawLoss;
         if (rawLoss >= 0 && rawLoss <= CONFIG.runLoss.maxLossM) {
             pushLimit(runLosses, rawLoss, CONFIG.runLoss.medianN);
-            { const m = median(runLosses); runLossEma = runLossEma == null ? m : 0.5 * m + 0.5 * runLossEma; runLossM = runLossEma; }
+            { const m = median(runLosses); runLossEma = runLossEma == null ? m : 0.6 * m + 0.4 * runLossEma; runLossM = runLossEma; }
             pushLimit(runLossMpsArr, dv, CONFIG.runLoss.medianN);
             runLossMps = median(runLossMpsArr);
             if (gpsAnchorOk && strokeMeanSpeed >= 1.5) pushLimit(rlSpeedBuf, strokeMeanSpeed, 15);
@@ -2155,7 +2155,7 @@ function onNewCatch(now) {
             if (anchorPctV > 0) {
                 const pct = Math.min(100, (dv / anchorPctV) * 100); _rlPct = +pct.toFixed(2);
                 pushLimit(runLossPcts, pct, CONFIG.runLoss.medianN);
-                const mp = median(runLossPcts); runLossPctEma = runLossPctEma == null ? mp : 0.5 * mp + 0.5 * runLossPctEma; runLossPct = runLossPctEma;
+                const mp = median(runLossPcts); runLossPctEma = runLossPctEma == null ? mp : 0.6 * mp + 0.4 * runLossPctEma; runLossPct = runLossPctEma;
             }
             const idx = sessStrokes.findIndex(x => x._prlStroke === imuRL.strokeN);
             if (idx >= 0) {
@@ -2222,7 +2222,7 @@ function onNewCatch(now) {
                 pushLimit(oarAngleRawArr, rawAngle, 7);
                 const med = median(oarAngleRawArr);
                 if (med != null) {
-                    oarAngleEma = oarAngleEma == null ? med : 0.5 * med + 0.5 * oarAngleEma;
+                    oarAngleEma = oarAngleEma == null ? med : 0.6 * med + 0.4 * oarAngleEma;
                     oarAngle = Math.round(oarAngleEma);
                     if (sessStrokes[pendingOarStrokeIdx]) {
                         sessStrokes[pendingOarStrokeIdx].oarAngle    = oarAngle;
@@ -2241,23 +2241,7 @@ function onNewCatch(now) {
         const rawCD = computeCheckDelta(catchToCatchSamples);
         if (rawCD !== null) {
             pushLimit(checkDeltaRawArr, rawCD, 5);
-            const win = checkDeltaRawArr;
-            const mean = win.reduce((a, b) => a + b, 0) / win.length;
-            let smoothed;
-            if (win.length < 3) {
-                smoothed = mean;
-            } else {
-                const stdev = Math.sqrt(win.reduce((a, b) => a + (b - mean) ** 2, 0) / win.length);
-                if (stdev / mean < 0.10) {
-                    smoothed = mean;
-                } else {
-                    const filt = win.filter(v => Math.abs(v - mean) <= stdev);
-                    smoothed = filt.length >= 2
-                        ? filt.reduce((a, b) => a + b, 0) / filt.length
-                        : rawCD;
-                }
-            }
-            checkDelta = +smoothed.toFixed(3);
+            checkDelta = +(median(checkDeltaRawArr) ?? rawCD).toFixed(3);
             if (sessStrokes.length > 0)
                 sessStrokes[sessStrokes.length - 1].checkDelta = checkDelta;
         }
@@ -2541,8 +2525,8 @@ function onStrokeFinish(now, driveDur) {
     trigValsArr.push(trigJerk);
     if (trigValsArr.length > 8) trigValsArr.shift();
     catchValsArr.push(catchSlope);
-    if (catchValsArr.length > 8) catchValsArr.shift();
-    catchLast = Math.round(catchValsArr.reduce((a, b) => a + b, 0) / catchValsArr.length);
+    if (catchValsArr.length > 6) catchValsArr.shift();
+    catchLast = Math.round(median(catchValsArr));
     catchAvg8 = catchLast;
     if (catchPeakSess == null || catchSlope > catchPeakSess) catchPeakSess = catchSlope;
     if (trigValsArr.length >= 5) {
@@ -2576,14 +2560,14 @@ function onStrokeFinish(now, driveDur) {
     if (strokeTs.length > MAX_STROKE_TS) strokeTs.shift();
     rdi = null;
     strokeRatio = null;
-    if (bladeExitDetected && bladeExitT > driveStartT && bladeExitT < now) {
-        const physDrv = (bladeExitT - driveStartT) / 1000;          // catch trigger → oar extraction
-        const physRec = (now - bladeExitT) / 1000;                   // extraction → next catch
+    if (bladeExitDetected && bladeExitT > prevDriveStartT && bladeExitT < driveStartT) {
+        const physDrv = (bladeExitT - prevDriveStartT) / 1000;       // prev catch → prev oar extraction
+        const physRec = (driveStartT - bladeExitT) / 1000;           // prev extraction → this catch
         if (physDrv > 0.3 && physRec > 0.3) {
             const rv = (physRec - physDrv) / (physRec + physDrv);
             rdiValsArr.push(rv);
-            if (rdiValsArr.length > 10) rdiValsArr.shift();
-            rdi = clamp(rdiValsArr.reduce((a, b) => a + b, 0) / rdiValsArr.length, -1, 1);
+            if (rdiValsArr.length > 6) rdiValsArr.shift();
+            rdi = clamp(median(rdiValsArr), -1, 1);
             const rawRatio = (physDrv + physRec) / physDrv;          // total / drive
             if (rawRatio > 1.0 && rawRatio < 12) {
                 pushLimit(strokeRatioValsArr, rawRatio, 8);
@@ -2598,7 +2582,7 @@ function onStrokeFinish(now, driveDur) {
             const rawChar = clamp(((prevDrvPeakT - prevCatchEndT) / (bladeExitT - prevCatchEndT)) * 100, 0, 100);
             charValsArr.push(Math.round(rawChar));
             if (charValsArr.length > 5) charValsArr.shift();
-            strokeChar = Math.round(charValsArr.reduce((a, b) => a + b, 0) / charValsArr.length);
+        strokeChar = Math.round(median(charValsArr));
         }
     }
     prevDriveDurMs = driveDur;
@@ -2674,8 +2658,8 @@ function onStrokeFinish(now, driveDur) {
             prlStartMs: Math.round(CONFIG.runLoss.startAfterDriveMs),
             prlWindowMs: CONFIG.runLoss.windowMs,
             selAxis, selSign, axisLocked,
-            physDrvMs: bladeExitDetected ? Math.round(bladeExitT - driveStartT) : null,
-            physRecMs: bladeExitDetected ? Math.round(now - bladeExitT) : null,
+            physDrvMs: (bladeExitDetected && bladeExitT > prevDriveStartT) ? Math.round(bladeExitT - prevDriveStartT) : null,
+            physRecMs: (bladeExitDetected && bladeExitT > prevDriveStartT) ? Math.round(driveStartT - bladeExitT) : null,
             driveMinJerk: +driveMinJerk.toFixed(1), dfSet: driveForceT > 0 ? 1 : 0,
             drvPeakMs: (prevDrvPeakT > prevCatchEndT) ? Math.round(prevDrvPeakT - prevCatchEndT) : null,
             dpsRaw: dbgDpsRaw
@@ -4265,11 +4249,6 @@ function renderCtrl() {
 }
 function startSess() {
     if (running || paused || elapsed > 0) return;
-    signLock = isAndroid ? 0 : landscapeSurgeSign();
-    if (signLock) { selSign = signLock; axisLocked = false; axisAutoDetected = false; }
-    if (typeof toast === 'function') toast(signLock
-        ? (appSettings.coxMode ? 'Cox' : 'Rower') + ' mode — sign ' + (signLock > 0 ? '+X' : '−X')
-        : 'Hold phone in mount before Start — sign auto');
     const gpsPill = document.getElementById('p-gps');
     if (gpsPill && (gpsPill.classList.contains('pill-err') || gpsPill.classList.contains('pill-warn'))) {
         toast('⚠️ GPS not ready — pace data may be missing');
@@ -4478,6 +4457,11 @@ function recordLap() {
 }
 function enterSessionReady() {
     if (running || paused || elapsed > 0) return;
+    signLock = isAndroid ? 0 : landscapeSurgeSign();
+    if (signLock) { selSign = signLock; axisLocked = false; }
+    if (typeof toast === 'function') toast(signLock
+        ? (appSettings.coxMode ? 'Cox' : 'Rower') + ' mode — sign ' + (signLock > 0 ? '+X' : '−X')
+        : 'Phone not landscape — sign auto-detect');
     sessStart = Date.now();
     lapStartDist = distance; lapStartTime = 0;
     running = true; paused = false; sessionReady = true;
