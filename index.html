@@ -4265,6 +4265,11 @@ function renderCtrl() {
 }
 function startSess() {
     if (running || paused || elapsed > 0) return;
+    signLock = isAndroid ? 0 : landscapeSurgeSign();
+    if (signLock) { selSign = signLock; axisLocked = false; axisAutoDetected = false; }
+    if (typeof toast === 'function') toast(signLock
+        ? (appSettings.coxMode ? 'Cox' : 'Rower') + ' mode — sign ' + (signLock > 0 ? '+X' : '−X')
+        : 'Hold phone in mount before Start — sign auto');
     const gpsPill = document.getElementById('p-gps');
     if (gpsPill && (gpsPill.classList.contains('pill-err') || gpsPill.classList.contains('pill-warn'))) {
         toast('⚠️ GPS not ready — pace data may be missing');
@@ -4421,8 +4426,7 @@ function resetSess() {
     strokesDetected = 0; jerkThreshActive = jerkThreshBase; adaptReady = false;
     acBuf.length = 0; acLastUpdate = 0; jerkBuf.length = 0; catchTsBuf.length = 0;
     axisLocked = false; axisAutoDetected = false; lastAxisCheck = 0; selSign = 1; preLockSignStreak = 0; noImpulseStreak = 0;
-    signLock = isAndroid ? 0 : landscapeSurgeSign();
-    if (signLock) { selSign = signLock; if (typeof toast === 'function') toast((appSettings.coxMode ? 'Cox' : 'Rower') + ' mode — sign ' + (signLock > 0 ? '+X' : '−X')); }
+    signLock = 0;
     sessStart = null; lastStrokeCurve = null; strokeCurveHistory.length = 0;
     catchToCatchSamples = []; pendingCurveDriveCount = 0;
     motionSamples = 0; motionStartedAt = 0; lastMotionT = 0;
