@@ -1375,6 +1375,7 @@ const SquadSync = (() => {
                     };
                 }
             }
+            const _avg5Curve = strokeCurveHistory.length >= 2 ? avgCurves(strokeCurveHistory) : null;
             const body = {
                 name: getRowerName() || 'Rower', rate: strokeRate || 0,
                 pace: pace > 0 ? Math.round(pace) : 0,
@@ -1389,6 +1390,8 @@ const SquadSync = (() => {
                 char: strokeChar,
                 oarAngle: oarAngle,
                 checkDelta: checkDelta != null ? Math.round(checkDelta * 100) / 100 : null,
+                curve: lastStrokeCurve ? Array.from(lastStrokeCurve.data, v => Math.round(v * 100) / 100) : null,
+                curveAvg5: _avg5Curve ? Array.from(_avg5Curve.data, v => Math.round(v * 100) / 100) : null,
                 lat: lastPos ? Math.round(lastPos.lat * 1e6) / 1e6 : null,
                 lon: lastPos ? Math.round(lastPos.lon * 1e6) / 1e6 : null,
                 workout: workoutPayload,
@@ -1424,7 +1427,11 @@ const SquadSync = (() => {
             _es.onerror = () => updateSquadPill();
             updateSquadPill();
         },
-        stop() { if (_es) { _es.close(); _es = null; } _coachName = null; updateSquadPill(); }
+        stop() { if (_es) { _es.close(); _es = null; } _coachName = null; updateSquadPill(); },
+        leaveLive() {
+            const code = getSquadCode(); if (!code) return;
+            try { fetch(SQUAD_DB_URL + '/squads/' + code + '/rowers/' + getDeviceId() + '.json', { method: 'DELETE', keepalive: true }).catch(() => {}); } catch {}
+        }
     };
 })();
 function bootSquadSync() { if (getSquadCode()) SquadSync.listen(); }
@@ -1447,6 +1454,7 @@ function updateSquadPill() {
     }
 }
 function disconnectSquad() {
+    SquadSync.leaveLive();
     setSquadCode('');
     SquadSync.stop();
     const codeEl = document.getElementById('squad-code-input');
@@ -4296,6 +4304,7 @@ function finishSess() {
         pendingSessName = '';
     }
     if (running || paused) stopSess();
+    SquadSync.leaveLive();
     resetSess();
 }
 function stopSess() {
@@ -5878,6 +5887,7 @@ DriveSync.init().then(async()=>{
 StravaSync.init().then(checkStravaOAuthReturn).catch(()=>{});
 checkAutosave();
 bootSquadSync();
+window.addEventListener('pagehide',()=>{ if(getSquadCode()) SquadSync.leaveLive(); });
 window.addEventListener('online',()=>{if(DriveSync.isSignedIn())flushQueue().catch(()=>{});});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')updateDriveBtn();});
 
