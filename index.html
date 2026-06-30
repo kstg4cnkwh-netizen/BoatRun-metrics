@@ -269,7 +269,7 @@ body{height:var(--app-h,100dvh);font-family:'Roboto',sans-serif;background:#000;
 .sbox-l{font-size:7px;color:#333;letter-spacing:.12em;text-transform:uppercase;display:block;margin-top:2px;text-align:center}
 .sbox-u{font-size:7px;color:#000;letter-spacing:.1em;display:block;margin-top:1px;text-align:center}
 .chart-card{background:#fff;border-radius:3px;padding:9px 11px 7px;margin-bottom:5px;border-top:2px solid #ddd;box-shadow:0 1px 2px rgba(0,0,0,.05);}
-.chart-card.g{border-color:#27ae60}.chart-card.b{border-color:#1a5276}.chart-card.a{border-color:#f39c12}.chart-card.r{border-color:#c0392b}
+.chart-card.g{border-color:#1E88E5}.chart-card.b{border-color:#9E9D24}.chart-card.a{border-color:#FB8C00}.chart-card.r{border-color:#E53935}
 .chart-lbl{display:flex;justify-content:space-between;font-size:8px;color:#222;letter-spacing:.1em;margin-bottom:5px;text-transform:uppercase}
 .acanvas{width:100%;height:68px;display:block;border-radius:2px}
 .fit-zone{border:2px dashed #ddd;border-radius:4px;padding:16px;text-align:center;cursor:pointer;margin:4px 0;background:#fff;}
@@ -734,6 +734,7 @@ const CONFIG = Object.freeze({
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // UTILITY — math, formatting, DOM helpers
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
+const MC={pace:'#1E88E5',rate:'#FB8C00',hr:'#E53935',dps:'#29B6F6',rloss:'#AB47BC',slope:'#9E9D24',impulse:'#00897B',schar:'#D81B60',ratio:'#5C6BC0',oar:'#26C6DA',cdelta:'#546E7A',cdur:'#FFB300'};
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 function median(arr) {
     const a = arr.filter(Number.isFinite).slice().sort((a, b) => a - b);
@@ -4964,8 +4965,8 @@ function showDetail(id){
     +(s.garminLaps&&s.garminLaps.length?'<div class="chart-card" style="border-color:#8e44ad"><div class="chart-lbl"><span>Garmin Laps</span></div><table class="lap-tbl"><tr><th>#</th><th>Dist</th><th>Time</th><th>Pace</th><th>HR</th><th>SPM</th><th>DPS</th></tr>'+s.garminLaps.map(l=>'<tr><td>'+l.n+'</td><td>'+l.dist+'m</td><td>'+fmt(l.time)+'</td><td>'+(l.pace>0?fmt(l.pace):'--')+'</td><td>'+(l.avgHr||'--')+'</td><td>'+(l.garminAvgSpm||'--')+'</td><td>'+(l.avgStrokeDist?l.avgStrokeDist+'m':'--')+'</td></tr>').join('')+'</table></div>':'')
     +hrHTML
     +(s.garminSpeedTrace&&s.garminSpeedTrace.length>2?'<div class="chart-card" style="border-color:#8e44ad"><div class="chart-lbl"><span>Garmin Pace</span><span>'+paceLabelFull()+'</span></div><canvas id="a-gspeed" class="acanvas"></canvas></div>':'')
-    +(s.paceTrace&&s.paceTrace.length>2?'<div class="chart-card g"><div class="chart-lbl"><span>GPS Pace</span><span>'+paceLabelFull()+'</span></div><canvas id="a-pace" class="acanvas"></canvas></div>':'')
-    +(s.strokes&&s.strokes.length>2?'<div class="chart-card a"><div class="chart-lbl"><span>Stroke Rate</span></div><canvas id="a-rate" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>DPS</span></div><canvas id="a-dps" class="acanvas"></canvas></div><div class="chart-card" style="border-color:#2980b9"><div class="chart-lbl"><span>Check Delta</span><span>m/s</span></div><canvas id="a-checkdelta" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Run Loss</span><span>%</span></div><canvas id="a-runloss" class="acanvas"></canvas></div><div class="chart-card" style="border-color:#e74c3c"><div class="chart-lbl"><span>Oar Arc</span><span>degrees</span></div><canvas id="a-oarangle" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Impulse</span></div><canvas id="a-eff" class="acanvas"></canvas></div><div class=\"chart-card b\"><div class=\"chart-lbl\"><span>Catch Slope</span></div><canvas id=\"a-catch\" class=\"acanvas\"></canvas></div><div class=\"chart-card\"><div class=\"chart-lbl\"><span>Catch Dur</span><span>ms</span></div><canvas id=\"a-catchdur\" class=\"acanvas\"></canvas></div><div class=\"chart-card\"><div class=\"chart-lbl\"><span>Stroke Ratio</span><span>rec÷drive</span></div><canvas id="a-ratio" class="acanvas"></canvas></div><div class="chart-card"><div class="chart-lbl"><span>Stroke Char</span><span>% · 50% ref</span></div><canvas id="a-char" class="acanvas"></canvas></div>':'')
+    +(s.paceTrace&&s.paceTrace.length>2?'<div class="chart-card" style="border-color:#1E88E5"><div class="chart-lbl"><span>GPS Pace</span><span>'+paceLabelFull()+'</span></div><canvas id="a-pace" class="acanvas"></canvas></div>':'')
+    +(s.strokes&&s.strokes.length>2?'<div class="chart-card a"><div class="chart-lbl"><span>Stroke Rate</span></div><canvas id="a-rate" class="acanvas"></canvas></div><div class="chart-card" style="border-color:#29B6F6"><div class="chart-lbl"><span>DPS</span></div><canvas id="a-dps" class="acanvas"></canvas></div><div class="chart-card" style="border-color:#546E7A"><div class="chart-lbl"><span>Check Delta</span><span>m/s</span></div><canvas id="a-checkdelta" class="acanvas"></canvas></div><div class="chart-card" style="border-color:#AB47BC"><div class="chart-lbl"><span>Run Loss</span><span>%</span></div><canvas id="a-runloss" class="acanvas"></canvas></div><div class="chart-card" style="border-color:#26C6DA"><div class="chart-lbl"><span>Oar Arc</span><span>degrees</span></div><canvas id="a-oarangle" class="acanvas"></canvas></div><div class="chart-card" style="border-color:#00897B"><div class="chart-lbl"><span>Impulse</span></div><canvas id="a-eff" class="acanvas"></canvas></div><div class=\"chart-card\" style=\"border-color:#9E9D24\"><div class=\"chart-lbl\"><span>Catch Slope</span></div><canvas id=\"a-catch\" class=\"acanvas\"></canvas></div><div class=\"chart-card\" style=\"border-color:#FFB300\"><div class=\"chart-lbl\"><span>Catch Dur</span><span>ms</span></div><canvas id=\"a-catchdur\" class=\"acanvas\"></canvas></div><div class=\"chart-card\" style=\"border-color:#5C6BC0\"><div class=\"chart-lbl\"><span>Stroke Ratio</span><span>rec÷drive</span></div><canvas id="a-ratio" class="acanvas"></canvas></div><div class="chart-card" style="border-color:#D81B60"><div class="chart-lbl"><span>Stroke Char</span><span>% · 50% ref</span></div><canvas id="a-char" class="acanvas"></canvas></div>':'')
     +'<div style="display:flex;gap:6px;margin-top:8px;">'
     +'<button class="exp-btn" id="dbg-btn" style="flex:1;font-size:10px;padding:10px 4px;">Debug CSV</button>'
     +'<button class="exp-btn" id="sync-btn" style="flex:1;font-size:10px;padding:10px 4px;background:'+(syncedNow?'#27ae60':'#1a5276')+'">'+(syncedNow?'Re-sync':'Sync to Drive')+'</button>'
@@ -5007,28 +5008,28 @@ function showDetail(id){
       const plapIdx=(s.strokes&&s.strokes.length>1)?getLapPaceIndices(s.paceTrace,s.strokes,s.laps,s.paceTimes||null,s.startTime||0):[];
       const gslapIdx=(s.garminSpeedTrace&&s.garminSpeedTrace.length>2&&s.startTime)?getLapGarminIndices(s.garminSpeedTrace,s.laps,s.startTime):[];
       if(gsConverted.some(v=>isFinite(v)))drawChart('a-gspeed',gsConverted,'#8e44ad',inv,sharedMax,false,sharedMin,null,gslapIdx,paceAxisFmt);
-      drawChart('a-pace',paceConverted,'#27ae60',inv,sharedMax,false,sharedMin,null,plapIdx,paceAxisFmt);
+      drawChart('a-pace',paceConverted,MC.pace,inv,sharedMax,false,sharedMin,null,plapIdx,paceAxisFmt);
     } else if(s.garminSpeedTrace&&s.garminSpeedTrace.length>2){
       const gspd=s.garminSpeedTrace.filter(x=>x.spd>0.3).map(x=>paceToUnit(500/x.spd));
       if(gspd.length>2)drawChart('a-gspeed',gspd,'#8e44ad',paceChartInvert(),null,false,null,null,null,paceAxisFmt);
     }
     if(s.strokes&&s.strokes.length>2){
       const lapIdx=getLapStrokeIndices(s.strokes,s.laps);
-      drawChart('a-catch',s.strokes.map(x=>x.catchPeak),'#1a5276',false,100,true,0,null,lapIdx);
-      const cdurData=s.strokes.map(x=>x.catchDuration||0);if(cdurData.some(v=>v>0))drawChart('a-catchdur',cdurData,'#2980b9',false,null,true,0,null,lapIdx);
-      drawChart('a-rate',s.strokes.map(x=>x.rate),'#f39c12',false,40,false,10,null,lapIdx);
-      drawChart('a-runloss',s.strokes.map(x=>x.runLossPct||0),'#c0392b',false,null,true,null,null,lapIdx);
-      drawChart('a-eff',s.strokes.map(x=>(x.driveImpulse||0)*100),'#27ae60',false,300,true,0,null,lapIdx);
-      drawChart('a-dps',s.strokes.map(x=>x.dps||0),'#1a5276',false,20,false,0,null,lapIdx);
-      drawChart('a-char',s.strokes.map(x=>x.char||0),'#8e44ad',false,100,true,0,50,lapIdx);
+      drawChart('a-catch',s.strokes.map(x=>x.catchPeak),MC.slope,false,100,true,0,null,lapIdx);
+      const cdurData=s.strokes.map(x=>x.catchDuration||0);if(cdurData.some(v=>v>0))drawChart('a-catchdur',cdurData,MC.cdur,false,null,true,0,null,lapIdx);
+      drawChart('a-rate',s.strokes.map(x=>x.rate),MC.rate,false,40,false,10,null,lapIdx);
+      drawChart('a-runloss',s.strokes.map(x=>x.runLossPct||0),MC.rloss,false,null,true,null,null,lapIdx);
+      drawChart('a-eff',s.strokes.map(x=>(x.driveImpulse||0)*100),MC.impulse,false,300,true,0,null,lapIdx);
+      drawChart('a-dps',s.strokes.map(x=>x.dps||0),MC.dps,false,20,false,0,null,lapIdx);
+      drawChart('a-char',s.strokes.map(x=>x.char||0),MC.schar,false,100,true,0,50,lapIdx);
       const ratioData=s.strokes.map(x=>(x.strokeRatio>0?x.strokeRatio:NaN));
-      if(ratioData.some(v=>isFinite(v)))drawChart('a-ratio',ratioData,'#27ae60',false,4,true,0,null,lapIdx);
+      if(ratioData.some(v=>isFinite(v)))drawChart('a-ratio',ratioData,MC.ratio,false,4,true,0,null,lapIdx);
       const oarData=s.strokes.map(x=>(x.oarAngle>0?x.oarAngle:NaN));
-      if(oarData.some(v=>isFinite(v)))drawChart('a-oarangle',oarData,'#2de0d4',false,120,true,30,[60,90],lapIdx);
+      if(oarData.some(v=>isFinite(v)))drawChart('a-oarangle',oarData,MC.oar,false,120,true,30,[60,90],lapIdx);
       const cdData=s.strokes.map(x=>x.checkDelta||0);
-      if(cdData.some(v=>v>0))drawChart('a-checkdelta',cdData,'#2980b9',false,null,true,0,null,lapIdx);
+      if(cdData.some(v=>v>0))drawChart('a-checkdelta',cdData,MC.cdelta,false,null,true,0,null,lapIdx);
     }
-    if(s.hrTrace&&s.hrTrace.length>2)drawChart('a-hr',s.hrTrace.map(x=>x.hr),'#c0392b',false);
+    if(s.hrTrace&&s.hrTrace.length>2)drawChart('a-hr',s.hrTrace.map(x=>x.hr),MC.hr,false);
     const fz=document.getElementById('fit-zone');if(fz)fz.addEventListener('click',()=>{const inp=document.getElementById('fit-input');inp.onchange=ev=>handleGPX(ev,s.id);inp.click();});
     document.getElementById('dbg-btn').addEventListener('click',()=>exportDebugCSV(s));
     document.getElementById('json-btn').addEventListener('click',()=>exportSessionJSON(s));
