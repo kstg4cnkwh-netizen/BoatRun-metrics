@@ -1614,7 +1614,7 @@ function landscapeSurgeSign() {
     if (ang === null && typeof window.orientation === 'number'
         && Math.abs(window.orientation) === 90) ang = (window.orientation + 360) % 360;
     if (ang === null) return 0;
-    const cwAng = fromScreenApi ? 90 : 270;   // CW angle value differs by API
+    const cwAng = isAndroid ? 90 : 270;   // CW angle value differs by platform, not API source
     const sgn = (ang === cwAng) ? 1 : (ang === (360 - cwAng) ? -1 : 0);
     return appSettings.coxMode ? -sgn : sgn;
 }
