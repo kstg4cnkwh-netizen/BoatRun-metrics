@@ -734,7 +734,7 @@ const CONFIG = Object.freeze({
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // UTILITY — math, formatting, DOM helpers
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
-const MC={pace:'#1E88E5',rate:'#FB8C00',hr:'#E53935',dps:'#29B6F6',rloss:'#AB47BC',slope:'#9E9D24',impulse:'#00897B',schar:'#D81B60',ratio:'#5C6BC0',oar:'#26C6DA',cdelta:'#546E7A',cdur:'#FFB300'};
+const MC={pace:'#1E88E5',rate:'#FB8C00',hr:'#E53935',dps:'#29B6F6',rloss:'#AB47BC',slope:'#9E9D24',impulse:'#00897B',schar:'#D81B60',ratio:'#5C6BC0',oar:'#26C6DA',cdelta:'#546E7A',cdur:'#FFB300',speedloss:'#D84315',speedgain:'#43A047'};
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 function median(arr) {
     const a = arr.filter(Number.isFinite).slice().sort((a, b) => a - b);
@@ -2129,6 +2129,8 @@ function onNewCatch(now) {
     strokeMeanSpeed = strokeSpeedBuf.length >= 2
         ? strokeSpeedBuf.reduce((a, b) => a + b, 0) / strokeSpeedBuf.length
         : (gpsSpeedEma > 0 ? gpsSpeedEma : 0);
+    strokeSpeedMin = strokeSpeedBuf.length >= 2 ? Math.min(...strokeSpeedBuf) : strokeMeanSpeed;
+    strokeSpeedMax = strokeSpeedBuf.length >= 2 ? Math.max(...strokeSpeedBuf) : strokeMeanSpeed;
     strokeSpeedBuf.length = 0;
     // Rolling boat-speed anchor over the last ~3 stroke cycles.
     let anchorV = 0;
@@ -2301,6 +2303,7 @@ let strokeRatio = null, strokeRatioValsArr = [], prevDriveDurMs = 0;
 let dbgDpsRaw = null;
 let oarAngle = null, oarAngleRawArr = [], oarAngleEma = null, oarSpeedBuf = [], rlSpeedBuf = [];
 let checkDelta = null, checkDeltaRawArr = [], checkDeltaEma = null;
+let speedLossPct = null, speedGainPct = null, speedLossValsArr = [], speedGainValsArr = [];
 let catchGpsDist = 0, pendingOarStrokeIdx = -1;
 function rateFromMedianIntervals() {
     if (catchTsBuf.length < 2) return 0;
@@ -2466,7 +2469,7 @@ function onStrokeFinish(now, driveDur) {
     const gapMs = prevCatchT > 0 ? driveStartT - prevCatchT : 0;
     if (gapMs / 1000 > CONFIG.stroke.restGapS) {
         oarAngle = null; oarAngleRawArr.length = 0; oarAngleEma = null; oarSpeedBuf.length = 0; rlSpeedBuf.length = 0; lastCatchSlope = 0;
-        checkDelta = null; checkDeltaRawArr.length = 0; checkDeltaEma = null;
+        checkDelta = null; checkDeltaRawArr.length = 0; checkDeltaEma = null; speedLossPct = null; speedGainPct = null; speedLossValsArr.length = 0; speedGainValsArr.length = 0;
         lastKnownPeriodMs = Math.max(lastKnownPeriodMs * 0.70, CONFIG.stroke.nominalFallbackMs);
         acBuf.length = 0; acConf = 0;
         catchTsBuf.length = 0;                // clear completely — seed happens below
@@ -2610,6 +2613,14 @@ function onStrokeFinish(now, driveDur) {
             if (distPerStroke > maxDPS) maxDPS = distPerStroke;
         }
     }
+    if (strokeMeanSpeed > 0.3 && gpsAnchorOk) {
+        speedLossPct = +(((strokeMeanSpeed - strokeSpeedMin) / strokeMeanSpeed) * 100).toFixed(1);
+        speedGainPct = +(((strokeSpeedMax - strokeMeanSpeed) / strokeMeanSpeed) * 100).toFixed(1);
+        pushLimit(speedLossValsArr, speedLossPct, 8);
+        pushLimit(speedGainValsArr, speedGainPct, 8);
+    } else {
+        speedLossPct = null; speedGainPct = null;
+    }
     prevStrokeDist = distance;
     prevStrokeDistT = driveStartT;
     // ── Drive impulse: ∫(−axFast)dt over the drive-force phase (catch-end →
@@ -2648,7 +2659,7 @@ function onStrokeFinish(now, driveDur) {
         t: Date.now(), catchPeak: catchSlope, char: strokeChar,
         rate: (rateToLog > 0 && strokeMeanSpeed > CONFIG.gps.minSpeedForRecord) ? rateToLog : null, pace: pace > 0 ? pace : null,
         dist: distance, dps: distPerStroke, runLossM: null,
-        driveImpulse, catchConsistency, rdi, strokeRatio, oarAngle, checkDelta,
+        driveImpulse, catchConsistency, rdi, strokeRatio, oarAngle, checkDelta, speedLossPct, speedGainPct,
         catchDuration: catchDurMs,
         _prlStroke: prlStroke,
         dbg: {
@@ -2693,7 +2704,7 @@ function onStrokeFinish(now, driveDur) {
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
 // GPS HANDLER — speed EMA, pace window, haversine distance
 // ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
-let strokeSpeedBuf = [], strokeMeanSpeed = 0;
+let strokeSpeedBuf = [], strokeMeanSpeed = 0, strokeSpeedMin = 0, strokeSpeedMax = 0;
 let pace = 0, gpsAccuracyM = null, gpsSpeedEma = -1, gpsLastValidT = 0, gpsLastFixT = 0, gpsWasStopped = false, gpsDeadWarned = false, gpsResumeT = -Infinity, gpsLowSpeedStreak = 0, paceRejectStartT = 0;
 let gpsSpeedHist = [], gpsRejectStreak = 0, gpsLastStrokeT = -1e9;
 function gpsSpeedMedian() {
@@ -3067,6 +3078,8 @@ const METRIC_DEFS = {
     impulse:      { label: 'Impulse',        short: 'Impulse',     primary: false, bar: null },
     oarangle:     { label: 'Oar Arc',        short: 'Oar Arc',     primary: false, bar: null },
     checkdelta:   { label: 'Check Delta',    short: 'Chk Δ',       primary: false, bar: null },
+    speedloss:    { label: 'Speed Loss',     short: 'Spd Loss',    primary: false, bar: null },
+    speedgain:    { label: 'Speed Gain',     short: 'Spd Gain',    primary: false, bar: null },
     catchdur:     { label: 'Catch Dur',      short: 'Catch Dur',   primary: false, bar: null },
     selectable:   { label: 'Selectable',     short: 'Selectable',  primary: false, bar: null },
     workout:      { label: 'Workout',        short: 'Workout',     primary: false, bar: null },
@@ -3328,6 +3341,20 @@ function renderMetricSlot(i, key) {
             setVal(i, ok ? checkDelta.toFixed(2) : '--', 'm/s', !ok,
                 ok ? (checkDeltaRawArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
                 ok ? (checkDeltaRawArr.length >= 3 ? 'g' : 'w') : '');
+            break;
+        }
+        case 'speedloss': {
+            const ok = speedLossPct != null && on;
+            setVal(i, ok ? speedLossPct.toFixed(1) + '%' : '--', '', !ok,
+                ok ? (speedLossValsArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
+                ok ? (speedLossValsArr.length >= 3 ? 'g' : 'w') : '');
+            break;
+        }
+        case 'speedgain': {
+            const ok = speedGainPct != null && on;
+            setVal(i, ok ? speedGainPct.toFixed(1) + '%' : '--', '', !ok,
+                ok ? (speedGainValsArr.length >= 3 ? 'TREND' : 'LOW') : 'WAIT',
+                ok ? (speedGainValsArr.length >= 3 ? 'g' : 'w') : '');
             break;
         }
         case 'catchdur': {
@@ -4278,7 +4305,7 @@ function resumeSess() {
     if (running) return;
     clearInterval(timerInt); clearInterval(autosaveInt);
     paused = false; running = true;
-    paceDistWindow.length = 0; velocityWindow.length = 0; gpsSpeedEma = -1; strokeSpeedBuf.length = 0; strokeMeanSpeed = 0; speedSamples.length = 0; headingEmaX = null; headingEmaY = null; vFilter.reset(); lastDistT = 0;
+    paceDistWindow.length = 0; velocityWindow.length = 0; gpsSpeedEma = -1; strokeSpeedBuf.length = 0; strokeMeanSpeed = 0; speedSamples.length = 0; headingEmaX = null; headingEmaY = null; vFilter.reset(); lastDistT = 0; strokeSpeedMin = 0; strokeSpeedMax = 0;
     if (wkt.active && wkt.waitingForRow) {
         wkt.readyPaused = true; // stay timer-frozen until wktBeginStep fires
     } else {
@@ -4408,7 +4435,7 @@ function resetSess() {
     sessGpsTrace.length = 0; sessGpsRawTrace.length = 0;
     strokeTs.length = 0; prevDriveDurMs = 0; prevFastSample = 0; paceDistWindow.length = 0; velocityWindow.length = 0;
     speedSamples.length = 0; prevStrokeDist = 0; prevStrokeDistT = 0;
-    gpsLastValidT = 0; gpsLastFixT = 0; gpsSpeedEma = -1; gpsWasStopped = false; gpsDeadWarned = false; gpsAccuracyM = null; headingEmaX = null; headingEmaY = null; vFilter.reset(); lastDistT = 0; gpsResumeT = -Infinity; gpsLowSpeedStreak = 0; strokeSpeedBuf.length = 0; strokeMeanSpeed = 0;
+    gpsLastValidT = 0; gpsLastFixT = 0; gpsSpeedEma = -1; gpsWasStopped = false; gpsDeadWarned = false; gpsAccuracyM = null; headingEmaX = null; headingEmaY = null; vFilter.reset(); lastDistT = 0; gpsResumeT = -Infinity; gpsLowSpeedStreak = 0; strokeSpeedBuf.length = 0; strokeMeanSpeed = 0; strokeSpeedMin = 0; strokeSpeedMax = 0;
     fsmState = FS.IDLE; catchPeakJerk = 0; driveMinJerk = 0; trigValsArr.length = 0; catchStartT = 0; lastCatchAbsT = 0; lastDriveEndT = 0; bladeExitT = 0; prevDriveStartT = 0; bladeExitDetected = false; driveForceT = 0; prevDriveForceT = 0;
     strokesDetected = 0; jerkThreshActive = jerkThreshBase; adaptReady = false;
     acBuf.length = 0; acLastUpdate = 0; jerkBuf.length = 0; catchTsBuf.length = 0;
@@ -4418,7 +4445,7 @@ function resetSess() {
     catchToCatchSamples = []; pendingCurveDriveCount = 0;
     motionSamples = 0; motionStartedAt = 0; lastMotionT = 0;
     imuRL = null; driveImpulseEma = null; oarAngle = null; oarAngleRawArr.length = 0; oarAngleEma = null;
-    checkDelta = null; checkDeltaRawArr.length = 0; checkDeltaEma = null; runLossEma = null; runLossPctEma = null;
+    checkDelta = null; checkDeltaRawArr.length = 0; checkDeltaEma = null; runLossEma = null; runLossPctEma = null; speedLossPct = null; speedGainPct = null; speedLossValsArr.length = 0; speedGainValsArr.length = 0;
     gpsConvergeStreak = 0; gpsAnchorOk = false; havSpeedBuf.length = 0; gpsTrustPos = null; gpsDegrading = false; oarSpeedBuf.length = 0; rlSpeedBuf.length = 0;
     catchGpsDist = 0; pendingOarStrokeIdx = -1;
     for (const k of AXES) { gravity[k] = 0; axFast[k] = 0; axSmooth[k] = 0; }
@@ -5783,7 +5810,7 @@ function exportDebugCSV(s){
   const t0=s.startTime;const el=t=>(+(t-t0)/1000).toFixed(2);const rows=[['##ENV'],['session_id',s.id,'start_utc',new Date(t0).toISOString()],['duration_s',n(s.duration),'distance_m',n(s.distance),'strokes',n(s.strokeCount)]];
   const cfg=s.config||{},rl=cfg.rl||{},gps=cfg.gps||{};
   rows.push(['rl_startAfterDriveMs',n(rl.startAfterDriveMs??CONFIG.runLoss.startAfterDriveMs),'rl_windowMs',n(rl.windowMs??CONFIG.runLoss.windowMs)]);rows.push(['gps_emaAlpha',n(gps.alpha??CONFIG.gps.speedEmaAlpha),'gps_medianN',n(gps.medN??CONFIG.gps.speedMedianN)]);rows.push([]);
-  rows.push(['##STR'],['n','elapsed_s','rate','catch_slope','stroke_char','consistency','dps','run_loss_m','run_loss_pct','run_loss_mps','impulse','ratio','catch_dur_ms','oar_deg','oar_raw_deg','oar_vmean','check_delta','rdi','pace_s500','drive_dur_ms','interval_ms','jerk_raw','jerk_thresh','gps_ema_pace','dps_n','sel_axis','sel_sign','axis_locked','phys_drv_ms','phys_rec_ms','drive_min_jerk','drv_peak_ms','dps_raw_m','oar_dist','oar_vcatch','oar_span','oar_finsrc','df_set']);(s.strokes||[]).forEach((r,i)=>{const d=r.dbg||{};rows.push([i+1,el(r.t),n(r.rate),f2(r.catchPeak),n(r.char),f2(r.catchConsistency),f2(r.dps),f2(r.runLossM),f2(r.runLossPct),f2(r.runLossMps),r.driveImpulse!=null?Math.round(r.driveImpulse*100):'',f2(r.strokeRatio),n(r.catchDuration),n(r.oarAngle),f2(r.oarAngleRaw),f3(r.oarVMean),f2(r.checkDelta),f2(r.rdi),f2(r.pace),n(d.driveDurMs),n(d.intervalMs),f2(d.catchJerkRaw),f2(d.jerkThresh),f2(d.gpsEma),n(d.dpsN),d.selAxis||'',(d.selSign==null?'':d.selSign),d.axisLocked?'1':'0',n(d.physDrvMs),n(d.physRecMs),f2(d.driveMinJerk),n(d.drvPeakMs),f2(d.dpsRaw),f2(r.oarDist),f2(r.oarVCatch),n(r.oarSpan),(r.oarFinSrc||''),(d.dfSet==null?'':d.dfSet)]);});rows.push([]);
+  rows.push(['##STR'],['n','elapsed_s','rate','catch_slope','stroke_char','consistency','dps','run_loss_m','run_loss_pct','run_loss_mps','impulse','ratio','catch_dur_ms','oar_deg','oar_raw_deg','oar_vmean','check_delta','rdi','pace_s500','drive_dur_ms','interval_ms','jerk_raw','jerk_thresh','gps_ema_pace','dps_n','sel_axis','sel_sign','axis_locked','phys_drv_ms','phys_rec_ms','drive_min_jerk','drv_peak_ms','dps_raw_m','oar_dist','oar_vcatch','oar_span','oar_finsrc','df_set','speed_loss_pct','speed_gain_pct']);(s.strokes||[]).forEach((r,i)=>{const d=r.dbg||{};rows.push([i+1,el(r.t),n(r.rate),f2(r.catchPeak),n(r.char),f2(r.catchConsistency),f2(r.dps),f2(r.runLossM),f2(r.runLossPct),f2(r.runLossMps),r.driveImpulse!=null?Math.round(r.driveImpulse*100):'',f2(r.strokeRatio),n(r.catchDuration),n(r.oarAngle),f2(r.oarAngleRaw),f3(r.oarVMean),f2(r.checkDelta),f2(r.rdi),f2(r.pace),n(d.driveDurMs),n(d.intervalMs),f2(d.catchJerkRaw),f2(d.jerkThresh),f2(d.gpsEma),n(d.dpsN),d.selAxis||'',(d.selSign==null?'':d.selSign),d.axisLocked?'1':'0',n(d.physDrvMs),n(d.physRecMs),f2(d.driveMinJerk),n(d.drvPeakMs),f2(d.dpsRaw),f2(r.oarDist),f2(r.oarVCatch),n(r.oarSpan),(r.oarFinSrc||''),(d.dfSet==null?'':d.dfSet),f2(r.speedLossPct),f2(r.speedGainPct)]);});rows.push([]);
   rows.push(['##RL'],['stroke_n','start_spd_ms','min_spd_ms','gps_dv_ms','imu_max_dv','imu_min_dv','imu_swing_dv','sampled_s','raw_loss_m','anchor_v','raw_rl_pct','med_loss_m','gps_n','imu_n']);(s.rlDebug||[]).forEach(r=>rows.push([n(r.strokeN),f3(r.startSpeed),f3(r.minSpeed),f3(r.dv),f4(r.imuMaxDv),f4(r.imuMinDv),f4(r.imuSwingDv),f3(r.sampledS),f4(r.rawLossM),f3(r.anchorV),f2(r.rlPct),f4(r.medLoss),n(r.nSamples),n(r.imuN)]));rows.push([]);
   if(s.gpsRawTrace&&s.gpsRawTrace.length){rows.push(['##GPS'],['elapsed_s','gps_raw_ms','gps_ema_ms','acc_m','stroke_n','rl_phase','win_pace','vmean','anchor_ok']);s.gpsRawTrace.forEach(p=>rows.push([el(p.t),f3(p.rawSpd),f3(p.emaSpd),f2(p.acc),n(p.strokeN),p.rlPhase||'none',f2(p.winPace),f3(p.vMean),(p.anchorOk==null?'':p.anchorOk)]));rows.push([]);}
   if(s.hrTrace&&s.hrTrace.length){rows.push(['##HR'],['elapsed_s','hr_bpm']);s.hrTrace.forEach(h=>rows.push([el(h.t),h.hr]));rows.push([]);}
