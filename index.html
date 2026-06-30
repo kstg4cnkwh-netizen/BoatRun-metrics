@@ -2157,12 +2157,9 @@ function onNewCatch(now) {
             { const m = median(runLosses); runLossEma = runLossEma == null ? m : 0.6 * m + 0.4 * runLossEma; runLossM = runLossEma; }
             pushLimit(runLossMpsArr, dv, CONFIG.runLoss.medianN);
             runLossMps = median(runLossMpsArr);
-            if (gpsAnchorOk && strokeMeanSpeed >= 1.5) pushLimit(rlSpeedBuf, strokeMeanSpeed, 15);
-            const _rlTrend  = rlSpeedBuf.length >= 4 ? strokeMeanSpeed - median(rlSpeedBuf) : 0;
-            const _rlLongV  = (rlSpeedBuf.length >= 8 && Math.abs(_rlTrend) < 0.3) ? median(rlSpeedBuf) : (anchorV >= 1.0 ? anchorV : 0);
-            const anchorPctV = _rlLongV >= 1.0 ? _rlLongV : imuRL.v0; _rlAnchorV = +anchorPctV.toFixed(3);
-            if (anchorPctV > 0) {
-                const pct = Math.min(100, (dv / anchorPctV) * 100); _rlPct = +pct.toFixed(2);
+            const vFinish = imuRL.v0 - imuRL.minDeltaV; _rlAnchorV = +vFinish.toFixed(3);
+            if (vFinish > 0) {
+                const pct = Math.min(100, (dv / vFinish) * 100); _rlPct = +pct.toFixed(1);
                 pushLimit(runLossPcts, pct, CONFIG.runLoss.medianN);
                 const mp = median(runLossPcts); runLossPctEma = runLossPctEma == null ? mp : 0.6 * mp + 0.4 * runLossPctEma; runLossPct = runLossPctEma;
             }
