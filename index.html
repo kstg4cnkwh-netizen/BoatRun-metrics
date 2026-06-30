@@ -2561,7 +2561,7 @@ function onStrokeFinish(now, driveDur) {
     if (strokeTs.length > MAX_STROKE_TS) strokeTs.shift();
     rdi = null;
     strokeRatio = null;
-    if (bladeExitDetected && bladeExitT > prevDriveStartT && bladeExitT < driveStartT) {
+    if (bladeExitT > prevDriveStartT && bladeExitT < driveStartT) {
         const physDrv = (bladeExitT - prevDriveStartT) / 1000;       // prev catch → prev oar extraction
         const physRec = (driveStartT - bladeExitT) / 1000;           // prev extraction → this catch
         if (physDrv > 0.3 && physRec > 0.3) {
@@ -2659,8 +2659,8 @@ function onStrokeFinish(now, driveDur) {
             prlStartMs: Math.round(CONFIG.runLoss.startAfterDriveMs),
             prlWindowMs: CONFIG.runLoss.windowMs,
             selAxis, selSign, axisLocked,
-            physDrvMs: (bladeExitDetected && bladeExitT > prevDriveStartT) ? Math.round(bladeExitT - prevDriveStartT) : null,
-            physRecMs: (bladeExitDetected && bladeExitT > prevDriveStartT) ? Math.round(driveStartT - bladeExitT) : null,
+            physDrvMs: (bladeExitT > prevDriveStartT) ? Math.round(bladeExitT - prevDriveStartT) : null,
+            physRecMs: (bladeExitT > prevDriveStartT) ? Math.round(driveStartT - bladeExitT) : null,
             driveMinJerk: +driveMinJerk.toFixed(1), dfSet: driveForceT > 0 ? 1 : 0,
             drvPeakMs: (prevDrvPeakT > prevCatchEndT) ? Math.round(prevDrvPeakT - prevCatchEndT) : null,
             dpsRaw: dbgDpsRaw
