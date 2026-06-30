@@ -4297,7 +4297,8 @@ function finishSess() {
     if (!confirm(msg)) return;
     if (elapsed > 10 && sessStrokes.length > 0) {
         const _d=new Date(sessStart||Date.now()),_p=x=>String(x).padStart(2,'0');
-        const _auto=(getRowerName()?getRowerName().replace(/\s+/g,'_')+'_':'')+_d.getFullYear()+_p(_d.getMonth()+1)+_p(_d.getDate())+'_'+_p(_d.getHours())+_p(_d.getMinutes());
+        const _hr=_d.getHours()+_d.getMinutes()/60, _period=(_hr>=4.5&&_hr<12)?'Morning':(_hr>=12&&_hr<17)?'Afternoon':(_hr>=17&&_hr<21)?'Evening':'Night';
+        const _auto=_period+' Row';
         const nn = prompt('Name this session (optional):', _auto);
         pendingSessName = nn ? nn.trim() : '';
     } else {
