@@ -722,7 +722,7 @@ const CONFIG = Object.freeze({
     },
     runLoss: {
         startAfterDriveMs: 250,
-        windowMs: 2000,
+        windowMs: 900,
         maxLossM: 4.0,
         medianN: 7
     },
@@ -2307,7 +2307,7 @@ const CATCH_TS_BUF = 5, catchTsBuf = [];
 let rdi = null, rdiValsArr = [];
 let strokeRatio = null, strokeRatioValsArr = [], prevDriveDurMs = 0;
 let dbgDpsRaw = null;
-let oarAngle = null, oarAngleRawArr = [], oarAngleEma = null, oarSpeedBuf = [], rlSpeedBuf = [];
+let oarAngle = null, oarAngleRawArr = [], oarAngleEma = null, oarSpeedBuf = [], rlSpeedBuf = [], oarVCatchBuf = [];
 let checkDelta = null, checkDeltaRawArr = [], checkDeltaEma = null, lastCheckMinDV = null, lastCheckMaxDV = null;
 let speedLossPct = null, speedGainPct = null, speedLossValsArr = [], speedGainValsArr = [];
 let catchGpsDist = 0, pendingOarStrokeIdx = -1;
@@ -2347,21 +2347,12 @@ function computeOarAngle(samples, driveCount, vMean, finishT) {
     if (n < 8 || driveCount < 2 || driveCount >= n) return null;
     if (vMean < 0.5 || vMean > 8) return null;
 
-    // ── Baseline removal via MEDIAN, not mean ────────────────────────────────
-    // The recovery — especially at high rating, when the boat is still
-    // accelerating through it — is a long, near-flat positive section of
-    // axFast. Its MEAN drags the zero-reference up and inflates the drive
-    // excursion (arc reads high as rating rises). The MEDIAN sits on the
-    // recovery/glide level, so the drive is measured as its excursion BELOW
-    // the glide baseline: the blade-anchored section only, robust to how hard
-    // the boat accelerates through the recovery.
     const _sv = samples.map(s => s.v).sort((a, b) => a - b);
     const _mid = _sv.length >> 1;
     const meanV = _sv.length % 2 ? _sv[_mid] : (_sv[_mid - 1] + _sv[_mid]) / 2;
     const v = new Array(n);
     for (let i = 0; i < n; i++) v[i] = samples[i].v - meanV;
 
-    // Pass 1 — cumulative ΔV, negated for correct forward-positive convention
     const cumulDV = new Array(n).fill(0);
     for (let i = 1; i < n; i++) {
         const dt = (samples[i].t - samples[i - 1].t) / 1000;
@@ -2372,7 +2363,6 @@ function computeOarAngle(samples, driveCount, vMean, finishT) {
     const T = (samples[n - 1].t - samples[0].t) / 1000;
     if (T < 0.8 || T > 8) return null;
 
-    // ∫ ΔV dt over full stroke → solve vCatch from GPS mean anchor
     let intDVFull = 0;
     for (let i = 1; i < n; i++) {
         const dt = (samples[i].t - samples[i - 1].t) / 1000;
@@ -2383,7 +2373,12 @@ function computeOarAngle(samples, driveCount, vMean, finishT) {
     if (vCatch < 0.5 || vCatch > 8) return null;
     if (vCatch < vMean * 0.25) return null;
 
-    // ── Signal-derived drive boundaries (detrended v: negative = drive) ─────
+    // Smooth vCatch across recent strokes — single-stroke double integration
+    // is noisy stroke-to-stroke even when boat speed is genuinely steady;
+    // that noise was the dominant source of arc-angle swings.
+    pushLimit(oarVCatchBuf, vCatch, 5);
+    const vCatchSm = oarVCatchBuf.length >= 3 ? median(oarVCatchBuf) : vCatch;
+
     let peakIdx = -1, peakV = 0;
     const peakEnd = Math.round(n * 0.70);
     for (let i = 0; i < peakEnd; i++) {
@@ -2422,19 +2417,18 @@ function computeOarAngle(samples, driveCount, vMean, finishT) {
     if (_finsrc !== 'fsm' && finishIdx > catchIdx + driveCount + 5) finishIdx = catchIdx + driveCount + 5;
     if (finishIdx - catchIdx < 2) return null;
 
-    // Pass 2 — boat displacement over the blade-anchored section only.
     let driveDist = 0;
     for (let i = catchIdx + 1; i <= finishIdx; i++) {
         const dt = (samples[i].t - samples[i - 1].t) / 1000;
         if (dt <= 0 || dt > 0.15) continue;
-        driveDist += ((vCatch + cumulDV[i - 1]) + (vCatch + cumulDV[i])) / 2 * dt;
+        driveDist += ((vCatchSm + cumulDV[i - 1]) + (vCatchSm + cumulDV[i])) / 2 * dt;
     }
 
     if (driveDist <= 0.3 || driveDist > 4) return null;
 
     const effectiveDist = driveDist * (1 - SLIP_FRACTION);
     const sinArg        = Math.min(effectiveDist / (2 * OUTBOARD), 0.9999);
-    _oarDbg = { dist:+driveDist.toFixed(2), vc:+vCatch.toFixed(2), span:finishIdx - catchIdx, src:_finsrc };
+    _oarDbg = { dist:+driveDist.toFixed(2), vc:+vCatchSm.toFixed(2), span:finishIdx - catchIdx, src:_finsrc };
     return +(2 * Math.asin(sinArg) * R2D).toFixed(1);
 }
 
@@ -2809,7 +2803,7 @@ function pushVelocity(t, v) {
             if (gpsLowSpeedStreak >= 3 && gpsSpeedEma < 0.5) {
                 gpsLastValidT = t; gpsWasStopped = true; strokeSpeedBuf.length = 0; gpsSpeedHist.length = 0; gpsRejectStreak = 0; gpsTrustPos = null; gpsDegrading = false;
                 dpsValsArr.length = 0; distPerStroke = 0;   // clear corrupt DPS buffer
-                oarAngleRawArr.length = 0; oarSpeedBuf.length = 0; rlSpeedBuf.length = 0;   // clear corrupt oar/rl history
+                oarAngleRawArr.length = 0; oarSpeedBuf.length = 0; rlSpeedBuf.length = 0; oarVCatchBuf.length = 0;   // clear corrupt oar/rl history
             }
             return;
         }
@@ -4450,7 +4444,7 @@ function resetSess() {
     sessStart = null; lastStrokeCurve = null; strokeCurveHistory.length = 0;
     catchToCatchSamples = []; pendingCurveDriveCount = 0;
     motionSamples = 0; motionStartedAt = 0; lastMotionT = 0;
-    imuRL = null; driveImpulseEma = null; oarAngle = null; oarAngleRawArr.length = 0; oarAngleEma = null;
+    imuRL = null; driveImpulseEma = null; oarAngle = null; oarAngleRawArr.length = 0; oarAngleEma = null; oarVCatchBuf.length = 0;
     checkDelta = null; checkDeltaRawArr.length = 0; checkDeltaEma = null; runLossEma = null; runLossPctEma = null; speedLossPct = null; speedGainPct = null; speedLossValsArr.length = 0; speedGainValsArr.length = 0; lastCheckMinDV = null; lastCheckMaxDV = null;
     gpsConvergeStreak = 0; gpsAnchorOk = false; havSpeedBuf.length = 0; gpsTrustPos = null; gpsDegrading = false; oarSpeedBuf.length = 0; rlSpeedBuf.length = 0;
     catchGpsDist = 0; pendingOarStrokeIdx = -1;
