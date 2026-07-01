@@ -2248,11 +2248,17 @@ function onNewCatch(now) {
     if (catchToCatchSamples.length >= 8) {
         const rawCD = computeCheckDelta(catchToCatchSamples);
         if (rawCD !== null) {
-            pushLimit(checkDeltaRawArr, rawCD, 5);
-            checkDelta = +(median(checkDeltaRawArr) ?? rawCD).toFixed(3);
+            pushLimit(checkDeltaRawArr, rawCD.delta, 5);
+            checkDelta = +(median(checkDeltaRawArr) ?? rawCD.delta).toFixed(3);
+            lastCheckMinDV = rawCD.minDV;
+            lastCheckMaxDV = rawCD.maxDV;
             if (sessStrokes.length > 0)
                 sessStrokes[sessStrokes.length - 1].checkDelta = checkDelta;
+        } else {
+            lastCheckMinDV = null; lastCheckMaxDV = null;
         }
+    } else {
+        lastCheckMinDV = null; lastCheckMaxDV = null;
     }
     if (catchToCatchSamples.length >= 20) {
         const _dc = pendingCurveDriveCount > 0 ? pendingCurveDriveCount : 0;
@@ -2302,7 +2308,7 @@ let rdi = null, rdiValsArr = [];
 let strokeRatio = null, strokeRatioValsArr = [], prevDriveDurMs = 0;
 let dbgDpsRaw = null;
 let oarAngle = null, oarAngleRawArr = [], oarAngleEma = null, oarSpeedBuf = [], rlSpeedBuf = [];
-let checkDelta = null, checkDeltaRawArr = [], checkDeltaEma = null;
+let checkDelta = null, checkDeltaRawArr = [], checkDeltaEma = null, lastCheckMinDV = null, lastCheckMaxDV = null;
 let speedLossPct = null, speedGainPct = null, speedLossValsArr = [], speedGainValsArr = [];
 let catchGpsDist = 0, pendingOarStrokeIdx = -1;
 function rateFromMedianIntervals() {
@@ -2452,7 +2458,7 @@ function computeCheckDelta(samples) {
         if (cdv > maxDV) maxDV = cdv;
     }
     const delta = maxDV - minDV;
-    return (delta > 0.05 && delta < 5.0) ? +delta.toFixed(3) : null;
+    return (delta > 0.05 && delta < 5.0) ? { delta: +delta.toFixed(3), minDV, maxDV } : null;
 }
 
 function onStrokeFinish(now, driveDur) {
@@ -2469,7 +2475,7 @@ function onStrokeFinish(now, driveDur) {
     const gapMs = prevCatchT > 0 ? driveStartT - prevCatchT : 0;
     if (gapMs / 1000 > CONFIG.stroke.restGapS) {
         oarAngle = null; oarAngleRawArr.length = 0; oarAngleEma = null; oarSpeedBuf.length = 0; rlSpeedBuf.length = 0; lastCatchSlope = 0;
-        checkDelta = null; checkDeltaRawArr.length = 0; checkDeltaEma = null; speedLossPct = null; speedGainPct = null; speedLossValsArr.length = 0; speedGainValsArr.length = 0;
+        checkDelta = null; checkDeltaRawArr.length = 0; checkDeltaEma = null; speedLossPct = null; speedGainPct = null; speedLossValsArr.length = 0; speedGainValsArr.length = 0; lastCheckMinDV = null; lastCheckMaxDV = null;
         lastKnownPeriodMs = Math.max(lastKnownPeriodMs * 0.70, CONFIG.stroke.nominalFallbackMs);
         acBuf.length = 0; acConf = 0;
         catchTsBuf.length = 0;                // clear completely — seed happens below
@@ -2613,9 +2619,9 @@ function onStrokeFinish(now, driveDur) {
             if (distPerStroke > maxDPS) maxDPS = distPerStroke;
         }
     }
-    if (strokeMeanSpeed > 0.3 && gpsAnchorOk) {
-        speedLossPct = +(((strokeMeanSpeed - strokeSpeedMin) / strokeMeanSpeed) * 100).toFixed(1);
-        speedGainPct = +(((strokeSpeedMax - strokeMeanSpeed) / strokeMeanSpeed) * 100).toFixed(1);
+    if (strokeMeanSpeed > 0.3 && gpsAnchorOk && lastCheckMinDV != null && lastCheckMaxDV != null) {
+        speedLossPct = +((lastCheckMaxDV / strokeMeanSpeed) * 100).toFixed(1);
+        speedGainPct = +(((-lastCheckMinDV) / strokeMeanSpeed) * 100).toFixed(1);
         pushLimit(speedLossValsArr, speedLossPct, 8);
         pushLimit(speedGainValsArr, speedGainPct, 8);
     } else {
@@ -4445,7 +4451,7 @@ function resetSess() {
     catchToCatchSamples = []; pendingCurveDriveCount = 0;
     motionSamples = 0; motionStartedAt = 0; lastMotionT = 0;
     imuRL = null; driveImpulseEma = null; oarAngle = null; oarAngleRawArr.length = 0; oarAngleEma = null;
-    checkDelta = null; checkDeltaRawArr.length = 0; checkDeltaEma = null; runLossEma = null; runLossPctEma = null; speedLossPct = null; speedGainPct = null; speedLossValsArr.length = 0; speedGainValsArr.length = 0;
+    checkDelta = null; checkDeltaRawArr.length = 0; checkDeltaEma = null; runLossEma = null; runLossPctEma = null; speedLossPct = null; speedGainPct = null; speedLossValsArr.length = 0; speedGainValsArr.length = 0; lastCheckMinDV = null; lastCheckMaxDV = null;
     gpsConvergeStreak = 0; gpsAnchorOk = false; havSpeedBuf.length = 0; gpsTrustPos = null; gpsDegrading = false; oarSpeedBuf.length = 0; rlSpeedBuf.length = 0;
     catchGpsDist = 0; pendingOarStrokeIdx = -1;
     for (const k of AXES) { gravity[k] = 0; axFast[k] = 0; axSmooth[k] = 0; }
