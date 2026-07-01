@@ -1627,6 +1627,52 @@ function landscapeSurgeSign() {
     return appSettings.coxMode ? -sgn : sgn;
 }
 let useProjAxis = false, projX = 1, projY = 0;
+let tiltAngleDeg = 0, tiltScaleActive = 1, sessCalDone = false;
+function runStartCalibration(doneCb) {
+    calSamples = { x: [], y: [], z: [] };
+    calRunning = true;
+    setTimeout(() => {
+        calRunning = false;
+        const mins = Object.values(calSamples).map(a => a.length);
+        if (Math.min(...mins) < 20) {
+            toast('Calibration failed — check motion sensor');
+            doneCb();
+            return;
+        }
+        const rms = ax => {
+            const a = calSamples[ax];
+            return Math.sqrt(a.reduce((s, v) => s + v * v, 0) / a.length);
+        };
+        const nf = Math.min(rms('x'), rms('y'));
+        const jt = clamp(nf * 5.0, 5.0, 25.0);
+        const at = clamp(nf * 1.5, 0.4, 2.0);
+        const gxAbs = rms('x'), gzAbs = rms('z');
+        let angle = (gxAbs + gzAbs > 5) ? Math.atan2(gxAbs, gzAbs) * (180 / Math.PI) : 0;
+        if (angle > 30) angle = 30;
+        tiltAngleDeg = angle;
+        tiltScaleActive = 1 / Math.cos(angle * Math.PI / 180);
+        cal = { done: true, noiseFloor: +nf.toFixed(3), jerkThresh: +jt.toFixed(2), accThresh: +at.toFixed(2), bestAxis: null };
+        _LS.setItem(CAL_DB, JSON.stringify(cal));
+        jerkThreshBase = jerkThreshActive = cal.jerkThresh;
+        accThreshBase = cal.accThresh;
+        sessCalDone = true;
+        toast('Calibrated \u2014 noise ' + nf.toFixed(2) + '  jerk ' + jt.toFixed(1) + '  tilt ' + Math.round(angle) + '\u00b0');
+        doneCb();
+    }, 8000);
+}
+function beginSessionWithCalibration() {
+    if (running || paused || elapsed > 0) return;
+    const start = () => { toast('Hold phone still \u2014 calibrating (8s)\u2026'); runStartCalibration(enterSessionReady); };
+    if (sessCalDone) {
+        if (confirm('Already calibrated this session (tilt ' + Math.round(tiltAngleDeg) + '\u00b0).\n\nOK = Recalibrate (hold still, 8s)\nCancel = Use saved values')) {
+            start();
+        } else {
+            enterSessionReady();
+        }
+    } else {
+        start();
+    }
+}
 // Direction detection — auto-detect cox (phone faces fwd) vs rower (phone faces back)
 
 const gravity = { x: 0, y: 0, z: 0 };
@@ -1842,7 +1888,7 @@ function handleMotion(e) {
     maybeDetectAxis(now);
     if (calRunning) return;
     // Surge = single axis, or the horizontal projection when flat-mounted at an angle.
-    const surge = useProjAxis ? (projX * axFast.x + projY * axFast.y) : axFast[selAxis];
+    const surge = useProjAxis ? (projX * axFast.x + projY * axFast.y) : axFast[selAxis] * (selAxis === 'x' ? tiltScaleActive : 1);
     const fast = selSign * surge;
     jerkBuf.push({ t: now, v: fast });
     if (jerkBuf.length > CONFIG.motion.jerkHistN) jerkBuf.shift();
@@ -4286,7 +4332,7 @@ function startSess() {
     if (gpsPill && (gpsPill.classList.contains('pill-err') || gpsPill.classList.contains('pill-warn'))) {
         toast('⚠️ GPS not ready — pace data may be missing');
     }
-    enterSessionReady();
+    beginSessionWithCalibration();
 }
 function pauseSess() {
     if (!running) return;
@@ -4521,7 +4567,7 @@ function exitSessionReady() {
     requestAnimationFrame(renderCtrl);
 }
 function handleLapBtn() {
-    if (!running && !paused && elapsed === 0) { enterSessionReady(); return; }
+    if (!running && !paused && elapsed === 0) { beginSessionWithCalibration(); return; }
     if (!running || paused) return;
     if (sessionReady || lapReady) return;
     if (wkt.active && wkt.waitingForRow) return;
@@ -4696,22 +4742,8 @@ document.getElementById('perm-btn').addEventListener('click',async()=>{
     try{wakeLock=await navigator.wakeLock.request('screen');}catch{}
     document.addEventListener('visibilitychange',async()=>{if(document.visibilityState==='visible')try{wakeLock=await navigator.wakeLock.request('screen');}catch{}});
   }
-  document.getElementById('screen-perm').classList.remove('active');
-  document.getElementById('screen-cal').classList.add('active');
-  if(cal.done){
-    document.getElementById('cal-status').textContent='Using saved calibration';
-    document.getElementById('cal-result').textContent='Noise '+cal.noiseFloor+' m/s2  Jerk threshold '+cal.jerkThresh+' m/s3';
-    document.getElementById('cal-bar').style.width='100%';
-    document.getElementById('p-cal').className='pill pill-on';
-    document.getElementById('cal-start-btn').textContent='RECALIBRATE';
-    document.getElementById('cal-skip-btn').textContent='USE SAVED - CONTINUE';
-    let autoT=setTimeout(enterLive,8000);
-    document.getElementById('cal-start-btn').addEventListener('click',()=>{clearTimeout(autoT);startCalibration();},{once:true});
-    document.getElementById('cal-skip-btn').addEventListener('click',()=>{clearTimeout(autoT);calRunning=false;enterLive();},{once:true});
-  }else{
-    document.getElementById('cal-start-btn').addEventListener('click',startCalibration,{once:true});
-    document.getElementById('cal-skip-btn').addEventListener('click',()=>{clearInterval(calTimer);calRunning=false;enterLive();},{once:true});
-  }
+document.getElementById('screen-perm').classList.remove('active');
+enterLive();
 });
 function enterLive(){
   if(enterLive._done)return;enterLive._done=true;
