@@ -2169,6 +2169,23 @@ function avgCurves(curves) {
     for (let i = 0; i < CURVE_POINTS; i++) out[i] /= curves.length;
     return { data: out, driveFrac: df / curves.length };
 }
+function integrateCurveRunLoss(data, driveFrac, rate, dpsVal) {
+    if (!rate || rate <= 0) return null;
+    const T = 60 / rate, dt = T / (CURVE_POINTS - 1);
+    const v = new Array(CURVE_POINTS);
+    v[0] = 0;
+    for (let i = 1; i < CURVE_POINTS; i++) v[i] = v[i - 1] + data[i] * dt;
+    const vMean = v.reduce((a, b) => a + b, 0) / CURVE_POINTS;
+    const off = (dpsVal ? dpsVal * rate / 60 : 0) - vMean;
+    const vFinal = v.map(x => x + off);
+    const finishIdx = clamp(Math.round(driveFrac * (CURVE_POINTS - 1)), 1, CURVE_POINTS - 1);
+    const vCatch = vFinal[0];
+    const vFinish = vFinal[finishIdx];
+    if (vFinish <= 0) return null;
+    const lossM = Math.max(0, vFinish - vCatch);
+    const lossPct = Math.min(100, (lossM / vFinish) * 100);
+    return { vCatch, vFinish, lossM, lossPct };
+}
 function onNewCatch(now) {
     // Stroke-mean GPS speed: average of all 1 Hz fixes in the last catch-to-catch window.
     // Eliminates intra-stroke phase bias vs. instantaneous gpsSpeedEma.
@@ -2191,31 +2208,62 @@ function onNewCatch(now) {
     }
     const winStartT = catchToCatchSamples.length ? catchToCatchSamples[0].t : null;
     const finishT = (bladeExitDetected && winStartT != null && bladeExitT > winStartT && bladeExitT < now) ? bladeExitT : null;
-        // Finalise IMU run loss from the recovery that just ended
-    // Debug vars promoted so rlDebug block can record full computation.
+
+    // ── Build catch-to-catch curve FIRST — run loss now derives from it ───────
+    let norm = null;
+    if (catchToCatchSamples.length >= 20) {
+        const _dc = pendingCurveDriveCount > 0 ? pendingCurveDriveCount : 0;
+        norm = normalizeStrokeSamples(catchToCatchSamples, _dc);
+        if (norm) {
+            lastStrokeCurve = norm;
+            strokeCurveHistory.push(norm);
+            if (strokeCurveHistory.length > CURVE_HISTORY_N) strokeCurveHistory.shift();
+            if (curveTabActive()) { renderCurveCanvas(); updateCurveTiles(); }
+            const _ci = sessStrokes.length - 1;
+            if (_ci >= 0 && sessStrokes[_ci]) {
+                sessStrokes[_ci].curve = Array.from(norm.data, v => Math.round(v * 100) / 100);
+                sessStrokes[_ci].curveDriveFrac = +norm.driveFrac.toFixed(3);
+            }
+            if (axisLocked && strokesDetected > 5 && distance < 1000) {
+                let cMax = -Infinity, cMin = Infinity;
+                for (let i = 0; i < CURVE_POINTS; i++) {
+                    if (norm.data[i] > cMax) cMax = norm.data[i];
+                    if (norm.data[i] < cMin) cMin = norm.data[i];
+                }
+            }
+        }
+    }
+
+    // Finalise run loss from the recovery that just ended — curve-integration
+    // method (matches Analyser's drawCurvePanel/integrateSpeed): reconstruct
+    // the speed trace from the accel curve, anchored to DPS-derived mean
+    // speed, then read V at the catch (t=0) and at the drive/recovery
+    // boundary (t=driveFrac). Replaces the old v0-minDeltaV reconstruction,
+    // which inflated the denominator and doubled the reported loss.
     let _rlMinDv = null, _rlMaxDv = null, _rlDv = null, _rlSampledS = null, _rlRawLoss = null, _rlAnchorV = null, _rlPct = null;
-    if (imuRL && imuRL.nSamples >= 8 && imuRL.v0 !== null && gpsSpeedEma > CONFIG.gps.minSpeedForRecord) {
+    if (imuRL && imuRL.nSamples >= 8 && norm && strokeRate > 0 && distPerStroke > 0) {
         _rlMinDv = +imuRL.minDeltaV.toFixed(4);
         _rlMaxDv = +imuRL.maxDeltaV.toFixed(4);
-        const dv       = Math.max(0, imuRL.maxDeltaV - imuRL.minDeltaV); _rlDv = +dv.toFixed(4);
-        const sampledS = clamp(Math.min(CONFIG.runLoss.windowMs, Math.max(0, now - imuRL.driveEndT - CONFIG.runLoss.startAfterDriveMs)) / 1000, 0.3, 4.0); _rlSampledS = +sampledS.toFixed(3);
-        const rawLoss  = +(dv * sampledS * 0.5).toFixed(4); _rlRawLoss = rawLoss;
-        if (rawLoss >= 0 && rawLoss <= CONFIG.runLoss.maxLossM) {
-            pushLimit(runLosses, rawLoss, CONFIG.runLoss.medianN);
-            { const m = median(runLosses); runLossEma = runLossEma == null ? m : 0.6 * m + 0.4 * runLossEma; runLossM = runLossEma; }
-            pushLimit(runLossMpsArr, dv, CONFIG.runLoss.medianN);
-            runLossMps = median(runLossMpsArr);
-            const vFinish = imuRL.v0 - imuRL.minDeltaV; _rlAnchorV = +vFinish.toFixed(3);
-            if (vFinish > 0) {
-                const pct = Math.min(100, (dv / vFinish) * 100); _rlPct = +pct.toFixed(1);
-                pushLimit(runLossPcts, pct, CONFIG.runLoss.medianN);
+        _rlSampledS = +(clamp(Math.min(CONFIG.runLoss.windowMs, Math.max(0, now - imuRL.driveEndT - CONFIG.runLoss.startAfterDriveMs)) / 1000, 0.3, 4.0)).toFixed(3);
+        const cr = integrateCurveRunLoss(norm.data, norm.driveFrac, strokeRate, distPerStroke);
+        if (cr) {
+            _rlDv = +(cr.vFinish - cr.vCatch).toFixed(4);
+            _rlRawLoss = +cr.lossM.toFixed(4);
+            _rlAnchorV = +cr.vFinish.toFixed(3);
+            _rlPct = +cr.lossPct.toFixed(1);
+            if (cr.lossM >= 0 && cr.lossM <= CONFIG.runLoss.maxLossM) {
+                pushLimit(runLosses, cr.lossM, CONFIG.runLoss.medianN);
+                { const m = median(runLosses); runLossEma = runLossEma == null ? m : 0.6 * m + 0.4 * runLossEma; runLossM = runLossEma; }
+                pushLimit(runLossMpsArr, cr.lossM, CONFIG.runLoss.medianN);
+                runLossMps = median(runLossMpsArr);
+                pushLimit(runLossPcts, cr.lossPct, CONFIG.runLoss.medianN);
                 const mp = median(runLossPcts); runLossPctEma = runLossPctEma == null ? mp : 0.6 * mp + 0.4 * runLossPctEma; runLossPct = runLossPctEma;
-            }
-            const idx = sessStrokes.findIndex(x => x._prlStroke === imuRL.strokeN);
-            if (idx >= 0) {
-                sessStrokes[idx].runLossM   = runLossM;
-                sessStrokes[idx].runLossPct = runLossPct;
-                sessStrokes[idx].runLossMps = runLossMps;
+                const idx = sessStrokes.findIndex(x => x._prlStroke === imuRL.strokeN);
+                if (idx >= 0) {
+                    sessStrokes[idx].runLossM   = runLossM;
+                    sessStrokes[idx].runLossPct = runLossPct;
+                    sessStrokes[idx].runLossMps = runLossMps;
+                }
             }
         }
     }
@@ -2290,7 +2338,9 @@ function onNewCatch(now) {
         catchGpsDist = distance;
         pendingOarStrokeIdx = -1;
     }
-    // ── Check delta: IMU-only stroke speed range ─────────────────────────────
+    // ── Check delta + speed loss/gain: both from the SAME fresh rawCD,
+    // speed loss/gain smoothed with a rolling median (same technique as
+    // catchDurLast) instead of the raw single-stroke value. ─────────────────
     if (catchToCatchSamples.length >= 8) {
         const rawCD = computeCheckDelta(catchToCatchSamples);
         if (rawCD !== null) {
@@ -2300,39 +2350,23 @@ function onNewCatch(now) {
             lastCheckMaxDV = rawCD.maxDV;
             if (sessStrokes.length > 0)
                 sessStrokes[sessStrokes.length - 1].checkDelta = checkDelta;
+            if (strokeMeanSpeed > 0.3 && gpsAnchorOk) {
+                const rawLossPct = +((rawCD.maxDV / strokeMeanSpeed) * 100).toFixed(1);
+                const rawGainPct = +(((-rawCD.minDV) / strokeMeanSpeed) * 100).toFixed(1);
+                pushLimit(speedLossValsArr, rawLossPct, 8);
+                pushLimit(speedGainValsArr, rawGainPct, 8);
+                speedLossPct = +median(speedLossValsArr).toFixed(1);
+                speedGainPct = +median(speedGainValsArr).toFixed(1);
+            } else {
+                speedLossPct = null; speedGainPct = null;
+            }
         } else {
             lastCheckMinDV = null; lastCheckMaxDV = null;
+            speedLossPct = null; speedGainPct = null;
         }
     } else {
         lastCheckMinDV = null; lastCheckMaxDV = null;
-    }
-    if (catchToCatchSamples.length >= 20) {
-        const _dc = pendingCurveDriveCount > 0 ? pendingCurveDriveCount : 0;
-        const norm = normalizeStrokeSamples(catchToCatchSamples, _dc);
-        if (norm) {
-            lastStrokeCurve = norm;
-            strokeCurveHistory.push(norm);
-            if (strokeCurveHistory.length > CURVE_HISTORY_N) strokeCurveHistory.shift();
-            if (curveTabActive()) { renderCurveCanvas(); updateCurveTiles(); }
-            // Save curve + catch duration to the stroke record that just finished
-            const _ci = sessStrokes.length - 1;
-            if (_ci >= 0 && sessStrokes[_ci]) {
-                sessStrokes[_ci].curve = Array.from(norm.data, v => Math.round(v * 100) / 100);
-                sessStrokes[_ci].curveDriveFrac = +norm.driveFrac.toFixed(3);
-            }
-            // Curve-shape sign guard: the drive must be the dominant POSITIVE feature.
-            // normalizeStrokeSamples negates fast, so correct sign → positive drive peak.
-            // If the deepest negative exceeds the highest positive by >50%, the sign is
-            // wrong. This fires at all stroke rates, catching sprints that the median
-            // check skips. Requires 3 consecutive bad strokes to flip (hysteresis).
-            if (axisLocked && strokesDetected > 5 && distance < 1000) {
-                let cMax = -Infinity, cMin = Infinity;
-                for (let i = 0; i < CURVE_POINTS; i++) {
-                    if (norm.data[i] > cMax) cMax = norm.data[i];
-                    if (norm.data[i] < cMin) cMin = norm.data[i];
-                }
-            }
-        }
+        speedLossPct = null; speedGainPct = null;
     }
     catchToCatchSamples = [];
     pendingCurveDriveCount = 0;
