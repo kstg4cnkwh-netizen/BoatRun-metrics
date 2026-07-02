@@ -1392,7 +1392,7 @@ const SquadSync = (() => {
                 checkDelta: checkDelta != null ? Math.round(checkDelta * 100) / 100 : null,
                 speedLoss: speedLossPct,
                 speedGain: speedGainPct,
-                hr: null,
+                hr: nearestHRAt(now),
                 curve: lastStrokeCurve ? Array.from(lastStrokeCurve.data, v => Math.round(v * 100) / 100) : null,
                 curveAvg5: _avg5Curve ? Array.from(_avg5Curve.data, v => Math.round(v * 100) / 100) : null,
                 lat: lastPos ? Math.round(lastPos.lat * 1e6) / 1e6 : null,
@@ -2843,6 +2843,17 @@ function makeOneEuro(minCutoff, beta, dCutoff) {
 const vFilter = makeOneEuro(CONFIG.gps.oneEuroMinCutoff, CONFIG.gps.oneEuroBeta, CONFIG.gps.oneEuroDCutoff);
 let lastDistT = 0;
 const sessGpsTrace = [], sessGpsRawTrace = [];
+let liveHRTrace = [];
+function recordHRSample(bpm, ms) {
+    if (bpm == null || bpm <= 30 || bpm >= 250) return;
+    liveHRTrace.push({ t: ms || Date.now(), hr: Math.round(bpm) });
+}
+function nearestHRAt(ms) {
+    if (!liveHRTrace.length) return null;
+    let best = null, bestDiff = Infinity;
+    for (const h of liveHRTrace) { const diff = Math.abs(h.t - ms); if (diff < bestDiff) { bestDiff = diff; best = h.hr; } }
+    return bestDiff < 5000 ? best : null;
+}
 let _dbgRow = null;
 let _oarDbg = null;
 let pendingRun = null;
@@ -4512,7 +4523,7 @@ function stopSess() {
                 strokes:        sessStrokes.map(({ _prlStroke, ...r }) => r),
                 paceTrace:      sessPaceTrace.slice(),   paceTimes:   sessPaceTimes.slice(),   gpsTrace:    sessGpsTrace.slice(),
                 gpsRawTrace:    sessGpsRawTrace.slice(), rlDebug:     rlDebug.slice(),
-                hrTrace: null,  laps: laps.slice(),
+                hrTrace: liveHRTrace.length ? liveHRTrace.slice() : null,  laps: laps.slice(),
                 workoutLapMetrics: wkt.lapMetrics.length ? wkt.lapMetrics.slice() : null,
                 workoutName:    wkt.def?.name || null,
                 workoutId:      wkt.def?.id   || null,
@@ -4621,6 +4632,7 @@ function enterSessionReady() {
         ? (appSettings.coxMode ? 'Cox' : 'Rower') + ' mode — sign ' + (signLock > 0 ? '+X' : '−X')
         : 'Phone not landscape — sign auto-detect');
     sessStart = Date.now();
+    liveHRTrace.length = 0;
     lapStartDist = distance; lapStartTime = 0;
     running = true; paused = false; sessionReady = true;
     _gpsReadyFired = false;
