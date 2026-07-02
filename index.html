@@ -4502,9 +4502,9 @@ function stopSess() {
     if (elapsed > 10 && sessStrokes.length > 0 && !sessSaved) {
         try {
             const ap  = distance > 5 && elapsed > 0 ? Math.round((elapsed / distance) * 500) : 0;
-            const amp = sessPaceTrace.length > 0 ? Math.round(sessPaceTrace.reduce((a, b) => a + b, 0) / sessPaceTrace.length) : 0;
+            const amp = sessPaceTrace.length > 0 ? Math.round(sessPaceTrace.length / sessPaceTrace.reduce((a, b) => a + 1 / b, 0)) : 0;
             const rateVals = sessStrokes.map(x => x.rate).filter(v => v != null && v > 0);
-            const ar      = rateVals.length ? Math.round(rateVals.reduce((a, b) => a + b, 0) / rateVals.length) : 0;
+            const ar      = rateVals.length ? Math.round(rateVals.length / rateVals.reduce((a, b) => a + 1 / b, 0)) : 0;
             const maxRate = rateVals.length ? rateVals.reduce((m, v) => v > m ? v : m, 0) : 0;
             const avg = (arr, k) => { const v = arr.map(x => x[k]).filter(v => v != null && !isNaN(v) && v !== 0); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
             const ac  = (() => { const v = sessStrokes.map(x => x.catchConsistency).filter(v => v != null && !isNaN(v) && v !== 0); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; })();
