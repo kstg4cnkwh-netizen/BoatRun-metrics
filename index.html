@@ -4478,6 +4478,7 @@ function stopSess() {
                 config: { rl: CONFIG.runLoss, gps: { alpha: CONFIG.gps.speedEmaAlpha, medN: CONFIG.gps.speedMedianN, spike: CONFIG.gps.spikeMarginMps } },
                 settings: { ...appSettings },
                 squadCode: getSquadCode() || null,
+                hrZones: computeHRZones(getHRData()).slice(0, 4).map(z => z.hi),
             };
             const ok = addSess(sessObj);
             if (ok) {
