@@ -1,4 +1,4 @@
-const C = 'scull-v1.170';
+const C = 'scull-v1.171';
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(C).then(c => c.add('./')));
   self.skipWaiting();
