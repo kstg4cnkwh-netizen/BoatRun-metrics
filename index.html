@@ -1577,10 +1577,15 @@ function finishCalibration() {
     const nf = Math.min(rms('x'), rms('y'));
     const jt = clamp(nf * 5.0, 5.0, 25.0);
     const at = clamp(nf * 1.5, 0.4, 2.0);
-    cal = { done: true, noiseFloor: +nf.toFixed(3), jerkThresh: +jt.toFixed(2), accThresh: +at.toFixed(2), bestAxis: null };
+    const gxAbs = rms('x'), gzAbs = rms('z');
+    let angle = (gxAbs + gzAbs > 5) ? Math.atan2(gxAbs, gzAbs) * (180 / Math.PI) : 0;
+    if (angle > 30) angle = 30;
+    tiltAngleDeg = angle;
+    tiltScaleActive = 1 / Math.cos(angle * Math.PI / 180);
+    cal = { done: true, noiseFloor: +nf.toFixed(3), jerkThresh: +jt.toFixed(2), accThresh: +at.toFixed(2), bestAxis: null, tiltDeg: +angle.toFixed(1), tiltScale: +tiltScaleActive.toFixed(4) };
     _LS.setItem(CAL_DB, JSON.stringify(cal));
     document.getElementById('cal-status').textContent = 'Calibration complete ✓';
-    document.getElementById('cal-result').textContent = `Noise ${nf.toFixed(2)} m/s²  ·  Jerk threshold ${jt.toFixed(1)} m/s³`;
+    document.getElementById('cal-result').textContent = `Noise ${nf.toFixed(2)} m/s²  ·  Jerk ${jt.toFixed(1)} m/s³  ·  Tilt ${Math.round(angle)}°`;
     document.getElementById('p-cal').className = 'pill pill-on';
     jerkThreshBase = jerkThreshActive = cal.jerkThresh;
     accThreshBase = cal.accThresh;
@@ -1634,6 +1639,7 @@ let tiltAngleDeg = 0, tiltScaleActive = 1, sessCalDone = false;
 function runStartCalibration(doneCb) {
     calSamples = { x: [], y: [], z: [] };
     calRunning = true;
+    requestAnimationFrame(renderCtrl);
     setTimeout(() => {
         calRunning = false;
         const mins = Object.values(calSamples).map(a => a.length);
@@ -1654,7 +1660,7 @@ function runStartCalibration(doneCb) {
         if (angle > 30) angle = 30;
         tiltAngleDeg = angle;
         tiltScaleActive = 1 / Math.cos(angle * Math.PI / 180);
-        cal = { done: true, noiseFloor: +nf.toFixed(3), jerkThresh: +jt.toFixed(2), accThresh: +at.toFixed(2), bestAxis: null };
+        cal = { done: true, noiseFloor: +nf.toFixed(3), jerkThresh: +jt.toFixed(2), accThresh: +at.toFixed(2), bestAxis: null, tiltDeg: +angle.toFixed(1), tiltScale: +tiltScaleActive.toFixed(4) };
         _LS.setItem(CAL_DB, JSON.stringify(cal));
         jerkThreshBase = jerkThreshActive = cal.jerkThresh;
         accThreshBase = cal.accThresh;
@@ -1663,18 +1669,21 @@ function runStartCalibration(doneCb) {
         doneCb();
     }, 8000);
 }
-function beginSessionWithCalibration() {
+function runMountCalibration() {
     if (running || paused || elapsed > 0) return;
-    const start = () => { toast('Hold phone still \u2014 calibrating (8s)\u2026'); runStartCalibration(enterSessionReady); };
-    if (sessCalDone) {
-        if (confirm('Already calibrated this session (tilt ' + Math.round(tiltAngleDeg) + '\u00b0).\n\nOK = Recalibrate (hold still, 8s)\nCancel = Use saved values')) {
-            start();
-        } else {
-            enterSessionReady();
-        }
-    } else {
-        start();
-    }
+    toast('Hold phone still \u2014 calibrating (8s)\u2026');
+    runStartCalibration(() => requestAnimationFrame(renderCtrl));
+}
+function startWithSavedCalibration() {
+    if (running || paused || elapsed > 0) return;
+    if (!cal.done) { toast('No calibration \u2014 mount phone and press Calibrate first'); return; }
+    jerkThreshBase = jerkThreshActive = cal.jerkThresh;
+    accThreshBase = cal.accThresh;
+    tiltAngleDeg = cal.tiltDeg || 0;
+    tiltScaleActive = cal.tiltScale || 1;
+    sessCalDone = true;
+    toast('Saved calibration \u2014 noise ' + cal.noiseFloor.toFixed(2) + '  jerk ' + cal.jerkThresh.toFixed(1) + '  tilt ' + Math.round(tiltAngleDeg) + '\u00b0');
+    enterSessionReady();
 }
 // Direction detection — auto-detect cox (phone faces fwd) vs rower (phone faces back)
 
@@ -1891,7 +1900,7 @@ function handleMotion(e) {
     maybeDetectAxis(now);
     if (calRunning) return;
     // Surge = single axis, or the horizontal projection when flat-mounted at an angle.
-    const surge = useProjAxis ? (projX * axFast.x + projY * axFast.y) : axFast[selAxis] * (selAxis === 'x' ? tiltScaleActive : 1);
+    const surge = (useProjAxis ? (projX * axFast.x + projY * axFast.y) : axFast[selAxis]) * ((useProjAxis || selAxis === 'x') ? tiltScaleActive : 1);
     const fast = selSign * surge;
     jerkBuf.push({ t: now, v: fast });
     if (jerkBuf.length > CONFIG.motion.jerkHistN) jerkBuf.shift();
@@ -4356,6 +4365,15 @@ function renderCtrl() {
     show('resume', !running && paused);
     show('lock',   running || paused || elapsed > 0);
     show('finish', paused && !sessLocked);
+    const startBtn = document.getElementById('cc-start');
+    const lapBtn = document.getElementById('cc-lap');
+    if (freshStopped) {
+        if (startBtn) { startBtn.textContent = calRunning ? 'Calibrating…' : 'Start'; startBtn.disabled = calRunning; }
+        if (lapBtn) { lapBtn.textContent = calRunning ? 'Calibrating…' : 'Calibrate'; lapBtn.disabled = calRunning; }
+    } else {
+        if (startBtn) { startBtn.textContent = 'Start'; startBtn.disabled = false; }
+        if (lapBtn) { lapBtn.textContent = 'Lap'; lapBtn.disabled = false; }
+    }
     const ri = document.getElementById('rec-ind');
     if (ri) {
         if (readyMode) { ri.style.display = 'flex'; ri.innerHTML = '<div class="recdot" style="background:#27ae60;animation:none"></div>READY'; }
@@ -4369,7 +4387,7 @@ function startSess() {
     if (gpsPill && (gpsPill.classList.contains('pill-err') || gpsPill.classList.contains('pill-warn'))) {
         toast('⚠️ GPS not ready — pace data may be missing');
     }
-    beginSessionWithCalibration();
+    startWithSavedCalibration();
 }
 function pauseSess() {
     if (!running) return;
@@ -4478,7 +4496,7 @@ function stopSess() {
                 workoutName:    wkt.def?.name || null,
                 workoutId:      wkt.def?.id   || null,
                 calNoiseFloor:  cal.noiseFloor, calThresh: cal.jerkThresh, detectedAxis: (selSign < 0 ? '-' : '') + selAxis,
-                config: { rl: CONFIG.runLoss, gps: { alpha: CONFIG.gps.speedEmaAlpha, medN: CONFIG.gps.speedMedianN, spike: CONFIG.gps.spikeMarginMps } },
+                config: { rl: CONFIG.runLoss, gps: { alpha: CONFIG.gps.speedEmaAlpha, medN: CONFIG.gps.speedMedianN, spike: CONFIG.gps.spikeMarginMps }, tiltDeg: +tiltAngleDeg.toFixed(1), tiltScale: +tiltScaleActive.toFixed(4) },
                 settings: { ...appSettings },
                 squadCode: getSquadCode() || null,
                 hrZones: computeHRZones(getHRData()).slice(0, 4).map(z => z.hi),
@@ -4605,7 +4623,7 @@ function exitSessionReady() {
     requestAnimationFrame(renderCtrl);
 }
 function handleLapBtn() {
-    if (!running && !paused && elapsed === 0) { beginSessionWithCalibration(); return; }
+    if (!running && !paused && elapsed === 0) { runMountCalibration(); return; }
     if (!running || paused) return;
     if (sessionReady || lapReady) return;
     if (wkt.active && wkt.waitingForRow) return;
@@ -5879,7 +5897,7 @@ function exportDebugCSV(s){
   const n=v=>(v!=null&&!isNaN(v))?v:'';const f2=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(2):'';const f3=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(3):'';const f4=v=>v!=null&&!isNaN(v)?parseFloat(v).toFixed(4):'';
   const t0=s.startTime;const el=t=>(+(t-t0)/1000).toFixed(2);const rows=[['##ENV'],['session_id',s.id,'start_utc',new Date(t0).toISOString()],['duration_s',n(s.duration),'distance_m',n(s.distance),'strokes',n(s.strokeCount)]];
   const cfg=s.config||{},rl=cfg.rl||{},gps=cfg.gps||{};
-  rows.push(['rl_startAfterDriveMs',n(rl.startAfterDriveMs??CONFIG.runLoss.startAfterDriveMs),'rl_windowMs',n(rl.windowMs??CONFIG.runLoss.windowMs)]);rows.push(['gps_emaAlpha',n(gps.alpha??CONFIG.gps.speedEmaAlpha),'gps_medianN',n(gps.medN??CONFIG.gps.speedMedianN)]);rows.push([]);
+  rows.push(['rl_startAfterDriveMs',n(rl.startAfterDriveMs??CONFIG.runLoss.startAfterDriveMs),'rl_windowMs',n(rl.windowMs??CONFIG.runLoss.windowMs)]);rows.push(['gps_emaAlpha',n(gps.alpha??CONFIG.gps.speedEmaAlpha),'gps_medianN',n(gps.medN??CONFIG.gps.speedMedianN)]);rows.push(['tilt_deg',f2(cfg.tiltDeg),'tilt_scale',f4(cfg.tiltScale)]);rows.push([]);
   rows.push(['##STR'],['n','elapsed_s','rate','catch_slope','stroke_char','consistency','dps','run_loss_m','run_loss_pct','run_loss_mps','impulse','ratio','catch_dur_ms','oar_deg','oar_raw_deg','oar_vmean','check_delta','rdi','pace_s500','drive_dur_ms','interval_ms','jerk_raw','jerk_thresh','gps_ema_pace','dps_n','sel_axis','sel_sign','axis_locked','phys_drv_ms','phys_rec_ms','drive_min_jerk','drv_peak_ms','dps_raw_m','oar_dist','oar_vcatch','oar_span','oar_finsrc','df_set','speed_loss_pct','speed_gain_pct']);(s.strokes||[]).forEach((r,i)=>{const d=r.dbg||{};rows.push([i+1,el(r.t),n(r.rate),f2(r.catchPeak),n(r.char),f2(r.catchConsistency),f2(r.dps),f2(r.runLossM),f2(r.runLossPct),f2(r.runLossMps),r.driveImpulse!=null?Math.round(r.driveImpulse*100):'',f2(r.strokeRatio),n(r.catchDuration),n(r.oarAngle),f2(r.oarAngleRaw),f3(r.oarVMean),f2(r.checkDelta),f2(r.rdi),f2(r.pace),n(d.driveDurMs),n(d.intervalMs),f2(d.catchJerkRaw),f2(d.jerkThresh),f2(d.gpsEma),n(d.dpsN),d.selAxis||'',(d.selSign==null?'':d.selSign),d.axisLocked?'1':'0',n(d.physDrvMs),n(d.physRecMs),f2(d.driveMinJerk),n(d.drvPeakMs),f2(d.dpsRaw),f2(r.oarDist),f2(r.oarVCatch),n(r.oarSpan),(r.oarFinSrc||''),(d.dfSet==null?'':d.dfSet),f2(r.speedLossPct),f2(r.speedGainPct)]);});rows.push([]);
   rows.push(['##RL'],['stroke_n','start_spd_ms','min_spd_ms','gps_dv_ms','imu_max_dv','imu_min_dv','imu_swing_dv','sampled_s','raw_loss_m','anchor_v','raw_rl_pct','med_loss_m','gps_n','imu_n']);(s.rlDebug||[]).forEach(r=>rows.push([n(r.strokeN),f3(r.startSpeed),f3(r.minSpeed),f3(r.dv),f4(r.imuMaxDv),f4(r.imuMinDv),f4(r.imuSwingDv),f3(r.sampledS),f4(r.rawLossM),f3(r.anchorV),f2(r.rlPct),f4(r.medLoss),n(r.nSamples),n(r.imuN)]));rows.push([]);
   if(s.gpsRawTrace&&s.gpsRawTrace.length){rows.push(['##GPS'],['elapsed_s','gps_raw_ms','gps_ema_ms','acc_m','stroke_n','rl_phase','win_pace','vmean','anchor_ok']);s.gpsRawTrace.forEach(p=>rows.push([el(p.t),f3(p.rawSpd),f3(p.emaSpd),f2(p.acc),n(p.strokeN),p.rlPhase||'none',f2(p.winPace),f3(p.vMean),(p.anchorOk==null?'':p.anchorOk)]));rows.push([]);}
