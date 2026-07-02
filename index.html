@@ -55,8 +55,8 @@ body{height:var(--app-h,100dvh);font-family:'Roboto',sans-serif;background:#000;
 .wkt-phase{font-size:11px;font-weight:700;letter-spacing:.12em;padding:3px 8px;border-radius:3px;flex-shrink:0;}
 .wkt-phase.warmup{background:#5dade2;color:#fff;}.wkt-phase.work{background:#e67e22;color:#fff;}
 .wkt-phase.rest{background:#f39c12;color:#000;}.wkt-phase.cooldown{background:#8e44ad;color:#fff;}.wkt-phase.done{background:#888;color:#fff;}.wkt-phase.ready{background:#27ae60;color:#fff;}
-.wkt-countdown{font-family:"Roboto Condensed",sans-serif;font-size:18px;font-weight:700;color:#fff;flex-shrink:0;min-width:52px;text-align:center;}
-.wkt-info{font-size:9px;color:#555;letter-spacing:.06em;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.wkt-countdown{font-family:"Roboto Condensed",sans-serif;font-size:24px;font-weight:700;color:#000;flex-shrink:0;min-width:66px;text-align:center;}
+.wkt-info{font-size:9px;color:#000;letter-spacing:.06em;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .wkt-ctrl-btn{background:rgba(0,0,0,.10);color:#333;border:none;font-family:"Roboto",sans-serif;font-size:9px;font-weight:700;letter-spacing:.08em;padding:4px 8px;border-radius:3px;cursor:pointer;touch-action:manipulation;flex-shrink:0;}
 .wkt-ctrl-btn.end{background:rgba(192,57,43,.15);color:#c0392b;}
 
@@ -1390,6 +1390,9 @@ const SquadSync = (() => {
                 char: strokeChar,
                 oarAngle: oarAngle,
                 checkDelta: checkDelta != null ? Math.round(checkDelta * 100) / 100 : null,
+                speedLoss: speedLossPct,
+                speedGain: speedGainPct,
+                hr: null,
                 curve: lastStrokeCurve ? Array.from(lastStrokeCurve.data, v => Math.round(v * 100) / 100) : null,
                 curveAvg5: _avg5Curve ? Array.from(_avg5Curve.data, v => Math.round(v * 100) / 100) : null,
                 lat: lastPos ? Math.round(lastPos.lat * 1e6) / 1e6 : null,
@@ -4402,7 +4405,7 @@ function finishSess() {
     if (elapsed > 10 && sessStrokes.length > 0) {
         const _d=new Date(sessStart||Date.now()),_p=x=>String(x).padStart(2,'0');
         const _hr=_d.getHours()+_d.getMinutes()/60, _period=(_hr>=4.5&&_hr<12)?'Morning':(_hr>=12&&_hr<17)?'Afternoon':(_hr>=17&&_hr<21)?'Evening':'Night';
-        const _auto=_period+' Row';
+        const _auto = (wkt.active && wkt.def && wkt.def.name) ? wkt.def.name : (_period+' Row');
         const nn = prompt('Name this session (optional):', _auto);
         pendingSessName = nn ? nn.trim() : '';
     } else {
